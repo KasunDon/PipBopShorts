@@ -1,6 +1,5 @@
-import Anthropic from '@anthropic-ai/sdk';
 import { createApp, defaultWebDir } from './app';
-import type { AnthropicLike } from './clients/claude';
+import { createGatewayClaudeClient } from './clients/claudeGateway';
 import { PixverseClient } from './clients/pixverse';
 import { YoutubeClient } from './clients/youtube';
 import { loadConfig } from './config';
@@ -12,13 +11,11 @@ function main(): void {
   if (!config.pixverse.apiKey) {
     console.warn('[warn] PIXVERSE_API_KEY is not set — video generation calls will fail until it is configured.');
   }
-  if (!config.anthropic.apiKey) {
-    console.warn('[warn] ANTHROPIC_API_KEY is not set — storyline generation will fail until it is configured.');
-  }
-
   const store = new Store(config.dataDir);
 
-  const claude = new Anthropic({ apiKey: config.anthropic.apiKey }) as unknown as AnthropicLike;
+  // Storylines are generated through the local Claude Code Gateway rather than
+  // the Anthropic API directly; the gateway supplies its own CLI auth.
+  const claude = createGatewayClaudeClient({ baseUrl: config.claudeGateway.baseUrl });
 
   const pixverse = new PixverseClient({
     apiKey: config.pixverse.apiKey ?? 'unset',
@@ -42,6 +39,7 @@ function main(): void {
   app.listen(config.port, () => {
     console.log(`PipBopShorts server listening on http://localhost:${config.port}`);
     console.log(`  data dir: ${config.dataDir}`);
+    console.log(`  claude:   via gateway ${config.claudeGateway.baseUrl}`);
     console.log(`  youtube:  ${config.youtube.dryRun ? 'dry-run (no real uploads)' : 'live'}`);
   });
 }

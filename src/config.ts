@@ -7,8 +7,8 @@ export interface AppConfig {
     apiKey: string | undefined;
     baseUrl: string;
   };
-  anthropic: {
-    apiKey: string | undefined;
+  claudeGateway: {
+    baseUrl: string;
   };
   youtube: {
     clientId: string | undefined;
@@ -34,8 +34,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       apiKey: env.PIXVERSE_API_KEY,
       baseUrl: (env.PIXVERSE_BASE_URL ?? 'https://app-api.pixverse.ai/openapi/v2').replace(/\/$/, ''),
     },
-    anthropic: {
-      apiKey: env.ANTHROPIC_API_KEY,
+    claudeGateway: {
+      // Local Claude Code Gateway (HTTP wrapper around the `claude` CLI).
+      baseUrl: (env.CLAUDE_GATEWAY_URL ?? 'http://localhost:8757').replace(/\/$/, ''),
     },
     youtube: {
       clientId: env.YOUTUBE_CLIENT_ID,

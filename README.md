@@ -41,7 +41,7 @@ npm run web:install       # frontend deps
 
 # 2. Configure
 cp .env.example .env
-#   set PIXVERSE_API_KEY and ANTHROPIC_API_KEY (YouTube creds are optional)
+#   set PIXVERSE_API_KEY; make sure the Claude Code Gateway is running (YouTube creds are optional)
 
 # 3. Build the UI and run the server
 npm run web:build
@@ -60,7 +60,7 @@ Open <http://localhost:4000> (production) or <http://localhost:5173> (dev).
 | --- | --- |
 | `PIXVERSE_API_KEY` | PixVerse platform API key (required to render) |
 | `PIXVERSE_BASE_URL` | Override the PixVerse base URL (defaults to the openapi/v2 endpoint) |
-| `ANTHROPIC_API_KEY` | Claude API key (required to generate storylines) |
+| `CLAUDE_GATEWAY_URL` | Local Claude Code Gateway URL used to generate storylines (default `http://localhost:8757`). The gateway wraps the `claude` CLI and supplies its own auth — no Anthropic API key needed. |
 | `YOUTUBE_CLIENT_ID` / `YOUTUBE_CLIENT_SECRET` / `YOUTUBE_REFRESH_TOKEN` | OAuth2 for the YouTube Data API v3. Leave blank for dry-run. |
 | `YOUTUBE_DRY_RUN` | Force dry-run even when credentials are present |
 | `PORT` | Server port (default `4000`) |
