@@ -47,6 +47,101 @@ export interface FakeClaudeCall {
   params: Record<string, unknown>;
 }
 
+/** A canon extraction payload (as Claude would return via structured output). */
+export function sampleCanonExtractionJson(): string {
+  return JSON.stringify({
+    entities: [
+      {
+        type: 'character',
+        name: 'Bobo',
+        summary: 'Energetic young monkey, the comic lead.',
+        marks: [
+          { key: 'scarf', value: 'bright green leaf scarf', severity: 'locked', rationale: 'Signature accessory.' },
+          { key: 'fur_color', value: 'golden-brown fur, warm cream face', severity: 'locked', rationale: 'Brand recognition.' },
+          { key: 'personality', value: 'playful, brave, rushes in', severity: 'strong', rationale: 'Drives comedy.' },
+        ],
+      },
+      {
+        type: 'location',
+        name: 'Giggle Tree',
+        summary: 'Large rounded fruit tree at the center of the grove.',
+        marks: [
+          { key: 'landmarks', value: 'curved branches, hanging bananas, friendly hollow', severity: 'strong', rationale: 'Recurring set.' },
+        ],
+      },
+      {
+        type: 'world_rule',
+        name: 'Harmless physics',
+        summary: 'Objects behave in funny but harmless ways.',
+        marks: [
+          { key: 'accidents', value: 'every fall lands softly with a funny sound', severity: 'locked', rationale: 'Child safety.' },
+        ],
+      },
+      {
+        type: 'visual_style',
+        name: 'Render style',
+        summary: 'Rounded stylized 3D.',
+        marks: [
+          { key: 'style', value: 'rounded stylized 3D, bright colors, soft cinematic lighting', severity: 'locked', rationale: 'Series look.' },
+        ],
+      },
+    ],
+    negative_prompt: 'violence, dark shadows, photorealism, scary imagery',
+  });
+}
+
+/** A drift report payload with one high and one low finding. */
+export function sampleDriftJson(): string {
+  return JSON.stringify({
+    summary: 'One locked mark contradicted; one minor tone note.',
+    findings: [
+      {
+        entity_name: 'Bobo',
+        mark_key: 'scarf',
+        expected: 'bright green leaf scarf',
+        observed: 'red woolly scarf',
+        scene_numbers: [1],
+        severity: 'high',
+        explanation: 'Scene 1 dresses Bobo in a red scarf, contradicting the locked signature accessory.',
+        suggestion: 'Change the scene prompt to the bright green leaf scarf, or accept the change into canon.',
+      },
+      {
+        entity_name: 'Giggle Tree',
+        mark_key: 'landmarks',
+        expected: 'hanging bananas present',
+        observed: 'no bananas mentioned',
+        scene_numbers: [2],
+        severity: 'low',
+        explanation: 'Scene 2 omits the hanging bananas.',
+        suggestion: 'Optionally mention the bananas for set continuity.',
+      },
+    ],
+  });
+}
+
+/**
+ * A fake Claude that routes by task: canon extraction, drift check, or
+ * storyline generation — so end-to-end studio flows can run against one fake.
+ */
+export function makeStudioFakeClaude(overrides?: {
+  canonJson?: string;
+  driftJson?: string;
+  storylineJson?: string;
+}): { client: AnthropicLike; calls: FakeClaudeCall[] } {
+  return makeFakeClaude((params) => {
+    const system = String(params.system ?? '');
+    let text: string;
+    if (system.includes('Dissect a story bible')) {
+      text = overrides?.canonJson ?? sampleCanonExtractionJson();
+    } else if (system.includes('report every drift')) {
+      text = overrides?.driftJson ?? sampleDriftJson();
+    } else {
+      text = overrides?.storylineJson ?? sampleStorylineJson();
+    }
+    return { stop_reason: 'end_turn', model: 'fake', content: [{ type: 'text', text }] };
+  });
+}
+
 /** Fake Anthropic client capturing calls; returns provided response (default: sample storyline). */
 export function makeFakeClaude(
   responder?: (params: Record<string, unknown>) => AnthropicResponse,

@@ -1,6 +1,7 @@
 import { generateStoryline, type AnthropicLike, type StorylineInput } from '../clients/claude';
 import { collectValidationIssues } from '../clients/pixverse';
 import { DEFAULT_CLAUDE_MODEL, SHORT_DEFAULTS } from '../constants';
+import { canonForStory } from './canon';
 import type { Store } from '../store/store';
 import { makeId } from '../store/store';
 import type { Clip, Project, Scene, Storyline, YoutubeMeta } from '../types';
@@ -48,6 +49,23 @@ export function buildStorylineContext(store: Store, storyId: string, episodeId: 
   return { bible, settingOverride };
 }
 
+/** Merge the canon's global avoid-list into a scene negative prompt (deduped). */
+export function mergeNegativePrompt(sceneNegative: string, canonNegative: string): string {
+  if (!canonNegative.trim()) return sceneNegative;
+  const existing = new Set(
+    sceneNegative
+      .split(',')
+      .map((t) => t.trim().toLowerCase())
+      .filter(Boolean),
+  );
+  const additions = canonNegative
+    .split(',')
+    .map((t) => t.trim())
+    .filter((t) => t && !existing.has(t.toLowerCase()));
+  if (additions.length === 0) return sceneNegative;
+  return sceneNegative.trim() ? `${sceneNegative.trim()}, ${additions.join(', ')}` : additions.join(', ');
+}
+
 /** Generate a storyline for an episode and persist it as a new project. */
 export async function createStorylineProject(
   store: Store,
@@ -60,13 +78,17 @@ export async function createStorylineProject(
   if (episode.storyId !== storyId) {
     throw new Error('Episode does not belong to the given story');
   }
+  const story = store.getStory(storyId);
   const { bible, settingOverride } = buildStorylineContext(store, storyId, episodeId);
+  const canon = canonForStory(store, story);
 
   const generated = await generateStoryline(claude, {
     bible,
     episodeTitle: episode.title,
     episodeBrief: episode.brief,
     settingOverride,
+    meta: story.meta,
+    canonBlock: canon?.block,
     model: options.model ?? DEFAULT_CLAUDE_MODEL,
     effort: options.effort,
     sceneCount: options.sceneCount,
@@ -78,6 +100,13 @@ export async function createStorylineProject(
     motionMode: options.motionMode,
   });
 
+  // Guarantee the canon's global avoid-list reaches every rendered scene.
+  if (canon?.negativePrompt) {
+    for (const scene of generated.scenes) {
+      scene.negativePrompt = mergeNegativePrompt(scene.negativePrompt, canon.negativePrompt);
+    }
+  }
+
   const now = new Date().toISOString();
   const storyline: Storyline = {
     id: makeId('sl'),
@@ -87,6 +116,7 @@ export async function createStorylineProject(
     logline: generated.logline,
     model: generated.model,
     effort: generated.effort,
+    canonVersion: canon?.version ?? null,
     scenes: generated.scenes,
     youtube: generated.youtube,
     createdAt: now,

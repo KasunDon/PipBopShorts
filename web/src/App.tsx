@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from './api';
+import { CanonSection, StoryMetaEditor } from './CanonPanel';
+import { DriftPanel } from './DriftPanel';
 import { SceneCard } from './SceneCard';
 import type { AppConfig, Episode, Project, ProjectSummary, Story } from './types';
 
@@ -124,9 +126,10 @@ export function App() {
         <div className="content">
           {!storyId && <Welcome />}
 
-          {storyId && story && !episodeId && (
+          {storyId && story && !episodeId && config && (
             <StoryPanel
               data={story}
+              config={config}
               onChanged={() => openStory(story.story.id)}
               onStoriesChanged={refreshStories}
               onOpenEpisode={openEpisode}
@@ -236,6 +239,7 @@ function Sidebar({
 
 function StoryPanel({
   data,
+  config,
   onChanged,
   onStoriesChanged,
   onOpenEpisode,
@@ -243,6 +247,7 @@ function StoryPanel({
   run,
 }: {
   data: { story: Story; bible: string; episodes: Episode[] };
+  config: AppConfig;
   onChanged: () => void;
   onStoriesChanged: () => void;
   onOpenEpisode: (id: string) => void;
@@ -290,21 +295,41 @@ function StoryPanel({
         </div>
       </div>
 
+      <StoryMetaEditor story={data.story} run={run} onSaved={onStoriesChanged} />
+
       <section className="card">
         <div className="card-head">
           <h3>Story bible (.md)</h3>
-          <button
-            onClick={async () => {
-              await run(() => api.setBible(data.story.id, bible));
-              onStoriesChanged();
-            }}
-          >
-            Save bible
-          </button>
+          <div className="row">
+            <button
+              className="ghost"
+              title="Insert the canonical story-bible template"
+              onClick={async () => {
+                if (bible.trim() && !confirm('Replace the current bible with the template?')) return;
+                const res = await run(() => api.storyBibleTemplate(data.story.title));
+                if (res) setBible(res.markdown);
+              }}
+            >
+              📋 Insert template
+            </button>
+            <button
+              onClick={async () => {
+                await run(() => api.setBible(data.story.id, bible));
+                onStoriesChanged();
+              }}
+            >
+              Save bible
+            </button>
+          </div>
         </div>
         <textarea className="bible" value={bible} onChange={(e) => setBible(e.target.value)} rows={16} />
-        <p className="muted small">Describe main characters, setting, tone, and visual style. Claude uses this for every episode.</p>
+        <p className="muted small">
+          Follow the template sections — premise, audience &amp; tone, world rules, character visual signatures with
+          "never change" lists — so canon extraction captures every vital detail for the video AI.
+        </p>
       </section>
+
+      <CanonSection story={data.story} config={config} run={run} />
 
       <section className="card">
         <h3>Episodes</h3>
@@ -410,14 +435,26 @@ function EpisodePanel({
         <section className="card">
           <div className="card-head">
             <h3>Episode setting (.md)</h3>
-            <button
-              onClick={async () => {
-                await run(() => api.setSetting(data.episode.id, setting));
-                onChanged();
-              }}
-            >
-              Save setting
-            </button>
+            <div className="row">
+              <button
+                className="ghost"
+                onClick={async () => {
+                  if (setting.trim() && !confirm('Replace the current setting with the template?')) return;
+                  const res = await run(() => api.episodeSettingTemplate(data.episode.title));
+                  if (res) setSetting(res.markdown);
+                }}
+              >
+                📋 Insert template
+              </button>
+              <button
+                onClick={async () => {
+                  await run(() => api.setSetting(data.episode.id, setting));
+                  onChanged();
+                }}
+              >
+                Save setting
+              </button>
+            </div>
           </div>
           <textarea value={setting} onChange={(e) => setSetting(e.target.value)} rows={6} />
           <p className="muted small">This overrides the story bible's setting for this episode.</p>
@@ -580,6 +617,8 @@ function ProjectPanel({
           + Add scene
         </button>
       </div>
+
+      <DriftPanel project={project} config={config} setProject={setProject} run={run} />
 
       <section className="card">
         <h3>Publish to YouTube Shorts</h3>

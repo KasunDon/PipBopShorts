@@ -11,8 +11,20 @@ finished short to YouTube Shorts.
 
 ## The workflow
 
-1. **Story** — each story has a `.md` bible describing main characters, setting, and visual
-   style. Stories can use one **shared** setting, or give **each episode its own** setting.
+1. **Story** — each story has a `.md` bible (built from a canonical **template** that
+   captures premise, audience & tone, world rules, character visual signatures with
+   "never change" lists, relationships, locations, story formula, and safety rails) plus
+   **production metadata** (audience age range, genres, tones, format, episode length).
+   Stories can use one **shared** setting, or give **each episode its own** setting.
+   1. **Canon** — an LLM (default **Sonnet 5**; Opus 4.8 / Fable 5 selectable) dissects
+      the bible into a **version-controlled canon registry**: characters, relationships,
+      locations, props, world rules, visual style, and auto-generated audience/tone
+      marks — each a consistency mark with severity `locked`/`strong`/`flexible` and a
+      stable asset id (`CHAR_BOBO_001` style).
+   2. **Drift control** — storylines are generated against the canon and can be
+      **checked for drift**; each finding can be **rejected**, **accepted now** (new
+      canon version), or **accepted gradually** (the mark transitions and future
+      storylines blend toward the new value).
 2. **Episode** — a short brief for what happens. In per-episode mode it carries its own
    setting `.md` that overrides the bible.
 3. **Storyline** — Claude reads the bible + brief and returns a structured, shot-by-shot
@@ -86,7 +98,9 @@ Tests live in `tests/`:
 | `claude.test.ts` | per-model request construction (thinking/effort/fallbacks), parsing, refusals |
 | `store.test.ts` | file-backed store, `.md` bibles/settings, persistence, cascading deletes |
 | `services.test.ts` | storyline creation, scene tweaking, render/refresh/extend, publish |
-| `api.test.ts` | the full workflow end-to-end over HTTP (supertest) |
+| `canon.test.ts` | templates, canon extraction/versioning, auto audience marks, transitions, canon-aware generation |
+| `drift.test.ts` | drift detection, mapping to canon/scenes, accept-now / accept-gradually / reject |
+| `api.test.ts` | the full workflow end-to-end over HTTP (supertest), including canon + drift |
 
 ---
 
@@ -172,3 +186,13 @@ so you can exercise the whole flow safely.
 | `POST /api/storylines/:id/scenes/:sceneId/image` | Attach a reference image (base64) |
 | `POST /api/storylines/:id/generate` | Render all scenes |
 | `POST /api/storylines/:id/publish` | Publish to YouTube Shorts |
+| `GET /api/templates/story-bible` | Canonical story-bible `.md` template |
+| `GET /api/stories/:id/canon` | Canon registry (all versions) |
+| `POST /api/stories/:id/canon/extract` | Dissect the bible into a new canon version |
+| `PATCH /api/stories/:id/canon/entities/:eid/marks/:key` | Edit a mark / start or complete a transition |
+| `POST /api/storylines/:id/drift-check` | Check the storyline against canon |
+| `POST /api/storylines/:id/drift/:rep/findings/:f/resolve` | Resolve drift (accept-now / accept-gradually / reject) |
+
+See **docs/ROADMAP.md** for the phased plan toward the full AI film production studio
+(reference image library, scene patch requests, shot manifests, approval workflow,
+long-form episodes).

@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import type { Episode, Project, Story } from '../types';
+import { storyBibleTemplate } from '../templates';
+import { defaultStoryMeta, type CanonRegistry, type Episode, type Project, type Story, type StoryMeta } from '../types';
 
 interface Db {
   stories: Record<string, Story>;
@@ -69,7 +70,12 @@ export class Store {
     try {
       const raw = fs.readFileSync(this.dbPath, 'utf8');
       const parsed = JSON.parse(raw) as Partial<Db>;
-      return { ...emptyDb(), ...parsed } as Db;
+      const db = { ...emptyDb(), ...parsed } as Db;
+      // Backfill metadata for stories created before StoryMeta existed.
+      for (const story of Object.values(db.stories)) {
+        if (!story.meta) story.meta = defaultStoryMeta();
+      }
+      return db;
     } catch {
       return emptyDb();
     }
@@ -82,7 +88,12 @@ export class Store {
 
   // ---- Stories ----
 
-  createStory(input: { title: string; settingMode?: Story['settingMode']; bible?: string }): Story {
+  createStory(input: {
+    title: string;
+    settingMode?: Story['settingMode'];
+    bible?: string;
+    meta?: Partial<StoryMeta>;
+  }): Story {
     const now = new Date().toISOString();
     const id = makeId('story');
     const story: Story = {
@@ -90,11 +101,12 @@ export class Store {
       title: input.title.trim() || 'Untitled story',
       slug: slugify(input.title),
       settingMode: input.settingMode ?? 'shared',
+      meta: { ...defaultStoryMeta(), ...input.meta },
       createdAt: now,
       updatedAt: now,
     };
     fs.mkdirSync(this.storyDir(id), { recursive: true });
-    fs.writeFileSync(this.biblePath(id), input.bible ?? defaultBible(story.title), 'utf8');
+    fs.writeFileSync(this.biblePath(id), input.bible ?? storyBibleTemplate(story.title, story.meta), 'utf8');
     this.db.stories[id] = story;
     this.persist();
     return story;
@@ -110,13 +122,14 @@ export class Store {
     return s;
   }
 
-  updateStory(id: string, patch: Partial<Pick<Story, 'title' | 'settingMode'>>): Story {
+  updateStory(id: string, patch: Partial<Pick<Story, 'title' | 'settingMode'>> & { meta?: Partial<StoryMeta> }): Story {
     const s = this.getStory(id);
     if (patch.title !== undefined) {
       s.title = patch.title.trim() || s.title;
       s.slug = slugify(s.title);
     }
     if (patch.settingMode !== undefined) s.settingMode = patch.settingMode;
+    if (patch.meta !== undefined) s.meta = { ...s.meta, ...patch.meta };
     s.updatedAt = new Date().toISOString();
     this.persist();
     return s;
@@ -223,6 +236,30 @@ export class Store {
     this.persist();
   }
 
+  // ---- Canon registry (version-controlled consistency marks) ----
+
+  private canonPath(storyId: string): string {
+    return path.join(this.storyDir(storyId), 'canon.json');
+  }
+
+  getCanonRegistry(storyId: string): CanonRegistry | null {
+    this.getStory(storyId);
+    try {
+      return JSON.parse(fs.readFileSync(this.canonPath(storyId), 'utf8')) as CanonRegistry;
+    } catch {
+      return null;
+    }
+  }
+
+  saveCanonRegistry(registry: CanonRegistry): CanonRegistry {
+    const s = this.getStory(registry.storyId);
+    fs.mkdirSync(this.storyDir(registry.storyId), { recursive: true });
+    fs.writeFileSync(this.canonPath(registry.storyId), JSON.stringify(registry, null, 2), 'utf8');
+    s.updatedAt = new Date().toISOString();
+    this.persist();
+    return registry;
+  }
+
   // ---- Projects (storyline + clips + publish) ----
 
   saveProject(project: Project): Project {
@@ -248,20 +285,6 @@ export class Store {
     delete this.db.projects[storylineId];
     this.persist();
   }
-}
-
-function defaultBible(title: string): string {
-  return `# ${title}
-
-## Setting
-Describe the world, tone, and visual style here.
-
-## Main characters
-- **Name** — appearance, personality, wardrobe, distinguishing features.
-
-## Visual style
-Color palette, lighting, mood, references.
-`;
 }
 
 export { makeId };

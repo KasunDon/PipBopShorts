@@ -17,6 +17,8 @@ import {
   PIXVERSE_QUALITIES,
   PIXVERSE_STYLES,
 } from './constants';
+import { DEFAULT_DISSECT_MODEL, DISSECT_MODELS, extractCanon, patchMark } from './services/canon';
+import { checkDrift, resolveDrift } from './services/drift';
 import {
   extendClip,
   generateAllClips,
@@ -25,6 +27,7 @@ import {
   uploadReferenceImage,
   type GenerateOptions,
 } from './services/generation';
+import { episodeSettingTemplate, storyBibleTemplate } from './templates';
 import { publishProject } from './services/publish';
 import {
   addScene,
@@ -83,7 +86,19 @@ export function createApp(deps: AppDeps): express.Express {
         cameraMovements: PIXVERSE_CAMERA_MOVEMENTS,
       },
       youtubeDryRun: deps.youtube.isDryRun,
+      dissect: { models: DISSECT_MODELS, defaultModel: DEFAULT_DISSECT_MODEL },
     });
+  });
+
+  // ---- Templates ----
+  app.get('/api/templates/story-bible', (req, res) => {
+    const title = typeof req.query.title === 'string' ? req.query.title : 'Untitled Story';
+    res.json({ markdown: storyBibleTemplate(title) });
+  });
+
+  app.get('/api/templates/episode-setting', (req, res) => {
+    const title = typeof req.query.title === 'string' ? req.query.title : 'Untitled Episode';
+    res.json({ markdown: episodeSettingTemplate(title) });
   });
 
   // ---- Stories ----
@@ -97,9 +112,9 @@ export function createApp(deps: AppDeps): express.Express {
   app.post(
     '/api/stories',
     asyncHandler((req, res) => {
-      const { title, settingMode, bible } = req.body ?? {};
+      const { title, settingMode, bible, meta } = req.body ?? {};
       if (!title || typeof title !== 'string') throw new HttpError(400, 'title is required');
-      const story = deps.store.createStory({ title, settingMode, bible });
+      const story = deps.store.createStory({ title, settingMode, bible, meta });
       res.status(201).json({ story });
     }),
   );
@@ -146,6 +161,67 @@ export function createApp(deps: AppDeps): express.Express {
       if (typeof markdown !== 'string') throw new HttpError(400, 'markdown is required');
       deps.store.setBible(req.params.storyId, markdown);
       res.json({ markdown });
+    }),
+  );
+
+  // ---- Canon registry ----
+  app.get(
+    '/api/stories/:storyId/canon',
+    asyncHandler((req, res) => {
+      const registry = deps.store.getCanonRegistry(req.params.storyId);
+      res.json({ registry });
+    }),
+  );
+
+  app.post(
+    '/api/stories/:storyId/canon/extract',
+    asyncHandler(async (req, res) => {
+      const { model, effort, note } = req.body ?? {};
+      const registry = await extractCanon(deps.store, deps.claude, req.params.storyId, { model, effort, note });
+      res.status(201).json({ registry });
+    }),
+  );
+
+  app.patch(
+    '/api/stories/:storyId/canon/entities/:entityId/marks/:markKey',
+    asyncHandler((req, res) => {
+      const registry = patchMark(
+        deps.store,
+        req.params.storyId,
+        req.params.entityId,
+        req.params.markKey,
+        req.body ?? {},
+      );
+      res.json({ registry });
+    }),
+  );
+
+  // ---- Drift (consistency) checks ----
+  app.post(
+    '/api/storylines/:storylineId/drift-check',
+    asyncHandler(async (req, res) => {
+      const { model, effort } = req.body ?? {};
+      const report = await checkDrift(deps.store, deps.claude, req.params.storylineId, { model, effort });
+      res.status(201).json({ report });
+    }),
+  );
+
+  app.post(
+    '/api/storylines/:storylineId/drift/:reportId/findings/:findingId/resolve',
+    asyncHandler((req, res) => {
+      const { action, note } = req.body ?? {};
+      if (!['accept-now', 'accept-gradually', 'reject'].includes(action)) {
+        throw new HttpError(400, 'action must be accept-now, accept-gradually, or reject');
+      }
+      const result = resolveDrift(
+        deps.store,
+        req.params.storylineId,
+        req.params.reportId,
+        req.params.findingId,
+        action,
+        note,
+      );
+      res.json({ finding: result.finding, registry: result.registry });
     }),
   );
 

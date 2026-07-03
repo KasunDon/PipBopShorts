@@ -35,10 +35,14 @@ describe('stories', () => {
     expect(store.getBible(story.id)).toBe('# Hello world');
   });
 
-  it('creates a default bible when none supplied', () => {
+  it('creates a default bible from the story template when none supplied', () => {
     const { store } = freshStore();
     const story = store.createStory({ title: 'Defaults' });
-    expect(store.getBible(story.id)).toContain('Main characters');
+    const bible = store.getBible(story.id);
+    expect(bible).toContain('Defaults — Story Bible');
+    expect(bible).toContain('Main Characters');
+    expect(bible).toContain('Never change');
+    expect(bible).toContain('Consistency Prompt Reference');
   });
 
   it('updates and reads the bible from disk', () => {

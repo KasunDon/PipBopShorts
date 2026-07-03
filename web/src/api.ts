@@ -1,4 +1,17 @@
-import type { AppConfig, Clip, Episode, Project, ProjectSummary, Scene, Story, YoutubeMeta } from './types';
+import type {
+  AppConfig,
+  CanonRegistry,
+  Clip,
+  DriftFinding,
+  DriftReport,
+  Episode,
+  Project,
+  ProjectSummary,
+  Scene,
+  Story,
+  StoryMeta,
+  YoutubeMeta,
+} from './types';
 
 async function req<T>(method: string, url: string, body?: unknown): Promise<T> {
   const res = await fetch(url, {
@@ -24,7 +37,7 @@ export const api = {
   createStory: (data: { title: string; settingMode?: string; bible?: string }) =>
     req<{ story: Story }>('POST', '/api/stories', data),
   getStory: (id: string) => req<{ story: Story; bible: string; episodes: Episode[] }>('GET', `/api/stories/${id}`),
-  updateStory: (id: string, patch: { title?: string; settingMode?: string }) =>
+  updateStory: (id: string, patch: { title?: string; settingMode?: string; meta?: Partial<StoryMeta> }) =>
     req<{ story: Story }>('PATCH', `/api/stories/${id}`, patch),
   deleteStory: (id: string) => req<void>('DELETE', `/api/stories/${id}`),
   setBible: (id: string, markdown: string) => req<{ markdown: string }>('PUT', `/api/stories/${id}/bible`, { markdown }),
@@ -68,6 +81,34 @@ export const api = {
 
   publish: (storylineId: string, opts: Record<string, unknown>) =>
     req<{ publish: PublishResult }>('POST', `/api/storylines/${storylineId}/publish`, opts),
+
+  // ---- Canon & drift ----
+  getCanon: (storyId: string) => req<{ registry: CanonRegistry | null }>('GET', `/api/stories/${storyId}/canon`),
+  extractCanon: (storyId: string, opts: { model?: string; effort?: string; note?: string }) =>
+    req<{ registry: CanonRegistry }>('POST', `/api/stories/${storyId}/canon/extract`, opts),
+  patchMark: (
+    storyId: string,
+    entityId: string,
+    markKey: string,
+    patch: { value?: string; severity?: string; status?: string; transitionTo?: string; note?: string },
+  ) =>
+    req<{ registry: CanonRegistry }>(
+      'PATCH',
+      `/api/stories/${storyId}/canon/entities/${entityId}/marks/${encodeURIComponent(markKey)}`,
+      patch,
+    ),
+  driftCheck: (storylineId: string, opts: { model?: string } = {}) =>
+    req<{ report: DriftReport }>('POST', `/api/storylines/${storylineId}/drift-check`, opts),
+  resolveDrift: (storylineId: string, reportId: string, findingId: string, action: string, note?: string) =>
+    req<{ finding: DriftFinding; registry: CanonRegistry | null }>(
+      'POST',
+      `/api/storylines/${storylineId}/drift/${reportId}/findings/${findingId}/resolve`,
+      { action, note },
+    ),
+  storyBibleTemplate: (title: string) =>
+    req<{ markdown: string }>('GET', `/api/templates/story-bible?title=${encodeURIComponent(title)}`),
+  episodeSettingTemplate: (title: string) =>
+    req<{ markdown: string }>('GET', `/api/templates/episode-setting?title=${encodeURIComponent(title)}`),
 };
 
 interface PublishResult {

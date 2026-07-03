@@ -19,7 +19,7 @@ import type {
   PixverseMotionMode,
   PixverseQuality,
 } from '../constants';
-import type { Scene, YoutubeMeta } from '../types';
+import type { Scene, StoryMeta, YoutubeMeta } from '../types';
 
 /** Minimal shape of the Anthropic SDK client that this module needs. */
 export interface AnthropicLike {
@@ -44,12 +44,109 @@ export class ClaudeError extends Error {
   }
 }
 
+const EFFORT_RANK: Record<ClaudeEffort, number> = {
+  low: 0,
+  medium: 1,
+  high: 2,
+  xhigh: 3,
+  max: 4,
+};
+
+/** Clamp a requested effort to what the chosen model supports. */
+export function clampEffort(requested: ClaudeEffort | undefined, maxEffort: ClaudeEffort): ClaudeEffort {
+  const eff = requested && CLAUDE_EFFORTS.includes(requested) ? requested : DEFAULT_CLAUDE_EFFORT;
+  return EFFORT_RANK[eff] > EFFORT_RANK[maxEffort] ? maxEffort : eff;
+}
+
+export interface StructuredCallOptions {
+  model?: string;
+  effort?: ClaudeEffort;
+  system: string;
+  user: string;
+  schema: Record<string, unknown>;
+  maxTokens?: number;
+}
+
+export interface StructuredCallResult {
+  json: unknown;
+  model: string;
+  effort: ClaudeEffort | null;
+}
+
+/**
+ * Make a structured-output request, shaping it per model capabilities:
+ * adaptive thinking where supported, effort where supported, and server-side
+ * refusal fallbacks for Fable 5. Returns parsed JSON.
+ */
+export async function structuredCall(client: AnthropicLike, opts: StructuredCallOptions): Promise<StructuredCallResult> {
+  const modelId = opts.model ?? 'claude-opus-4-8';
+  const info = getClaudeModel(modelId);
+  if (!info) {
+    throw new ClaudeError(`Unknown Claude model: ${modelId}`, 'unknown-model');
+  }
+
+  const effort = info.supportsEffort ? clampEffort(opts.effort, info.maxEffort) : null;
+
+  const outputConfig: Record<string, unknown> = {
+    format: { type: 'json_schema', schema: opts.schema },
+  };
+  if (effort) outputConfig.effort = effort;
+
+  const params: Record<string, unknown> = {
+    model: modelId,
+    max_tokens: opts.maxTokens ?? 16000,
+    system: opts.system,
+    output_config: outputConfig,
+    messages: [{ role: 'user', content: opts.user }],
+  };
+
+  if (info.thinking === 'adaptive') {
+    params.thinking = { type: 'adaptive' };
+  }
+  // 'always-on' (Fable 5) and 'none' (Haiku) both omit the thinking parameter.
+
+  let res: AnthropicResponse;
+  if (info.useFallback) {
+    res = await client.beta.messages.create({
+      ...params,
+      betas: ['server-side-fallback-2026-06-01'],
+      fallbacks: [{ model: 'claude-opus-4-8' }],
+    });
+  } else {
+    res = await client.messages.create(params);
+  }
+
+  if (res.stop_reason === 'refusal') {
+    const cat = res.stop_details?.category ?? 'unspecified';
+    throw new ClaudeError(`Claude declined the request (category: ${cat}).`, 'refusal');
+  }
+  const textBlock = res.content?.find((b) => b.type === 'text' && typeof b.text === 'string');
+  if (!textBlock || !textBlock.text) {
+    throw new ClaudeError('Claude returned no text content.', 'empty');
+  }
+  let json: unknown;
+  try {
+    json = JSON.parse(textBlock.text);
+  } catch (err) {
+    throw new ClaudeError(`Could not parse structured JSON: ${(err as Error).message}`, 'parse');
+  }
+  return { json, model: modelId, effort };
+}
+
+// ---------------------------------------------------------------------------
+// Storyline generation
+// ---------------------------------------------------------------------------
+
 export interface StorylineInput {
   bible: string;
   episodeTitle: string;
   episodeBrief: string;
   /** Optional per-episode setting that overrides / augments the story bible. */
   settingOverride?: string;
+  /** Story production metadata (audience, genres, tone…). */
+  meta?: StoryMeta;
+  /** Canonical consistency block (from the canon registry) to obey. */
+  canonBlock?: string;
   model?: string;
   effort?: ClaudeEffort;
   /** Preferred number of scenes; the model may adjust slightly. */
@@ -70,20 +167,6 @@ export interface GeneratedStoryline {
   youtube: YoutubeMeta;
   model: string;
   effort: ClaudeEffort | null;
-}
-
-const EFFORT_RANK: Record<ClaudeEffort, number> = {
-  low: 0,
-  medium: 1,
-  high: 2,
-  xhigh: 3,
-  max: 4,
-};
-
-/** Clamp a requested effort to what the chosen model supports. */
-export function clampEffort(requested: ClaudeEffort | undefined, maxEffort: ClaudeEffort): ClaudeEffort {
-  const eff = requested && CLAUDE_EFFORTS.includes(requested) ? requested : DEFAULT_CLAUDE_EFFORT;
-  return EFFORT_RANK[eff] > EFFORT_RANK[maxEffort] ? maxEffort : eff;
 }
 
 function storylineSchema() {
@@ -154,6 +237,37 @@ Rules:
 - The "youtube" object is publishing metadata: a punchy title (<=100 chars), an engaging description, relevant tags, and hashtags (each starting with #, include #Shorts).
 Return only the structured object.`;
 
+const CANON_DIRECTIVE = `
+Canon discipline:
+- A CANON section follows. Treat it as an approved film set: every LOCKED and STRONG mark must appear unchanged in the relevant scene prompts (repeat the exact descriptors).
+- Marks labelled "transitioning" are mid-migration: blend from the old value toward the new one — favor the new value while keeping the character recognizable.
+- Never invent changes to canonical characters, locations, props, or world rules that were not requested in the brief.`;
+
+function kidSafetyDirective(meta: StoryMeta): string {
+  return `
+Child-audience discipline (ages ${meta.audienceMin ?? '?'}–${meta.audienceMax}):
+- Emotionally safe at all times: no violence, weapons, fire, injury, bullying, sarcasm, insults, scary danger, dark or horror moods.
+- Any accident must be harmless: soft landing, funny sound, instant happy recovery.
+- Simple, visual storytelling a child can follow with the sound off; one clear goal per episode.
+- Bright colors, warm lighting, friendly expressions only.
+- Add the relevant avoid-terms to every scene's negative_prompt.`;
+}
+
+function metaBlock(meta: StoryMeta): string {
+  const lines: string[] = ['\n# Production metadata'];
+  if (meta.audienceMin != null || meta.audienceMax != null) {
+    lines.push(`- Audience: ages ${meta.audienceMin ?? '?'}–${meta.audienceMax ?? '?'}${meta.audienceNotes ? ` (${meta.audienceNotes})` : ''}`);
+  } else if (meta.audienceNotes) {
+    lines.push(`- Audience: ${meta.audienceNotes}`);
+  }
+  if (meta.genres.length) lines.push(`- Genres: ${meta.genres.join(', ')}`);
+  if (meta.tones.length) lines.push(`- Tone: ${meta.tones.join(', ')}`);
+  if (meta.format) lines.push(`- Format: ${meta.format}`);
+  if (meta.episodeLengthSec != null) lines.push(`- Target episode length: ~${meta.episodeLengthSec} seconds`);
+  if (meta.language) lines.push(`- Language: ${meta.language}`);
+  return lines.length > 1 ? lines.join('\n') : '';
+}
+
 function buildUserPrompt(input: StorylineInput): string {
   const parts: string[] = [];
   parts.push('# Story bible');
@@ -161,6 +275,14 @@ function buildUserPrompt(input: StorylineInput): string {
   if (input.settingOverride && input.settingOverride.trim()) {
     parts.push('\n# Episode-specific setting (overrides/extends the bible for this episode)');
     parts.push(input.settingOverride.trim());
+  }
+  if (input.canonBlock && input.canonBlock.trim()) {
+    parts.push('\n# CANON (version-controlled consistency marks — obey strictly)');
+    parts.push(input.canonBlock.trim());
+  }
+  if (input.meta) {
+    const block = metaBlock(input.meta);
+    if (block) parts.push(block);
   }
   parts.push('\n# Episode');
   parts.push(`Title: ${input.episodeTitle}`);
@@ -228,18 +350,6 @@ function coerceScene(raw: RawScene, order: number, input: StorylineInput): Scene
   };
 }
 
-function extractJson(res: AnthropicResponse): string {
-  if (res.stop_reason === 'refusal') {
-    const cat = res.stop_details?.category ?? 'unspecified';
-    throw new ClaudeError(`Claude declined the request (category: ${cat}).`, 'refusal');
-  }
-  const textBlock = res.content?.find((b) => b.type === 'text' && typeof b.text === 'string');
-  if (!textBlock || !textBlock.text) {
-    throw new ClaudeError('Claude returned no text content.', 'empty');
-  }
-  return textBlock.text;
-}
-
 /**
  * Generate a storyline via Claude using structured outputs. The Anthropic client
  * is injected so this is fully testable without network access.
@@ -248,51 +358,21 @@ export async function generateStoryline(
   client: AnthropicLike,
   input: StorylineInput,
 ): Promise<GeneratedStoryline> {
-  const modelId = input.model ?? 'claude-opus-4-8';
-  const info = getClaudeModel(modelId);
-  if (!info) {
-    throw new ClaudeError(`Unknown Claude model: ${modelId}`, 'unknown-model');
+  let system = SYSTEM_PROMPT;
+  if (input.canonBlock && input.canonBlock.trim()) system += CANON_DIRECTIVE;
+  if (input.meta && input.meta.audienceMax != null && input.meta.audienceMax <= 12) {
+    system += kidSafetyDirective(input.meta);
   }
 
-  const effort = info.supportsEffort ? clampEffort(input.effort, info.maxEffort) : null;
+  const { json, model, effort } = await structuredCall(client, {
+    model: input.model,
+    effort: input.effort,
+    system,
+    user: buildUserPrompt(input),
+    schema: storylineSchema(),
+  });
 
-  const outputConfig: Record<string, unknown> = {
-    format: { type: 'json_schema', schema: storylineSchema() },
-  };
-  if (effort) outputConfig.effort = effort;
-
-  const params: Record<string, unknown> = {
-    model: modelId,
-    max_tokens: 16000,
-    system: SYSTEM_PROMPT,
-    output_config: outputConfig,
-    messages: [{ role: 'user', content: buildUserPrompt(input) }],
-  };
-
-  if (info.thinking === 'adaptive') {
-    params.thinking = { type: 'adaptive' };
-  }
-  // 'always-on' (Fable 5) and 'none' (Haiku) both omit the thinking parameter.
-
-  let res: AnthropicResponse;
-  if (info.useFallback) {
-    res = await client.beta.messages.create({
-      ...params,
-      betas: ['server-side-fallback-2026-06-01'],
-      fallbacks: [{ model: 'claude-opus-4-8' }],
-    });
-  } else {
-    res = await client.messages.create(params);
-  }
-
-  const jsonText = extractJson(res);
-  let parsed: RawStoryline;
-  try {
-    parsed = JSON.parse(jsonText) as RawStoryline;
-  } catch (err) {
-    throw new ClaudeError(`Could not parse storyline JSON: ${(err as Error).message}`, 'parse');
-  }
-
+  const parsed = json as RawStoryline;
   const scenes = (parsed.scenes ?? []).map((raw, i) => coerceScene(raw, i, input));
   if (scenes.length === 0) {
     throw new ClaudeError('Storyline contained no scenes.', 'parse');
@@ -308,7 +388,7 @@ export async function generateStoryline(
       tags: parsed.youtube?.tags ?? [],
       hashtags: parsed.youtube?.hashtags ?? ['#Shorts'],
     },
-    model: modelId,
+    model,
     effort,
   };
 }
