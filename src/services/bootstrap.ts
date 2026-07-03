@@ -19,6 +19,7 @@ From a single idea, develop a complete series concept ready for production of sh
 Produce:
 - "title": a memorable series title (not a sentence).
 - "setting_mode": "shared" when episodes share one world/setting; "per-episode" when the premise implies a new setting each episode (e.g. travel/anthology formats).
+- "continuity": "random" for episodic series (standalone episodes, can run forever); "linear" when the idea implies a serialized arc with an ending (a quest, a season-long mystery, "until they finally...").
 - "meta": production metadata inferred from the idea. Infer a sensible target audience age range; genres (2-4, lowercase); tones (3-5 adjectives); a format line (e.g. "3D animated comedy shorts"); episode_length_sec (default 60 for Shorts); language.
 - "bible_markdown": a COMPLETE story bible in Markdown following EXACTLY the section structure of the reference template provided by the user — same numbered headings. Replace every placeholder with concrete, production-ready content:
   * 2-5 main characters, each with a vivid, renderable visual signature (species/build, exact colors, eyes, one distinctive accessory, proportions), personality with one comic/dramatic flaw, movement style, voice, catchphrases, and an explicit "Never change" list.
@@ -35,6 +36,7 @@ function storyBootstrapSchema() {
     properties: {
       title: { type: 'string' },
       setting_mode: { type: 'string', enum: ['shared', 'per-episode'] },
+      continuity: { type: 'string', enum: ['random', 'linear'] },
       meta: {
         type: 'object',
         additionalProperties: false,
@@ -61,13 +63,14 @@ function storyBootstrapSchema() {
       },
       bible_markdown: { type: 'string' },
     },
-    required: ['title', 'setting_mode', 'meta', 'bible_markdown'],
+    required: ['title', 'setting_mode', 'continuity', 'meta', 'bible_markdown'],
   };
 }
 
 interface RawStoryBootstrap {
   title: string;
   setting_mode: SettingMode;
+  continuity?: 'random' | 'linear';
   meta: {
     audience_min: number;
     audience_max: number;
@@ -134,6 +137,7 @@ export async function bootstrapStory(
   const story = store.createStory({
     title: raw.title?.trim() || idea.slice(0, 60),
     settingMode: raw.setting_mode === 'per-episode' ? 'per-episode' : 'shared',
+    continuity: raw.continuity === 'linear' ? 'linear' : 'random',
     bible: raw.bible_markdown ?? '',
     meta,
   });

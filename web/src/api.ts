@@ -37,7 +37,7 @@ export const api = {
   createStory: (data: { title: string; settingMode?: string; bible?: string }) =>
     req<{ story: Story }>('POST', '/api/stories', data),
   getStory: (id: string) => req<{ story: Story; bible: string; episodes: Episode[] }>('GET', `/api/stories/${id}`),
-  updateStory: (id: string, patch: { title?: string; settingMode?: string; meta?: Partial<StoryMeta> }) =>
+  updateStory: (id: string, patch: { title?: string; settingMode?: string; continuity?: string; meta?: Partial<StoryMeta> }) =>
     req<{ story: Story }>('PATCH', `/api/stories/${id}`, patch),
   deleteStory: (id: string) => req<void>('DELETE', `/api/stories/${id}`),
   setBible: (id: string, markdown: string) => req<{ markdown: string }>('PUT', `/api/stories/${id}/bible`, { markdown }),
@@ -46,7 +46,7 @@ export const api = {
     req<{ episode: Episode }>('POST', `/api/stories/${storyId}/episodes`, data),
   getEpisode: (id: string) =>
     req<{ episode: Episode; setting: string; projects: ProjectSummary[] }>('GET', `/api/episodes/${id}`),
-  updateEpisode: (id: string, patch: { title?: string; brief?: string }) =>
+  updateEpisode: (id: string, patch: { title?: string; brief?: string; runtimeSec?: number | null }) =>
     req<{ episode: Episode }>('PATCH', `/api/episodes/${id}`, patch),
   deleteEpisode: (id: string) => req<void>('DELETE', `/api/episodes/${id}`),
   setSetting: (id: string, markdown: string) =>
@@ -105,6 +105,12 @@ export const api = {
       `/api/storylines/${storylineId}/drift/${reportId}/findings/${findingId}/resolve`,
       { action, note },
     ),
+  planStory: (storyId: string, opts: { episodeCount: number; model?: string; replace?: boolean }) =>
+    req<{ story: Story }>('POST', `/api/stories/${storyId}/plan`, opts),
+  extendPlan: (storyId: string, opts: { additionalEpisodes: number; model?: string }) =>
+    req<{ story: Story }>('POST', `/api/stories/${storyId}/plan/extend`, opts),
+  generateEpisode: (storyId: string, opts: { runtimeSec?: number; model?: string; guidance?: string } = {}) =>
+    req<{ episode: Episode; story: Story }>('POST', `/api/stories/${storyId}/episodes/generate`, opts),
   bootstrapStory: (idea: string, opts: { model?: string; withCanon?: boolean } = {}) =>
     req<{ story: Story; registry: CanonRegistry | null }>('POST', '/api/stories/bootstrap', { idea, ...opts }),
   draftEpisode: (storyId: string, idea: string, opts: { model?: string } = {}) =>

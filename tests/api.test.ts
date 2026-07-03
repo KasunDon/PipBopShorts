@@ -230,6 +230,72 @@ describe('idea bootstrap over HTTP', () => {
   });
 });
 
+describe('season planning + episode generation over HTTP', () => {
+  it('plans, generates, and extends a linear season', async () => {
+    const { client: studioClaude } = makeStudioFakeClaude();
+    const { app } = makeApp({ claude: studioClaude });
+
+    const storyRes = await request(app)
+      .post('/api/stories')
+      .send({ title: 'Serial Show', continuity: 'linear', bible: 'Rizzo builds rockets.' })
+      .expect(201);
+    const storyId = storyRes.body.story.id;
+    expect(storyRes.body.story.continuity).toBe('linear');
+
+    const planRes = await request(app).post(`/api/stories/${storyId}/plan`).send({ episodeCount: 3 }).expect(201);
+    expect(planRes.body.story.plan.episodes).toHaveLength(3);
+
+    const genRes = await request(app)
+      .post(`/api/stories/${storyId}/episodes/generate`)
+      .send({ runtimeSec: 90 })
+      .expect(201);
+    expect(genRes.body.episode.plannedNumber).toBe(1);
+    expect(genRes.body.episode.runtimeSec).toBe(90);
+    expect(genRes.body.story.plan.episodes[0].episodeId).toBe(genRes.body.episode.id);
+
+    const extRes = await request(app)
+      .post(`/api/stories/${storyId}/plan/extend`)
+      .send({ additionalEpisodes: 2 })
+      .expect(200);
+    expect(extRes.body.story.plan.episodes).toHaveLength(5);
+  });
+
+  it('rejects invalid runtimes and exposes runtimes in config', async () => {
+    const { client: studioClaude } = makeStudioFakeClaude();
+    const { app } = makeApp({ claude: studioClaude });
+    const cfg = await request(app).get('/api/config').expect(200);
+    expect(cfg.body.episodeRuntimes).toEqual([15, 30, 60, 90, 180, 300]);
+
+    const storyRes = await request(app).post('/api/stories').send({ title: 'S', bible: 'b' });
+    await request(app)
+      .post(`/api/stories/${storyRes.body.story.id}/episodes/generate`)
+      .send({ runtimeSec: 42 })
+      .expect(400);
+  });
+
+  it('serves raw .md downloads for bible, setting, and templates', async () => {
+    const { app } = makeApp();
+    const storyRes = await request(app).post('/api/stories').send({ title: 'MD Story', bible: '# My Bible' });
+    const storyId = storyRes.body.story.id;
+    const epRes = await request(app)
+      .post(`/api/stories/${storyId}/episodes`)
+      .send({ title: 'E', setting: '# Ep Setting' });
+
+    const bible = await request(app).get(`/api/stories/${storyId}/bible.md`).expect(200);
+    expect(bible.headers['content-type']).toContain('text/markdown');
+    expect(bible.headers['content-disposition']).toContain('md-story.bible.md');
+    expect(bible.text).toBe('# My Bible');
+
+    const setting = await request(app).get(`/api/episodes/${epRes.body.episode.id}/setting.md`).expect(200);
+    expect(setting.text).toBe('# Ep Setting');
+
+    const tpl = await request(app).get('/api/templates/story-bible.md?title=X').expect(200);
+    expect(tpl.headers['content-disposition']).toContain('story-bible-template.md');
+    expect(tpl.text).toContain('X — Story Bible');
+    await request(app).get('/api/templates/episode-setting.md').expect(200);
+  });
+});
+
 describe('story export/import over HTTP', () => {
   it('exports a downloadable .story.md and re-imports it', async () => {
     const { client: studioClaude } = makeStudioFakeClaude();

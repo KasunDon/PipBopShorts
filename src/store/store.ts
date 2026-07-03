@@ -71,9 +71,15 @@ export class Store {
       const raw = fs.readFileSync(this.dbPath, 'utf8');
       const parsed = JSON.parse(raw) as Partial<Db>;
       const db = { ...emptyDb(), ...parsed } as Db;
-      // Backfill metadata for stories created before StoryMeta existed.
+      // Backfill fields for records created before they existed.
       for (const story of Object.values(db.stories)) {
         if (!story.meta) story.meta = defaultStoryMeta();
+        if (!story.continuity) story.continuity = 'random';
+        if (story.plan === undefined) story.plan = null;
+      }
+      for (const episode of Object.values(db.episodes)) {
+        if (episode.runtimeSec === undefined) episode.runtimeSec = null;
+        if (episode.plannedNumber === undefined) episode.plannedNumber = null;
       }
       return db;
     } catch {
@@ -91,6 +97,7 @@ export class Store {
   createStory(input: {
     title: string;
     settingMode?: Story['settingMode'];
+    continuity?: Story['continuity'];
     bible?: string;
     meta?: Partial<StoryMeta>;
   }): Story {
@@ -101,6 +108,8 @@ export class Store {
       title: input.title.trim() || 'Untitled story',
       slug: slugify(input.title),
       settingMode: input.settingMode ?? 'shared',
+      continuity: input.continuity ?? 'random',
+      plan: null,
       meta: { ...defaultStoryMeta(), ...input.meta },
       createdAt: now,
       updatedAt: now,
@@ -122,14 +131,26 @@ export class Store {
     return s;
   }
 
-  updateStory(id: string, patch: Partial<Pick<Story, 'title' | 'settingMode'>> & { meta?: Partial<StoryMeta> }): Story {
+  updateStory(
+    id: string,
+    patch: Partial<Pick<Story, 'title' | 'settingMode' | 'continuity'>> & { meta?: Partial<StoryMeta> },
+  ): Story {
     const s = this.getStory(id);
     if (patch.title !== undefined) {
       s.title = patch.title.trim() || s.title;
       s.slug = slugify(s.title);
     }
     if (patch.settingMode !== undefined) s.settingMode = patch.settingMode;
+    if (patch.continuity !== undefined) s.continuity = patch.continuity;
     if (patch.meta !== undefined) s.meta = { ...s.meta, ...patch.meta };
+    s.updatedAt = new Date().toISOString();
+    this.persist();
+    return s;
+  }
+
+  setStoryPlan(id: string, plan: Story['plan']): Story {
+    const s = this.getStory(id);
+    s.plan = plan;
     s.updatedAt = new Date().toISOString();
     this.persist();
     return s;
@@ -162,7 +183,10 @@ export class Store {
 
   // ---- Episodes ----
 
-  createEpisode(storyId: string, input: { title: string; brief?: string; setting?: string }): Episode {
+  createEpisode(
+    storyId: string,
+    input: { title: string; brief?: string; setting?: string; runtimeSec?: number | null; plannedNumber?: number | null },
+  ): Episode {
     this.getStory(storyId);
     const now = new Date().toISOString();
     const id = makeId('ep');
@@ -173,6 +197,8 @@ export class Store {
       title: input.title.trim() || 'Untitled episode',
       brief: input.brief ?? '',
       hasSettingOverride,
+      runtimeSec: input.runtimeSec ?? null,
+      plannedNumber: input.plannedNumber ?? null,
       createdAt: now,
       updatedAt: now,
     };
@@ -198,10 +224,11 @@ export class Store {
     return e;
   }
 
-  updateEpisode(id: string, patch: Partial<Pick<Episode, 'title' | 'brief'>>): Episode {
+  updateEpisode(id: string, patch: Partial<Pick<Episode, 'title' | 'brief' | 'runtimeSec'>>): Episode {
     const e = this.getEpisode(id);
     if (patch.title !== undefined) e.title = patch.title.trim() || e.title;
     if (patch.brief !== undefined) e.brief = patch.brief;
+    if (patch.runtimeSec !== undefined) e.runtimeSec = patch.runtimeSec;
     e.updatedAt = new Date().toISOString();
     this.persist();
     return e;

@@ -3,6 +3,7 @@ import { api } from './api';
 import { CanonSection, StoryMetaEditor } from './CanonPanel';
 import { DriftPanel } from './DriftPanel';
 import { SceneCard } from './SceneCard';
+import { formatRuntime, RuntimeSelect, SeasonPanel } from './SeasonPanel';
 import type { AppConfig, Episode, Project, ProjectSummary, Story } from './types';
 
 export function App() {
@@ -281,6 +282,16 @@ function Welcome({
           <li>Publish the finished short to <b>YouTube Shorts</b>.</li>
         </ol>
         <p className="muted small">Prefer manual setup? Create an empty story from the sidebar.</p>
+        <p className="muted small">
+          Templates:{' '}
+          <a className="md-link" href="/api/templates/story-bible.md" download>
+            ⬇ story-bible-template.md
+          </a>{' '}
+          ·{' '}
+          <a className="md-link" href="/api/templates/episode-setting.md" download>
+            ⬇ episode-setting-template.md
+          </a>
+        </p>
       </details>
     </div>
   );
@@ -379,6 +390,7 @@ function StoryPanel({
   const [epBrief, setEpBrief] = useState('');
   const [epSetting, setEpSetting] = useState('');
   const [epIdea, setEpIdea] = useState('');
+  const [epRuntime, setEpRuntime] = useState<number | null>(null);
   const [drafting, setDrafting] = useState(false);
 
   useEffect(() => {
@@ -401,6 +413,17 @@ function StoryPanel({
           >
             <option value="shared">Shared setting across episodes</option>
             <option value="per-episode">Each episode has its own setting</option>
+          </select>
+          <select
+            value={data.story.continuity}
+            title="Random: standalone episodes forever. Linear: a planned season arc with continuity between episodes."
+            onChange={async (e) => {
+              await run(() => api.updateStory(data.story.id, { continuity: e.target.value }));
+              onChanged();
+            }}
+          >
+            <option value="random">🎲 Random (episodic, endless)</option>
+            <option value="linear">📖 Linear (serialized season arc)</option>
           </select>
           <button
             title="Download this story as a portable .story.md package (bible, episodes, canon, storylines)"
@@ -433,12 +456,15 @@ function StoryPanel({
         </div>
       </div>
 
-      <StoryMetaEditor story={data.story} run={run} onSaved={onStoriesChanged} />
+      <StoryMetaEditor story={data.story} config={config} run={run} onSaved={onStoriesChanged} />
 
       <section className="card">
         <div className="card-head">
           <h3>Story bible (.md)</h3>
           <div className="row">
+            <a className="md-link" href={`/api/stories/${data.story.id}/bible.md`} download title="Download the bible as a .md file">
+              ⬇ bible.md
+            </a>
             <button
               className="ghost"
               title="Insert the canonical story-bible template"
@@ -469,13 +495,17 @@ function StoryPanel({
 
       <CanonSection story={data.story} config={config} run={run} />
 
+      <SeasonPanel story={data.story} config={config} run={run} onChanged={onChanged} />
+
       <section className="card">
         <h3>Episodes</h3>
         <ul className="episode-list">
           {data.episodes.map((ep) => (
             <li key={ep.id}>
               <button onClick={() => onOpenEpisode(ep.id)}>
+                {ep.plannedNumber != null && <span className="badge">#{ep.plannedNumber}</span>}
                 <b>{ep.title}</b>
+                {ep.runtimeSec != null && <span className="badge">{formatRuntime(ep.runtimeSec)}</span>}
                 {ep.brief && <span className="muted"> — {ep.brief.slice(0, 80)}</span>}
               </button>
             </li>
@@ -514,7 +544,11 @@ function StoryPanel({
           onSubmit={async (e) => {
             e.preventDefault();
             if (!epTitle.trim()) return;
-            const payload: { title: string; brief?: string; setting?: string } = { title: epTitle.trim(), brief: epBrief };
+            const payload: { title: string; brief?: string; setting?: string; runtimeSec?: number } = {
+              title: epTitle.trim(),
+              brief: epBrief,
+            };
+            if (epRuntime != null) payload.runtimeSec = epRuntime;
             if (mode === 'per-episode' && epSetting.trim()) payload.setting = epSetting;
             await run(() => api.createEpisode(data.story.id, payload));
             setEpTitle('');
@@ -539,7 +573,12 @@ function StoryPanel({
               rows={3}
             />
           )}
-          <button type="submit">+ Add episode</button>
+          <div className="row">
+            <Field label="Runtime">
+              <RuntimeSelect config={config} value={epRuntime} onChange={setEpRuntime} allowDefault />
+            </Field>
+            <button type="submit">+ Add episode</button>
+          </div>
         </form>
       </section>
     </div>
@@ -584,15 +623,31 @@ function EpisodePanel({
 
       <section className="card">
         <div className="card-head">
-          <h3>Episode brief</h3>
-          <button
-            onClick={async () => {
-              await run(() => api.updateEpisode(data.episode.id, { brief }));
-              onChanged();
-            }}
-          >
-            Save brief
-          </button>
+          <h3>
+            Episode brief
+            {data.episode.plannedNumber != null && <span className="badge"> #{data.episode.plannedNumber} in season</span>}
+          </h3>
+          <div className="row">
+            <Field label="Runtime">
+              <RuntimeSelect
+                config={config}
+                value={data.episode.runtimeSec}
+                allowDefault
+                onChange={async (v) => {
+                  await run(() => api.updateEpisode(data.episode.id, { runtimeSec: v }));
+                  onChanged();
+                }}
+              />
+            </Field>
+            <button
+              onClick={async () => {
+                await run(() => api.updateEpisode(data.episode.id, { brief }));
+                onChanged();
+              }}
+            >
+              Save brief
+            </button>
+          </div>
         </div>
         <textarea value={brief} onChange={(e) => setBrief(e.target.value)} rows={3} />
       </section>
@@ -602,6 +657,14 @@ function EpisodePanel({
           <div className="card-head">
             <h3>Episode setting (.md)</h3>
             <div className="row">
+              <a
+                className="md-link"
+                href={`/api/episodes/${data.episode.id}/setting.md`}
+                download
+                title="Download this episode's setting as a .md file"
+              >
+                ⬇ setting.md
+              </a>
               <button
                 className="ghost"
                 onClick={async () => {

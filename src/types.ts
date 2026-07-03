@@ -41,11 +41,41 @@ export function defaultStoryMeta(): StoryMeta {
   };
 }
 
+/**
+ * How episodes relate to each other:
+ * - random: standalone episodes reusing the canon; the series can run forever.
+ * - linear: serialized — episodes follow a planned season arc to an ending.
+ */
+export type StoryContinuity = 'random' | 'linear';
+
+/** One episode slot in a linear season plan. */
+export interface PlannedEpisode {
+  number: number;
+  title: string;
+  synopsis: string;
+  /** What this episode contributes to the overall arc. */
+  arcNote: string;
+  /** Set once the episode has actually been created. */
+  episodeId: string | null;
+}
+
+/** The season arc for a linear story (extendable). */
+export interface StoryPlan {
+  arcSummary: string;
+  finale: string;
+  model: string;
+  createdAt: string;
+  updatedAt: string;
+  episodes: PlannedEpisode[];
+}
+
 export interface Story {
   id: string;
   title: string;
   slug: string;
   settingMode: SettingMode;
+  continuity: StoryContinuity;
+  plan: StoryPlan | null;
   meta: StoryMeta;
   createdAt: string;
   updatedAt: string;
@@ -58,6 +88,10 @@ export interface Episode {
   brief: string;
   /** Whether this episode has its own setting bible (per-episode stories). */
   hasSettingOverride: boolean;
+  /** Target runtime in seconds (null = use the story's default). */
+  runtimeSec: number | null;
+  /** For linear stories: which planned episode slot this fulfils. */
+  plannedNumber: number | null;
   createdAt: string;
   updatedAt: string;
 }

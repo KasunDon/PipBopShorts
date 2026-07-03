@@ -147,6 +147,10 @@ export interface StorylineInput {
   meta?: StoryMeta;
   /** Canonical consistency block (from the canon registry) to obey. */
   canonBlock?: string;
+  /** Continuity context: season arc position + recap (linear) or standalone directive (random). */
+  continuityBlock?: string;
+  /** Target total runtime in seconds (default 60). */
+  runtimeSec?: number;
   model?: string;
   effort?: ClaudeEffort;
   /** Preferred number of scenes; the model may adjust slightly. */
@@ -229,7 +233,7 @@ const SYSTEM_PROMPT = `You are a director and prompt engineer for AI short-form 
 Turn a story bible and an episode brief into a shot-by-shot storyline where every scene is a self-contained PixVerse text-to-video prompt.
 
 Rules:
-- Keep the whole short within roughly 60 seconds total; prefer 4-8 scenes.
+- Match the target total runtime given in the production constraints: scenes are 5 or 8 seconds each, so pick a scene count and per-scene durations that sum close to the target.
 - Each scene "prompt" is a vivid, self-contained visual description (subject, action, environment, lighting, mood, camera). Do not reference other scenes by number; PixVerse renders each scene independently, so restate character/setting details each time for visual consistency.
 - Keep character appearance and setting consistent across scenes by repeating concrete descriptors from the bible.
 - "negative_prompt" lists things to avoid (artifacts, text overlays, extra limbs, watermarks).
@@ -280,6 +284,10 @@ function buildUserPrompt(input: StorylineInput): string {
     parts.push('\n# CANON (version-controlled consistency marks — obey strictly)');
     parts.push(input.canonBlock.trim());
   }
+  if (input.continuityBlock && input.continuityBlock.trim()) {
+    parts.push('\n# CONTINUITY');
+    parts.push(input.continuityBlock.trim());
+  }
   if (input.meta) {
     const block = metaBlock(input.meta);
     if (block) parts.push(block);
@@ -287,7 +295,11 @@ function buildUserPrompt(input: StorylineInput): string {
   parts.push('\n# Episode');
   parts.push(`Title: ${input.episodeTitle}`);
   parts.push(`Brief: ${input.episodeBrief.trim() || '(none)'}`);
+  const runtime = input.runtimeSec ?? 60;
+  const minScenes = Math.max(1, Math.ceil(runtime / 8));
+  const maxScenes = Math.max(minScenes, Math.round(runtime / 5));
   parts.push('\n# Production constraints (apply as sensible defaults for every scene unless a beat clearly needs otherwise)');
+  parts.push(`- Target total runtime: ~${runtime} seconds (scene durations must sum close to this; roughly ${minScenes}–${maxScenes} scenes)`);
   parts.push(`- Aspect ratio: ${input.aspectRatio ?? SHORT_DEFAULTS.aspectRatio} (vertical for Shorts)`);
   parts.push(`- Default PixVerse model: ${input.pixverseModel ?? SHORT_DEFAULTS.model}`);
   parts.push(`- Default quality: ${input.quality ?? SHORT_DEFAULTS.quality}`);

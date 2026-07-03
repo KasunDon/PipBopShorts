@@ -9,6 +9,7 @@ import type { YoutubeClient } from './clients/youtube';
 import {
   CLAUDE_EFFORTS,
   CLAUDE_MODELS,
+  EPISODE_RUNTIMES,
   PIXVERSE_ASPECT_RATIOS,
   PIXVERSE_CAMERA_MOVEMENTS,
   PIXVERSE_DURATIONS,
@@ -19,7 +20,9 @@ import {
 } from './constants';
 import { bootstrapStory, draftEpisode } from './services/bootstrap';
 import { DEFAULT_DISSECT_MODEL, DISSECT_MODELS, extractCanon, patchMark } from './services/canon';
+import { assertRuntime, extendPlan, generateNextEpisode, planStory } from './services/season';
 import { checkDrift, resolveDrift } from './services/drift';
+import { UserInputError } from './errors';
 import { exportFilename, exportStory, ImportError, importStory } from './services/exchange';
 import {
   extendClip,
@@ -89,6 +92,7 @@ export function createApp(deps: AppDeps): express.Express {
       },
       youtubeDryRun: deps.youtube.isDryRun,
       dissect: { models: DISSECT_MODELS, defaultModel: DEFAULT_DISSECT_MODEL },
+      episodeRuntimes: EPISODE_RUNTIMES,
     });
   });
 
@@ -114,9 +118,9 @@ export function createApp(deps: AppDeps): express.Express {
   app.post(
     '/api/stories',
     asyncHandler((req, res) => {
-      const { title, settingMode, bible, meta } = req.body ?? {};
+      const { title, settingMode, continuity, bible, meta } = req.body ?? {};
       if (!title || typeof title !== 'string') throw new HttpError(400, 'title is required');
-      const story = deps.store.createStory({ title, settingMode, bible, meta });
+      const story = deps.store.createStory({ title, settingMode, continuity, bible, meta });
       res.status(201).json({ story });
     }),
   );
@@ -165,6 +169,84 @@ export function createApp(deps: AppDeps): express.Express {
       res.json({ markdown });
     }),
   );
+
+  // ---- Season planning & episode generation ----
+  app.post(
+    '/api/stories/:storyId/plan',
+    asyncHandler(async (req, res) => {
+      const { episodeCount, model, effort, replace } = req.body ?? {};
+      if (!Number.isFinite(Number(episodeCount))) throw new HttpError(400, 'episodeCount is required');
+      const story = await planStory(deps.store, deps.claude, req.params.storyId, {
+        episodeCount: Number(episodeCount),
+        model,
+        effort,
+        replace: Boolean(replace),
+      });
+      res.status(201).json({ story });
+    }),
+  );
+
+  app.post(
+    '/api/stories/:storyId/plan/extend',
+    asyncHandler(async (req, res) => {
+      const { additionalEpisodes, model, effort } = req.body ?? {};
+      if (!Number.isFinite(Number(additionalEpisodes))) throw new HttpError(400, 'additionalEpisodes is required');
+      const story = await extendPlan(deps.store, deps.claude, req.params.storyId, {
+        additionalEpisodes: Number(additionalEpisodes),
+        model,
+        effort,
+      });
+      res.json({ story });
+    }),
+  );
+
+  app.post(
+    '/api/stories/:storyId/episodes/generate',
+    asyncHandler(async (req, res) => {
+      const { runtimeSec, model, effort, guidance } = req.body ?? {};
+      const episode = await generateNextEpisode(deps.store, deps.claude, req.params.storyId, {
+        runtimeSec: runtimeSec == null ? undefined : Number(runtimeSec),
+        model,
+        effort,
+        guidance,
+      });
+      res.status(201).json({ episode, story: deps.store.getStory(req.params.storyId) });
+    }),
+  );
+
+  // ---- Raw .md downloads ----
+  const sendMarkdown = (res: Response, filename: string, markdown: string) => {
+    res
+      .type('text/markdown; charset=utf-8')
+      .setHeader('Content-Disposition', `attachment; filename="${filename}"`)
+      .send(markdown);
+  };
+
+  app.get(
+    '/api/stories/:storyId/bible.md',
+    asyncHandler((req, res) => {
+      const story = deps.store.getStory(req.params.storyId);
+      sendMarkdown(res, `${story.slug}.bible.md`, deps.store.getBible(story.id));
+    }),
+  );
+
+  app.get(
+    '/api/episodes/:episodeId/setting.md',
+    asyncHandler((req, res) => {
+      const episode = deps.store.getEpisode(req.params.episodeId);
+      sendMarkdown(res, `episode-setting.md`, deps.store.getSetting(episode.id));
+    }),
+  );
+
+  app.get('/api/templates/story-bible.md', (req, res) => {
+    const title = typeof req.query.title === 'string' ? req.query.title : 'Untitled Story';
+    sendMarkdown(res, 'story-bible-template.md', storyBibleTemplate(title));
+  });
+
+  app.get('/api/templates/episode-setting.md', (req, res) => {
+    const title = typeof req.query.title === 'string' ? req.query.title : 'Untitled Episode';
+    sendMarkdown(res, 'episode-setting-template.md', episodeSettingTemplate(title));
+  });
 
   // ---- LLM idea bootstrap ----
   app.post(
@@ -287,9 +369,11 @@ export function createApp(deps: AppDeps): express.Express {
   app.post(
     '/api/stories/:storyId/episodes',
     asyncHandler((req, res) => {
-      const { title, brief, setting } = req.body ?? {};
+      const { title, brief, setting, runtimeSec } = req.body ?? {};
       if (!title || typeof title !== 'string') throw new HttpError(400, 'title is required');
-      const episode = deps.store.createEpisode(req.params.storyId, { title, brief, setting });
+      const runtime = runtimeSec == null ? null : Number(runtimeSec);
+      assertRuntime(runtime);
+      const episode = deps.store.createEpisode(req.params.storyId, { title, brief, setting, runtimeSec: runtime });
       res.status(201).json({ episode });
     }),
   );
@@ -516,6 +600,7 @@ function mapError(err: unknown): { status: number; body: Record<string, unknown>
   if (err instanceof HttpError) return { status: err.status, body: { error: err.message } };
   if (err instanceof NotFoundError) return { status: 404, body: { error: err.message } };
   if (err instanceof ImportError) return { status: 400, body: { error: err.message } };
+  if (err instanceof UserInputError) return { status: 400, body: { error: err.message } };
   if (err instanceof ValidationError) return { status: 400, body: { error: err.message, issues: err.issues } };
   if (err instanceof ClaudeError) {
     const status = err.kind === 'refusal' ? 422 : 400;

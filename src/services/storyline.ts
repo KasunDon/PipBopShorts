@@ -2,6 +2,7 @@ import { generateStoryline, type AnthropicLike, type StorylineInput } from '../c
 import { collectValidationIssues } from '../clients/pixverse';
 import { DEFAULT_CLAUDE_MODEL, SHORT_DEFAULTS } from '../constants';
 import { canonForStory } from './canon';
+import { buildContinuityBlock } from './season';
 import type { Store } from '../store/store';
 import { makeId } from '../store/store';
 import type { Clip, Project, Scene, Storyline, YoutubeMeta } from '../types';
@@ -81,6 +82,7 @@ export async function createStorylineProject(
   const story = store.getStory(storyId);
   const { bible, settingOverride } = buildStorylineContext(store, storyId, episodeId);
   const canon = canonForStory(store, story);
+  const runtimeSec = episode.runtimeSec ?? story.meta.episodeLengthSec ?? 60;
 
   const generated = await generateStoryline(claude, {
     bible,
@@ -89,6 +91,8 @@ export async function createStorylineProject(
     settingOverride,
     meta: story.meta,
     canonBlock: canon?.block,
+    continuityBlock: buildContinuityBlock(store, story, episode),
+    runtimeSec,
     model: options.model ?? DEFAULT_CLAUDE_MODEL,
     effort: options.effort,
     sceneCount: options.sceneCount,

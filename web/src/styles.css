@@ -607,6 +607,50 @@ tr.transitioning {
   border-color: var(--warn);
 }
 
+/* Season plan */
+.plan-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 10px 0;
+  font-size: 13px;
+}
+.plan-table td {
+  padding: 8px;
+  border-top: 1px solid var(--border);
+  vertical-align: top;
+}
+.plan-num {
+  font-weight: 800;
+  color: var(--accent);
+  width: 32px;
+}
+.plan-status {
+  white-space: nowrap;
+  text-align: right;
+}
+.plan-table tr.produced {
+  opacity: 0.65;
+}
+.plan-table tr.next {
+  background: rgba(124, 92, 255, 0.08);
+}
+
+/* .md download links */
+.md-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--accent-2);
+  text-decoration: none;
+  font-size: 13px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+.md-link:hover {
+  border-color: var(--accent-2);
+}
+
 /* Drift report */
 .drift-clean {
   color: var(--good);

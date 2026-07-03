@@ -134,6 +134,18 @@ export function getClaudeModel(id: string): ClaudeModelInfo | undefined {
 export const DEFAULT_CLAUDE_MODEL = 'claude-opus-4-8';
 export const DEFAULT_CLAUDE_EFFORT: ClaudeEffort = 'high';
 
+/** Selectable episode runtimes (seconds): 15s, 30s, 1min, 1min30, 3min, 5min. */
+export const EPISODE_RUNTIMES = [15, 30, 60, 90, 180, 300] as const;
+export type EpisodeRuntime = (typeof EPISODE_RUNTIMES)[number];
+export const DEFAULT_EPISODE_RUNTIME: EpisodeRuntime = 60;
+
+export function formatRuntime(sec: number): string {
+  if (sec < 60) return `${sec}s`;
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return s ? `${m} min ${s}s` : `${m} min`;
+}
+
 /** Sensible defaults for a vertical YouTube Short. */
 export const SHORT_DEFAULTS = {
   aspectRatio: '9:16' as PixverseAspectRatio,

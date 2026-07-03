@@ -148,10 +148,23 @@ export function sampleEpisodeDraftJson(): string {
   });
 }
 
+/** A season-plan payload for a linear story. */
+export function samplePlanJson(episodeCount = 3): string {
+  return JSON.stringify({
+    arc_summary: 'The friends build a rocket piece by piece until launch day.',
+    finale: 'The rocket finally flies over the grove at sunset.',
+    episodes: Array.from({ length: episodeCount }, (_, i) => ({
+      title: `Chapter ${i + 1}`,
+      synopsis: `Step ${i + 1} of building the rocket goes hilariously sideways before the friends fix it together.`,
+      arc_note: `Adds rocket part ${i + 1}; carries momentum into the next episode.`,
+    })),
+  });
+}
+
 /**
  * A fake Claude that routes by task: canon extraction, drift check, story
- * bootstrap, episode draft, or storyline generation — so end-to-end studio
- * flows can run against one fake.
+ * bootstrap, season plan, episode draft/generation, or storyline generation —
+ * so end-to-end studio flows can run against one fake.
  */
 export function makeStudioFakeClaude(overrides?: {
   canonJson?: string;
@@ -159,6 +172,7 @@ export function makeStudioFakeClaude(overrides?: {
   storylineJson?: string;
   bootstrapJson?: string;
   episodeDraftJson?: string;
+  planJson?: string;
 }): { client: AnthropicLike; calls: FakeClaudeCall[] } {
   return makeFakeClaude((params) => {
     const system = String(params.system ?? '');
@@ -169,6 +183,8 @@ export function makeStudioFakeClaude(overrides?: {
       text = overrides?.driftJson ?? sampleDriftJson();
     } else if (system.includes('head of story development')) {
       text = overrides?.bootstrapJson ?? sampleBootstrapJson();
+    } else if (system.includes('season architect')) {
+      text = overrides?.planJson ?? samplePlanJson();
     } else if (system.includes('episode developer')) {
       text = overrides?.episodeDraftJson ?? sampleEpisodeDraftJson();
     } else {

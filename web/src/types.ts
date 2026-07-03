@@ -19,6 +19,7 @@ export interface AppConfig {
   };
   youtubeDryRun: boolean;
   dissect: { models: string[]; defaultModel: string };
+  episodeRuntimes: number[];
 }
 
 export interface StoryMeta {
@@ -32,11 +33,30 @@ export interface StoryMeta {
   language: string;
 }
 
+export interface PlannedEpisode {
+  number: number;
+  title: string;
+  synopsis: string;
+  arcNote: string;
+  episodeId: string | null;
+}
+
+export interface StoryPlan {
+  arcSummary: string;
+  finale: string;
+  model: string;
+  createdAt: string;
+  updatedAt: string;
+  episodes: PlannedEpisode[];
+}
+
 export interface Story {
   id: string;
   title: string;
   slug: string;
   settingMode: 'shared' | 'per-episode';
+  continuity: 'random' | 'linear';
+  plan: StoryPlan | null;
   meta: StoryMeta;
   createdAt: string;
   updatedAt: string;
@@ -109,6 +129,8 @@ export interface Episode {
   title: string;
   brief: string;
   hasSettingOverride: boolean;
+  runtimeSec: number | null;
+  plannedNumber: number | null;
   createdAt: string;
   updatedAt: string;
 }

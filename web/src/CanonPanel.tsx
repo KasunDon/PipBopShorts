@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from './api';
 import { Field } from './App';
+import { RuntimeSelect } from './SeasonPanel';
 import type { AppConfig, CanonRegistry, CanonVersion, Story, StoryMeta } from './types';
 
 type Run = <T>(fn: () => Promise<T>) => Promise<T | undefined>;
@@ -15,7 +16,17 @@ const TYPE_ICONS: Record<string, string> = {
   audience_tone: '👶',
 };
 
-export function StoryMetaEditor({ story, run, onSaved }: { story: Story; run: Run; onSaved: () => void }) {
+export function StoryMetaEditor({
+  story,
+  config,
+  run,
+  onSaved,
+}: {
+  story: Story;
+  config: AppConfig;
+  run: Run;
+  onSaved: () => void;
+}) {
   const [meta, setMeta] = useState<StoryMeta>(story.meta);
   useEffect(() => setMeta(story.meta), [story]);
 
@@ -68,12 +79,11 @@ export function StoryMetaEditor({ story, run, onSaved }: { story: Story; run: Ru
         <Field label="Format">
           <input value={meta.format} placeholder="3D animated comedy shorts" onChange={(e) => set('format', e.target.value)} />
         </Field>
-        <Field label="Episode length (sec)">
-          <input
-            type="number"
-            min={5}
-            value={meta.episodeLengthSec ?? ''}
-            onChange={(e) => set('episodeLengthSec', e.target.value === '' ? null : Number(e.target.value))}
+        <Field label="Default episode runtime">
+          <RuntimeSelect
+            config={config}
+            value={meta.episodeLengthSec}
+            onChange={(v) => set('episodeLengthSec', v)}
           />
         </Field>
       </div>

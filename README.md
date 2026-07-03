@@ -31,7 +31,14 @@ finished short to YouTube Shorts.
       canon version), or **accepted gradually** (the mark transitions and future
       storylines blend toward the new value).
 2. **Episode** — a short brief for what happens. In per-episode mode it carries its own
-   setting `.md` that overrides the bible.
+   setting `.md` that overrides the bible. Each episode has a selectable target runtime
+   (**15s, 30s, 1 min, 1 min 30s, 3 min, 5 min**) and can be **auto-generated**:
+   - **Random stories** (default): the AI invents the next standalone episode, reusing the
+     canon and avoiding repeats — the series can run forever.
+   - **Linear stories**: plan a **season arc** for N episodes first (extendable — the old
+     finale becomes a mid-season beat); episodes are then generated in order, each briefed
+     with a recap of previous episodes, its slot's arc note, and a no-spoiler finale
+     guard. All of that continuity context also flows into storyline generation.
 3. **Storyline** — Claude reads the bible + brief and returns a structured, shot-by-shot
    storyline. **You pick the model and effort**:
    - Models: `claude-fable-5`, `claude-opus-4-8`, `claude-sonnet-5`, `claude-haiku-4-5`
@@ -193,6 +200,10 @@ so you can exercise the whole flow safely.
 | `POST /api/storylines/:id/generate` | Render all scenes |
 | `POST /api/storylines/:id/publish` | Publish to YouTube Shorts |
 | `POST /api/stories/bootstrap` | Idea → LLM-populated story (title, metadata, full bible, optional canon) |
+| `POST /api/stories/:id/plan` | Plan a linear season arc for N episodes |
+| `POST /api/stories/:id/plan/extend` | Extend the season (old finale becomes a mid-season beat) |
+| `POST /api/stories/:id/episodes/generate` | Auto-generate the next episode (random: fresh standalone; linear: next plan slot with recap) |
+| `GET /api/stories/:id/bible.md` · `GET /api/episodes/:id/setting.md` · `GET /api/templates/*.md` | Raw `.md` downloads |
 | `POST /api/stories/:id/episodes/draft` | Idea → drafted episode title/brief/setting (not persisted; review in the form) |
 | `GET /api/stories/:id/export` | Download the story as a portable `.story.md` package (bible, episodes + settings, canon history, storylines) |
 | `POST /api/stories/import` | Import a `.story.md` package as a new story (fresh ids; clips/publish state excluded by design) |
