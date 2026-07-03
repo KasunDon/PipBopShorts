@@ -3,9 +3,12 @@ import { createGatewayClaudeClient } from './clients/claudeGateway';
 import { PixverseClient } from './clients/pixverse';
 import { YoutubeClient } from './clients/youtube';
 import { loadConfig } from './config';
+import { loadEnvFile } from './env';
 import { Store } from './store/store';
 
 function main(): void {
+  // Load .env before reading config (real env vars still take precedence).
+  loadEnvFile();
   const config = loadConfig();
 
   if (!config.pixverse.apiKey) {
@@ -18,7 +21,9 @@ function main(): void {
   const claude = createGatewayClaudeClient({ baseUrl: config.claudeGateway.baseUrl });
 
   const pixverse = new PixverseClient({
-    apiKey: config.pixverse.apiKey ?? 'unset',
+    // Fall back to a placeholder so the server still boots without a key
+    // (video calls will fail clearly); `||` also guards an empty-string value.
+    apiKey: config.pixverse.apiKey || 'unset',
     baseUrl: config.pixverse.baseUrl,
   });
 
