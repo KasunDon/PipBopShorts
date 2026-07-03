@@ -20,6 +20,13 @@ import {
 } from './constants';
 import { bootstrapStory, draftEpisode } from './services/bootstrap';
 import { DEFAULT_DISSECT_MODEL, DISSECT_MODELS, extractCanon, patchMark } from './services/canon';
+import {
+  approvePortrait,
+  generatePortrait,
+  refreshPortrait,
+  syncCharactersFromCanon,
+  uploadPortraitStill,
+} from './services/characters';
 import { assertRuntime, extendPlan, generateNextEpisode, planStory } from './services/season';
 import { checkDrift, resolveDrift } from './services/drift';
 import { UserInputError } from './errors';
@@ -333,6 +340,75 @@ export function createApp(deps: AppDeps): express.Express {
         req.body ?? {},
       );
       res.json({ registry });
+    }),
+  );
+
+  // ---- Character reference images ----
+  app.get(
+    '/api/stories/:storyId/characters',
+    asyncHandler((req, res) => {
+      const registry = syncCharactersFromCanon(deps.store, req.params.storyId);
+      res.json({ registry });
+    }),
+  );
+
+  app.post(
+    '/api/stories/:storyId/characters/:entityId/portraits',
+    asyncHandler(async (req, res) => {
+      const { source, promptOverride, negativePrompt, model, quality, aspectRatio, style, wait } = req.body ?? {};
+      const version = await generatePortrait(deps.store, deps.pixverse, req.params.storyId, req.params.entityId, {
+        ...deps.generateDefaults,
+        source,
+        promptOverride,
+        negativePrompt,
+        model,
+        quality,
+        aspectRatio,
+        style,
+        wait: wait === undefined ? true : Boolean(wait),
+      });
+      res.status(201).json({ version });
+    }),
+  );
+
+  app.post(
+    '/api/stories/:storyId/characters/:entityId/portraits/:versionId/refresh',
+    asyncHandler(async (req, res) => {
+      const version = await refreshPortrait(
+        deps.store,
+        deps.pixverse,
+        req.params.storyId,
+        req.params.entityId,
+        req.params.versionId,
+      );
+      res.json({ version });
+    }),
+  );
+
+  app.post(
+    '/api/stories/:storyId/characters/:entityId/portraits/:versionId/approve',
+    asyncHandler((req, res) => {
+      const asset = approvePortrait(deps.store, req.params.storyId, req.params.entityId, req.params.versionId);
+      res.json({ asset });
+    }),
+  );
+
+  app.post(
+    '/api/stories/:storyId/characters/:entityId/still',
+    asyncHandler(async (req, res) => {
+      const { dataBase64, contentType, filename } = req.body ?? {};
+      if (!dataBase64 || typeof dataBase64 !== 'string') throw new HttpError(400, 'dataBase64 is required');
+      const bytes = new Uint8Array(Buffer.from(dataBase64, 'base64'));
+      const version = await uploadPortraitStill(
+        deps.store,
+        deps.pixverse,
+        req.params.storyId,
+        req.params.entityId,
+        bytes,
+        filename,
+        contentType,
+      );
+      res.status(201).json({ version });
     }),
   );
 

@@ -99,6 +99,38 @@ export interface CanonRegistry {
   versions: CanonVersion[];
 }
 
+export interface PortraitVersion {
+  id: string;
+  version: number;
+  prompt: string;
+  negativePrompt: string;
+  model: string;
+  quality: string;
+  aspectRatio: string;
+  style: string;
+  source: 'auto' | 'refresh' | 'tweak' | 'upload';
+  status: 'generating' | 'ready' | 'failed' | 'moderation_failed';
+  videoId: number | null;
+  previewUrl: string | null;
+  imageId: number | null;
+  imageUrl: string | null;
+  error: string | null;
+  createdAt: string;
+  finishedAt: string | null;
+}
+
+export interface CharacterAsset {
+  entityId: string;
+  name: string;
+  approvedVersionId: string | null;
+  versions: PortraitVersion[];
+}
+
+export interface CharacterRegistry {
+  storyId: string;
+  characters: Record<string, CharacterAsset>;
+}
+
 export interface DriftFinding {
   id: string;
   entityId: string | null;
@@ -151,6 +183,7 @@ export interface Scene {
   cameraMovement: string;
   imageId?: number;
   imageUrl?: string;
+  referenceCharacterIds?: string[];
 }
 
 export interface YoutubeMeta {

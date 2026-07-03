@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from './api';
 import { CanonSection, StoryMetaEditor } from './CanonPanel';
+import { CharactersPanel } from './CharactersPanel';
 import { DriftPanel } from './DriftPanel';
 import { SceneCard } from './SceneCard';
 import { formatRuntime, RuntimeSelect, SeasonPanel } from './SeasonPanel';
@@ -494,6 +495,8 @@ function StoryPanel({
       </section>
 
       <CanonSection story={data.story} config={config} run={run} />
+
+      <CharactersPanel story={data.story} run={run} />
 
       <SeasonPanel story={data.story} config={config} run={run} onChanged={onChanged} />
 

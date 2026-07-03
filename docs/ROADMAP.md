@@ -43,13 +43,25 @@ The "continuity supervisor" layer:
 - Canon block + global negative prompt injected into all storyline generation; child-
   safety directives activate automatically when the audience is ≤ 12.
 
-## 🔜 Phase 2 — Asset registry & scene patching (next)
+## ✅ Phase 2a — Character reference images (shipped)
 
-Goal: move from "consistency by prompt" to "consistency by reference".
+Consistency by reference, not just by prompt:
 
-- **Reference image library** per character/location/prop: approved stills attached to
-  canon entities; image-to-video generation automatically uses the right reference for the
-  characters in a scene.
+- Versioned **character reference registry** synced from canon characters.
+- Generate a PixVerse **portrait** per character from a canon-built prompt; **refresh**
+  and **tweak-prompt** on demand — every attempt is an immutable version, with an
+  **approved** pointer.
+- Approved reference is **sent to PixVerse** at scene render time (image-to-video via an
+  uploaded `img_id`; first-frame auto-extraction when ffmpeg is present, plus direct
+  still upload), with approved descriptors injected into the prompt.
+- Scenes **auto-link** to the characters named in them; the whole registry is
+  version-controlled and rides along in `.story.md` export/import.
+
+## 🔜 Phase 2b — Location/prop references & scene patching (next)
+
+- **Reference library for locations & props** (same pattern as characters): approved
+  stills attached to canon entities and injected into the relevant scenes.
+- Multi-reference scenes: send more than one approved image when the model supports it.
 - **Scene patch requests** ("make Bobo look worried, change nothing else"): a directed
   regeneration flow that builds a *patch prompt* — change-one-property + preserve-exactly
   + reject-if list — instead of free regeneration. Patch history per scene.

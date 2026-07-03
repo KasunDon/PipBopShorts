@@ -635,6 +635,85 @@ tr.transitioning {
   background: rgba(124, 92, 255, 0.08);
 }
 
+/* Character reference images */
+.character-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+}
+.character-card {
+  background: var(--card-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.character-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.portrait {
+  width: 100%;
+  aspect-ratio: 9 / 16;
+  object-fit: cover;
+  border-radius: 8px;
+  background: #000;
+  border: 1px solid var(--border);
+}
+.portrait.placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+}
+.portrait.placeholder.generating {
+  color: var(--accent-2);
+}
+.character-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.character-actions button,
+.character-actions .upload {
+  padding: 5px 9px;
+  font-size: 12px;
+}
+.tweak-row {
+  display: flex;
+  gap: 6px;
+}
+.tweak-row input {
+  flex: 1;
+}
+.tweak-row button {
+  white-space: nowrap;
+  font-size: 12px;
+}
+.version-strip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 6px 0;
+}
+.version-thumb {
+  flex: 0 0 90px;
+  text-align: center;
+}
+.version-thumb .portrait {
+  aspect-ratio: 9 / 16;
+}
+.version-thumb.approved {
+  outline: 2px solid var(--good);
+  border-radius: 8px;
+}
+
 /* .md download links */
 .md-link {
   display: inline-flex;

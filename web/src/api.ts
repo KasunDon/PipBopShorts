@@ -1,10 +1,13 @@
 import type {
   AppConfig,
   CanonRegistry,
+  CharacterAsset,
+  CharacterRegistry,
   Clip,
   DriftFinding,
   DriftReport,
   Episode,
+  PortraitVersion,
   Project,
   ProjectSummary,
   Scene,
@@ -97,6 +100,26 @@ export const api = {
       `/api/stories/${storyId}/canon/entities/${entityId}/marks/${encodeURIComponent(markKey)}`,
       patch,
     ),
+  // ---- Character reference images ----
+  getCharacters: (storyId: string) => req<{ registry: CharacterRegistry }>('GET', `/api/stories/${storyId}/characters`),
+  generatePortrait: (
+    storyId: string,
+    entityId: string,
+    opts: { source?: string; promptOverride?: string; model?: string; quality?: string; aspectRatio?: string } = {},
+  ) => req<{ version: PortraitVersion }>('POST', `/api/stories/${storyId}/characters/${entityId}/portraits`, opts),
+  refreshPortrait: (storyId: string, entityId: string, versionId: string) =>
+    req<{ version: PortraitVersion }>(
+      'POST',
+      `/api/stories/${storyId}/characters/${entityId}/portraits/${versionId}/refresh`,
+    ),
+  approvePortrait: (storyId: string, entityId: string, versionId: string) =>
+    req<{ asset: CharacterAsset }>(
+      'POST',
+      `/api/stories/${storyId}/characters/${entityId}/portraits/${versionId}/approve`,
+    ),
+  uploadStill: (storyId: string, entityId: string, data: { dataBase64: string; contentType: string; filename: string }) =>
+    req<{ version: PortraitVersion }>('POST', `/api/stories/${storyId}/characters/${entityId}/still`, data),
+
   driftCheck: (storylineId: string, opts: { model?: string } = {}) =>
     req<{ report: DriftReport }>('POST', `/api/storylines/${storylineId}/drift-check`, opts),
   resolveDrift: (storylineId: string, reportId: string, findingId: string, action: string, note?: string) =>

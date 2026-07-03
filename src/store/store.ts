@@ -1,7 +1,15 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { storyBibleTemplate } from '../templates';
-import { defaultStoryMeta, type CanonRegistry, type Episode, type Project, type Story, type StoryMeta } from '../types';
+import {
+  defaultStoryMeta,
+  type CanonRegistry,
+  type CharacterRegistry,
+  type Episode,
+  type Project,
+  type Story,
+  type StoryMeta,
+} from '../types';
 
 interface Db {
   stories: Record<string, Story>;
@@ -282,6 +290,30 @@ export class Store {
     const s = this.getStory(registry.storyId);
     fs.mkdirSync(this.storyDir(registry.storyId), { recursive: true });
     fs.writeFileSync(this.canonPath(registry.storyId), JSON.stringify(registry, null, 2), 'utf8');
+    s.updatedAt = new Date().toISOString();
+    this.persist();
+    return registry;
+  }
+
+  // ---- Character reference images (versioned portraits) ----
+
+  private charactersPath(storyId: string): string {
+    return path.join(this.storyDir(storyId), 'characters.json');
+  }
+
+  getCharacterRegistry(storyId: string): CharacterRegistry | null {
+    this.getStory(storyId);
+    try {
+      return JSON.parse(fs.readFileSync(this.charactersPath(storyId), 'utf8')) as CharacterRegistry;
+    } catch {
+      return null;
+    }
+  }
+
+  saveCharacterRegistry(registry: CharacterRegistry): CharacterRegistry {
+    const s = this.getStory(registry.storyId);
+    fs.mkdirSync(this.storyDir(registry.storyId), { recursive: true });
+    fs.writeFileSync(this.charactersPath(registry.storyId), JSON.stringify(registry, null, 2), 'utf8');
     s.updatedAt = new Date().toISOString();
     this.persist();
     return registry;

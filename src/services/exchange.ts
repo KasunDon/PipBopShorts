@@ -3,6 +3,7 @@ import { makeId } from '../store/store';
 import { idleClip } from './storyline';
 import type {
   CanonRegistry,
+  CharacterRegistry,
   Clip,
   Episode,
   Project,
@@ -28,8 +29,8 @@ import type {
 export const EXPORT_FORMAT_VERSION = 1;
 const HEADER = `<!-- pipbopshorts-story-export v${EXPORT_FORMAT_VERSION} -->`;
 
-type BlockKind = 'story' | 'bible' | 'episode' | 'episode-setting' | 'storyline' | 'canon';
-const BLOCK_KINDS: BlockKind[] = ['story', 'bible', 'episode', 'episode-setting', 'storyline', 'canon'];
+type BlockKind = 'story' | 'bible' | 'episode' | 'episode-setting' | 'storyline' | 'canon' | 'characters';
+const BLOCK_KINDS: BlockKind[] = ['story', 'bible', 'episode', 'episode-setting', 'storyline', 'canon', 'characters'];
 
 const START = (kind: BlockKind) => `<!-- pipbop:${kind} -->`;
 const END = '<!-- pipbop:end -->';
@@ -163,6 +164,15 @@ export function exportStory(store: Store, storyId: string): string {
     out.push(END);
   }
 
+  const characters = store.getCharacterRegistry(storyId);
+  if (characters && Object.keys(characters.characters).length > 0) {
+    out.push('');
+    out.push('## Character Reference Images (all versions)');
+    out.push(START('characters'));
+    out.push(jsonBlock(characters));
+    out.push(END);
+  }
+
   out.push('');
   return out.join('\n');
 }
@@ -288,6 +298,13 @@ export function importStory(store: Store, markdown: string): ImportResult {
     canon.storyId = story.id;
     store.saveCanonRegistry(canon);
     canonVersions = canon.versions.length;
+  }
+
+  const charactersBlock = blocks.find((b) => b.kind === 'characters');
+  if (charactersBlock) {
+    const characters = parseJsonContent<CharacterRegistry>(charactersBlock.content, 'character registry');
+    characters.storyId = story.id;
+    store.saveCharacterRegistry(characters);
   }
 
   return { story: store.getStory(story.id), episodes, storylineCount, canonVersions };

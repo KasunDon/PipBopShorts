@@ -2,6 +2,7 @@ import { generateStoryline, type AnthropicLike, type StorylineInput } from '../c
 import { collectValidationIssues } from '../clients/pixverse';
 import { DEFAULT_CLAUDE_MODEL, SHORT_DEFAULTS } from '../constants';
 import { canonForStory } from './canon';
+import { detectCharactersInText, syncCharactersFromCanon } from './characters';
 import { buildContinuityBlock } from './season';
 import type { Store } from '../store/store';
 import { makeId } from '../store/store';
@@ -111,6 +112,16 @@ export async function createStorylineProject(
     }
   }
 
+  // Auto-link each scene to the canon characters named in it, so approved
+  // reference images are sent to PixVerse when the scene renders.
+  if (canon) {
+    syncCharactersFromCanon(store, storyId);
+    for (const scene of generated.scenes) {
+      const ids = detectCharactersInText(store, story, `${scene.heading} ${scene.description} ${scene.prompt}`);
+      if (ids.length > 0) scene.referenceCharacterIds = ids;
+    }
+  }
+
   const now = new Date().toISOString();
   const storyline: Storyline = {
     id: makeId('sl'),
@@ -158,6 +169,7 @@ export function updateScene(store: Store, storylineId: string, sceneId: string, 
     'cameraMovement',
     'imageId',
     'imageUrl',
+    'referenceCharacterIds',
   ];
   for (const key of editable) {
     if (key in patch && patch[key] !== undefined) {

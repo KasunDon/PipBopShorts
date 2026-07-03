@@ -1,9 +1,10 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { extractCanon } from '../src/services/canon';
+import { approvePortrait, uploadPortraitStill } from '../src/services/characters';
 import { exportFilename, exportStory, importStory, parseBlocks } from '../src/services/exchange';
 import { createStorylineProject } from '../src/services/storyline';
 import type { Store } from '../src/store/store';
-import { makeStore, makeStudioFakeClaude } from './helpers';
+import { makeFakePixverse, makeStore, makeStudioFakeClaude } from './helpers';
 
 let cleanups: Array<() => void> = [];
 afterEach(() => {
@@ -21,6 +22,10 @@ async function buildRichStory(store: Store) {
   });
   const { client } = makeStudioFakeClaude();
   await extractCanon(store, client, story.id);
+  // Approve a character reference so its versioned registry rides along in the export.
+  const { client: pixverse } = makeFakePixverse();
+  const portrait = await uploadPortraitStill(store, pixverse, story.id, 'CHAR_BOBO_001', new Uint8Array([1]), 'b.png');
+  approvePortrait(store, story.id, 'CHAR_BOBO_001', portrait.id);
   const ep1 = store.createEpisode(story.id, { title: 'Banana Boing', brief: 'Bobo wants a banana', setting: '# Frozen moon base' });
   const ep2 = store.createEpisode(story.id, { title: 'Berry Bubble', brief: 'Benny bites a berry' });
   const project = await createStorylineProject(store, client, story.id, ep1.id, {});
@@ -82,6 +87,13 @@ describe('import round-trip', () => {
     expect(result.episodes.map((e) => e.title)).toEqual(['Banana Boing', 'Berry Bubble']);
     expect(target.getSetting(result.episodes[0].id)).toContain('Frozen moon base');
     expect(target.getSetting(result.episodes[1].id)).toBe('');
+
+    // Character reference registry rides along and re-points at the new story
+    const chars = target.getCharacterRegistry(result.story.id)!;
+    expect(chars.storyId).toBe(result.story.id);
+    const bobo = chars.characters['CHAR_BOBO_001'];
+    expect(bobo.versions).toHaveLength(1);
+    expect(bobo.approvedVersionId).toBe(bobo.versions[0].id);
 
     // Canon registry with full history, re-pointed at the new story
     const canon = target.getCanonRegistry(result.story.id)!;

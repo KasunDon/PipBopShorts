@@ -230,6 +230,60 @@ describe('idea bootstrap over HTTP', () => {
   });
 });
 
+describe('character reference images over HTTP', () => {
+  it('syncs, generates, approves, and lists character portraits', async () => {
+    const { client: studioClaude } = makeStudioFakeClaude();
+    const { app } = makeApp({ claude: studioClaude });
+
+    const storyRes = await request(app)
+      .post('/api/stories')
+      .send({ title: 'Char Story', bible: 'Bobo is a monkey with a green scarf.' });
+    const storyId = storyRes.body.story.id;
+    await request(app).post(`/api/stories/${storyId}/canon/extract`).send({}).expect(201);
+
+    // Sync creates an asset per canon character.
+    const list = await request(app).get(`/api/stories/${storyId}/characters`).expect(200);
+    expect(Object.keys(list.body.registry.characters)).toContain('CHAR_BOBO_001');
+
+    // Generate a portrait (defaults poll instantly via generateDefaults).
+    const gen = await request(app)
+      .post(`/api/stories/${storyId}/characters/CHAR_BOBO_001/portraits`)
+      .send({})
+      .expect(201);
+    expect(gen.body.version.status).toBe('ready');
+    expect(gen.body.version.version).toBe(1);
+
+    // Tweak prompt → new version.
+    const tweak = await request(app)
+      .post(`/api/stories/${storyId}/characters/CHAR_BOBO_001/portraits`)
+      .send({ source: 'tweak', promptOverride: 'Bobo with an explorer hat' })
+      .expect(201);
+    expect(tweak.body.version.version).toBe(2);
+    expect(tweak.body.version.prompt).toBe('Bobo with an explorer hat');
+
+    // Approve the first version.
+    const approve = await request(app)
+      .post(`/api/stories/${storyId}/characters/CHAR_BOBO_001/portraits/${gen.body.version.id}/approve`)
+      .expect(200);
+    expect(approve.body.asset.approvedVersionId).toBe(gen.body.version.id);
+  });
+
+  it('uploads a still as an approvable version', async () => {
+    const { client: studioClaude } = makeStudioFakeClaude();
+    const { app } = makeApp({ claude: studioClaude });
+    const storyRes = await request(app).post('/api/stories').send({ title: 'S', bible: 'Bobo.' });
+    const storyId = storyRes.body.story.id;
+    await request(app).post(`/api/stories/${storyId}/canon/extract`).send({});
+    const b64 = Buffer.from([1, 2, 3]).toString('base64');
+    const up = await request(app)
+      .post(`/api/stories/${storyId}/characters/CHAR_BOBO_001/still`)
+      .send({ dataBase64: b64, contentType: 'image/png', filename: 'b.png' })
+      .expect(201);
+    expect(up.body.version.source).toBe('upload');
+    expect(up.body.version.imageId).toBe(42);
+  });
+});
+
 describe('season planning + episode generation over HTTP', () => {
   it('plans, generates, and extends a linear season', async () => {
     const { client: studioClaude } = makeStudioFakeClaude();

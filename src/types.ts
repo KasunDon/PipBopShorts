@@ -114,6 +114,8 @@ export interface Scene {
   /** Optional image reference (PixVerse img_id) for image-to-video. */
   imageId?: number;
   imageUrl?: string;
+  /** Canon character entity ids whose approved reference images this scene uses. */
+  referenceCharacterIds?: string[];
 }
 
 export interface YoutubeMeta {
@@ -243,6 +245,53 @@ export interface CanonRegistry {
   storyId: string;
   currentVersion: number;
   versions: CanonVersion[];
+}
+
+// ---------------------------------------------------------------------------
+// Character reference images (versioned portraits attached to scenes)
+// ---------------------------------------------------------------------------
+
+export type PortraitStatus = 'generating' | 'ready' | 'failed' | 'moderation_failed';
+
+export type PortraitSource = 'auto' | 'refresh' | 'tweak' | 'upload';
+
+/** One version of a character's reference image. Every refresh/tweak = a new version. */
+export interface PortraitVersion {
+  id: string;
+  version: number;
+  /** The prompt used to render this portrait (editable via "tweak"). */
+  prompt: string;
+  negativePrompt: string;
+  model: string;
+  quality: string;
+  aspectRatio: string;
+  style: string;
+  source: PortraitSource;
+  status: PortraitStatus;
+  /** PixVerse video id of the rendered portrait clip (when generated). */
+  videoId: number | null;
+  /** Rendered portrait preview (the portrait clip URL). */
+  previewUrl: string | null;
+  /** Uploaded still that PixVerse can consume as an image-to-video source. */
+  imageId: number | null;
+  imageUrl: string | null;
+  error: string | null;
+  createdAt: string;
+  finishedAt: string | null;
+}
+
+/** All reference-image versions for one canon character, plus the approved pick. */
+export interface CharacterAsset {
+  /** Canon entity id, e.g. CHAR_BOBO_001. */
+  entityId: string;
+  name: string;
+  approvedVersionId: string | null;
+  versions: PortraitVersion[];
+}
+
+export interface CharacterRegistry {
+  storyId: string;
+  characters: Record<string, CharacterAsset>;
 }
 
 // ---------------------------------------------------------------------------

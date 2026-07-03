@@ -218,6 +218,12 @@ export function SceneCard({
               </button>
             )}
           </div>
+          {scene.referenceCharacterIds && scene.referenceCharacterIds.length > 0 && (
+            <p className="muted small">
+              🧸 Character references: {scene.referenceCharacterIds.length} — approved images/descriptors are sent to
+              PixVerse for this scene.
+            </p>
+          )}
           {scene.imageUrl && <p className="muted small">Reference image attached (image-to-video). Camera movement will apply.</p>}
           {clip?.error && <p className="scene-error">{clip.error}</p>}
         </div>

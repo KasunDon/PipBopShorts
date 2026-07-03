@@ -7,6 +7,7 @@ import {
 } from '../clients/pixverse';
 import type { Store } from '../store/store';
 import type { Clip, ClipAttempt, ClipStatus, Project, Scene } from '../types';
+import { resolveSceneReferences, type ResolvedReferences } from './characters';
 
 export interface GenerateOptions {
   /** Poll until the clip finishes (true) or return immediately after submitting (false). */
@@ -16,9 +17,17 @@ export interface GenerateOptions {
   sleep?: (ms: number) => Promise<void>;
 }
 
-function sceneToParams(scene: Scene): GenerationParams {
+function sceneToParams(scene: Scene, refs?: ResolvedReferences): GenerationParams {
+  // Inject approved character descriptors so the render matches the reference.
+  let prompt = scene.prompt;
+  if (refs && refs.descriptors.length > 0) {
+    const block = refs.descriptors.map((d) => `${d.name}: ${d.descriptor}`).join(' | ');
+    prompt = `${prompt}\n\nCharacter references (match these approved designs exactly): ${block}`;
+  }
+  // An explicit scene image wins; otherwise use an approved character reference image.
+  const imageId = scene.imageId ?? refs?.imageId ?? undefined;
   return {
-    prompt: scene.prompt,
+    prompt,
     model: scene.model,
     quality: scene.quality,
     duration: scene.duration,
@@ -27,7 +36,7 @@ function sceneToParams(scene: Scene): GenerationParams {
     negativePrompt: scene.negativePrompt,
     style: scene.style,
     cameraMovement: scene.cameraMovement,
-    imageId: scene.imageId,
+    imageId: imageId ?? undefined,
   };
 }
 
@@ -80,7 +89,8 @@ export async function generateClip(
 ): Promise<Clip> {
   const project = store.getProject(storylineId);
   const scene = getScene(project, sceneId);
-  const params = sceneToParams(scene);
+  const refs = resolveSceneReferences(store, project.storyline.storyId, scene.referenceCharacterIds ?? []);
+  const params = sceneToParams(scene, refs);
 
   const attempt = newAttempt(scene);
   const clip: Clip = {
@@ -96,8 +106,10 @@ export async function generateClip(
   store.saveProject(project);
 
   try {
+    // Route to image-to-video whenever an image reference is available — either
+    // the scene's own upload or a resolved approved character reference.
     const videoId =
-      typeof scene.imageId === 'number'
+      typeof params.imageId === 'number'
         ? await pixverse.generateImageToVideo(params)
         : await pixverse.generateTextToVideo(params);
     clip.videoId = videoId;

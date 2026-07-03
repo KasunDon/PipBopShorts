@@ -30,6 +30,13 @@ finished short to YouTube Shorts.
       **checked for drift**; each finding can be **rejected**, **accepted now** (new
       canon version), or **accepted gradually** (the mark transitions and future
       storylines blend toward the new value).
+   3. **Character reference images** — generate a PixVerse portrait per canon
+      character, **review** it, **refresh** (regenerate) or **tweak the prompt** on
+      demand, and **approve** a version. Every attempt is a version; approval marks
+      the canonical pick. Scenes are auto-linked to the characters named in them, so
+      when a clip renders, the **approved reference image is sent to PixVerse**
+      (image-to-video) and the approved descriptors are injected — keeping every clip
+      on-model. Direct **still upload** always yields a real reference image.
 2. **Episode** — a short brief for what happens. In per-episode mode it carries its own
    setting `.md` that overrides the bible. Each episode has a selectable target runtime
    (**15s, 30s, 1 min, 1 min 30s, 3 min, 5 min**) and can be **auto-generated**:
@@ -211,6 +218,10 @@ so you can exercise the whole flow safely.
 | `GET /api/stories/:id/canon` | Canon registry (all versions) |
 | `POST /api/stories/:id/canon/extract` | Dissect the bible into a new canon version |
 | `PATCH /api/stories/:id/canon/entities/:eid/marks/:key` | Edit a mark / start or complete a transition |
+| `GET /api/stories/:id/characters` | Character reference registry (synced from canon) |
+| `POST /api/stories/:id/characters/:eid/portraits` | Generate/refresh/tweak a portrait version |
+| `POST /api/stories/:id/characters/:eid/portraits/:v/approve` | Approve a version as the reference |
+| `POST /api/stories/:id/characters/:eid/still` | Upload a still as a reference image (base64) |
 | `POST /api/storylines/:id/drift-check` | Check the storyline against canon |
 | `POST /api/storylines/:id/drift/:rep/findings/:f/resolve` | Resolve drift (accept-now / accept-gradually / reject) |
 
