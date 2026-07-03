@@ -1,0 +1,220 @@
+import { generateStoryline, type AnthropicLike, type StorylineInput } from '../clients/claude';
+import { collectValidationIssues } from '../clients/pixverse';
+import { DEFAULT_CLAUDE_MODEL, SHORT_DEFAULTS } from '../constants';
+import type { Store } from '../store/store';
+import { makeId } from '../store/store';
+import type { Clip, Project, Scene, Storyline, YoutubeMeta } from '../types';
+import type { ClaudeEffort } from '../constants';
+
+export interface CreateStorylineOptions {
+  model?: string;
+  effort?: ClaudeEffort;
+  sceneCount?: number;
+  guidance?: string;
+  aspectRatio?: StorylineInput['aspectRatio'];
+  pixverseModel?: StorylineInput['pixverseModel'];
+  quality?: StorylineInput['quality'];
+  duration?: StorylineInput['duration'];
+  motionMode?: StorylineInput['motionMode'];
+}
+
+function idleClip(sceneId: string): Clip {
+  return {
+    sceneId,
+    status: 'idle',
+    videoId: null,
+    url: null,
+    error: null,
+    attempts: [],
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+/**
+ * Build the storyline context for an episode: the story bible, plus the
+ * per-episode setting override when the story runs in per-episode mode.
+ */
+export function buildStorylineContext(store: Store, storyId: string, episodeId: string): {
+  bible: string;
+  settingOverride?: string;
+} {
+  const story = store.getStory(storyId);
+  const bible = store.getBible(storyId);
+  let settingOverride: string | undefined;
+  if (story.settingMode === 'per-episode') {
+    const setting = store.getSetting(episodeId);
+    if (setting.trim()) settingOverride = setting;
+  }
+  return { bible, settingOverride };
+}
+
+/** Generate a storyline for an episode and persist it as a new project. */
+export async function createStorylineProject(
+  store: Store,
+  claude: AnthropicLike,
+  storyId: string,
+  episodeId: string,
+  options: CreateStorylineOptions = {},
+): Promise<Project> {
+  const episode = store.getEpisode(episodeId);
+  if (episode.storyId !== storyId) {
+    throw new Error('Episode does not belong to the given story');
+  }
+  const { bible, settingOverride } = buildStorylineContext(store, storyId, episodeId);
+
+  const generated = await generateStoryline(claude, {
+    bible,
+    episodeTitle: episode.title,
+    episodeBrief: episode.brief,
+    settingOverride,
+    model: options.model ?? DEFAULT_CLAUDE_MODEL,
+    effort: options.effort,
+    sceneCount: options.sceneCount,
+    guidance: options.guidance,
+    aspectRatio: options.aspectRatio ?? SHORT_DEFAULTS.aspectRatio,
+    pixverseModel: options.pixverseModel,
+    quality: options.quality,
+    duration: options.duration,
+    motionMode: options.motionMode,
+  });
+
+  const now = new Date().toISOString();
+  const storyline: Storyline = {
+    id: makeId('sl'),
+    storyId,
+    episodeId,
+    title: generated.title,
+    logline: generated.logline,
+    model: generated.model,
+    effort: generated.effort,
+    scenes: generated.scenes,
+    youtube: generated.youtube,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  const clips: Record<string, Clip> = {};
+  for (const scene of storyline.scenes) clips[scene.id] = idleClip(scene.id);
+
+  return store.saveProject({ storyline, clips, publish: null });
+}
+
+function touch(project: Project): void {
+  project.storyline.updatedAt = new Date().toISOString();
+}
+
+/** Patch a scene's generation parameters; resets that scene's clip so it re-renders. */
+export function updateScene(store: Store, storylineId: string, sceneId: string, patch: Partial<Scene>): Project {
+  const project = store.getProject(storylineId);
+  const scene = project.storyline.scenes.find((s) => s.id === sceneId);
+  if (!scene) throw new Error(`Scene not found: ${sceneId}`);
+
+  // Only allow editable fields; never let a patch overwrite id/order arbitrarily.
+  const editable: (keyof Scene)[] = [
+    'heading',
+    'description',
+    'prompt',
+    'negativePrompt',
+    'duration',
+    'aspectRatio',
+    'model',
+    'quality',
+    'motionMode',
+    'style',
+    'cameraMovement',
+    'imageId',
+    'imageUrl',
+  ];
+  for (const key of editable) {
+    if (key in patch && patch[key] !== undefined) {
+      (scene as unknown as Record<string, unknown>)[key] = patch[key];
+    }
+  }
+
+  // Validate the resulting scene as a generation request.
+  const issues = collectValidationIssues(
+    {
+      prompt: scene.prompt,
+      model: scene.model,
+      quality: scene.quality,
+      duration: scene.duration,
+      motionMode: scene.motionMode,
+      aspectRatio: scene.aspectRatio,
+      negativePrompt: scene.negativePrompt,
+      style: scene.style,
+      cameraMovement: scene.cameraMovement,
+      imageId: scene.imageId,
+    },
+    { requireImage: typeof scene.imageId === 'number' },
+  );
+  if (issues.length > 0) {
+    throw Object.assign(new Error(`Invalid scene parameters: ${issues.join(' ')}`), { issues });
+  }
+
+  // Editing invalidates any rendered clip.
+  project.clips[sceneId] = idleClip(sceneId);
+  touch(project);
+  return store.saveProject(project);
+}
+
+export function addScene(store: Store, storylineId: string, partial?: Partial<Scene>): Project {
+  const project = store.getProject(storylineId);
+  const order = project.storyline.scenes.length;
+  const scene: Scene = {
+    id: makeId('scene'),
+    order,
+    heading: partial?.heading ?? `Scene ${order + 1}`,
+    description: partial?.description ?? '',
+    prompt: partial?.prompt ?? '',
+    negativePrompt: partial?.negativePrompt ?? '',
+    duration: partial?.duration ?? SHORT_DEFAULTS.duration,
+    aspectRatio: partial?.aspectRatio ?? SHORT_DEFAULTS.aspectRatio,
+    model: partial?.model ?? SHORT_DEFAULTS.model,
+    quality: partial?.quality ?? SHORT_DEFAULTS.quality,
+    motionMode: partial?.motionMode ?? SHORT_DEFAULTS.motionMode,
+    style: partial?.style ?? 'none',
+    cameraMovement: partial?.cameraMovement ?? 'none',
+  };
+  project.storyline.scenes.push(scene);
+  project.clips[scene.id] = idleClip(scene.id);
+  touch(project);
+  return store.saveProject(project);
+}
+
+export function removeScene(store: Store, storylineId: string, sceneId: string): Project {
+  const project = store.getProject(storylineId);
+  project.storyline.scenes = project.storyline.scenes.filter((s) => s.id !== sceneId);
+  project.storyline.scenes.forEach((s, i) => (s.order = i));
+  delete project.clips[sceneId];
+  touch(project);
+  return store.saveProject(project);
+}
+
+/** Reorder scenes to match the provided list of scene ids. */
+export function reorderScenes(store: Store, storylineId: string, orderedIds: string[]): Project {
+  const project = store.getProject(storylineId);
+  const byId = new Map(project.storyline.scenes.map((s) => [s.id, s]));
+  const reordered: Scene[] = [];
+  for (const id of orderedIds) {
+    const scene = byId.get(id);
+    if (scene) {
+      reordered.push(scene);
+      byId.delete(id);
+    }
+  }
+  // Append any scenes that were omitted from the ordering, preserving them.
+  for (const remaining of byId.values()) reordered.push(remaining);
+  reordered.forEach((s, i) => (s.order = i));
+  project.storyline.scenes = reordered;
+  touch(project);
+  return store.saveProject(project);
+}
+
+export function updateYoutubeMeta(store: Store, storylineId: string, patch: Partial<YoutubeMeta>): Project {
+  const project = store.getProject(storylineId);
+  project.storyline.youtube = { ...project.storyline.youtube, ...patch };
+  touch(project);
+  return store.saveProject(project);
+}
+
+export { idleClip };
