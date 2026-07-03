@@ -105,6 +105,19 @@ export const api = {
       `/api/storylines/${storylineId}/drift/${reportId}/findings/${findingId}/resolve`,
       { action, note },
     ),
+  exportStory: async (storyId: string): Promise<{ markdown: string; filename: string }> => {
+    const res = await fetch(`/api/stories/${storyId}/export`);
+    if (!res.ok) throw new Error(`Export failed (HTTP ${res.status})`);
+    const disposition = res.headers.get('content-disposition') ?? '';
+    const match = disposition.match(/filename="([^"]+)"/);
+    return { markdown: await res.text(), filename: match?.[1] ?? 'story.story.md' };
+  },
+  importStory: (markdown: string) =>
+    req<{ story: Story; episodeCount: number; storylineCount: number; canonVersions: number }>(
+      'POST',
+      '/api/stories/import',
+      { markdown },
+    ),
   storyBibleTemplate: (title: string) =>
     req<{ markdown: string }>('GET', `/api/templates/story-bible?title=${encodeURIComponent(title)}`),
   episodeSettingTemplate: (title: string) =>

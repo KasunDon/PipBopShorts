@@ -191,6 +191,37 @@ describe('canon + drift over HTTP', () => {
   });
 });
 
+describe('story export/import over HTTP', () => {
+  it('exports a downloadable .story.md and re-imports it', async () => {
+    const { client: studioClaude } = makeStudioFakeClaude();
+    const { app } = makeApp({ claude: studioClaude });
+
+    const storyRes = await request(app)
+      .post('/api/stories')
+      .send({ title: 'Portable Show', bible: 'Bobo has a green scarf.', meta: { audienceMin: 4, audienceMax: 7 } });
+    const storyId = storyRes.body.story.id;
+    await request(app).post(`/api/stories/${storyId}/canon/extract`).send({});
+    await request(app).post(`/api/stories/${storyId}/episodes`).send({ title: 'Ep 1', brief: 'b' });
+
+    const exportRes = await request(app).get(`/api/stories/${storyId}/export`).expect(200);
+    expect(exportRes.headers['content-type']).toContain('text/markdown');
+    expect(exportRes.headers['content-disposition']).toContain('portable-show.story.md');
+    expect(exportRes.text).toContain('pipbopshorts-story-export');
+
+    const importRes = await request(app).post('/api/stories/import').send({ markdown: exportRes.text }).expect(201);
+    expect(importRes.body.story.title).toBe('Portable Show');
+    expect(importRes.body.story.id).not.toBe(storyId);
+    expect(importRes.body.episodeCount).toBe(1);
+    expect(importRes.body.canonVersions).toBe(1);
+  });
+
+  it('400s on an invalid import payload', async () => {
+    const { app } = makeApp();
+    await request(app).post('/api/stories/import').send({ markdown: 'not a package' }).expect(400);
+    await request(app).post('/api/stories/import').send({}).expect(400);
+  });
+});
+
 describe('error handling', () => {
   it('404 for a missing story', async () => {
     const { app } = makeApp();

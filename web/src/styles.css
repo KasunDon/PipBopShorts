@@ -144,6 +144,16 @@ textarea:focus {
   flex-direction: column;
   gap: 8px;
 }
+.import-story {
+  justify-content: center;
+  font-size: 13px;
+  color: var(--muted);
+  border-style: dashed;
+}
+.import-story:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
 
 /* Main */
 .main {

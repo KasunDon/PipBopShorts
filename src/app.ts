@@ -19,6 +19,7 @@ import {
 } from './constants';
 import { DEFAULT_DISSECT_MODEL, DISSECT_MODELS, extractCanon, patchMark } from './services/canon';
 import { checkDrift, resolveDrift } from './services/drift';
+import { exportFilename, exportStory, ImportError, importStory } from './services/exchange';
 import {
   extendClip,
   generateAllClips,
@@ -161,6 +162,36 @@ export function createApp(deps: AppDeps): express.Express {
       if (typeof markdown !== 'string') throw new HttpError(400, 'markdown is required');
       deps.store.setBible(req.params.storyId, markdown);
       res.json({ markdown });
+    }),
+  );
+
+  // ---- Story export / import (.story.md package) ----
+  app.get(
+    '/api/stories/:storyId/export',
+    asyncHandler((req, res) => {
+      const story = deps.store.getStory(req.params.storyId);
+      const markdown = exportStory(deps.store, story.id);
+      res
+        .type('text/markdown; charset=utf-8')
+        .setHeader('Content-Disposition', `attachment; filename="${exportFilename(story)}"`)
+        .send(markdown);
+    }),
+  );
+
+  app.post(
+    '/api/stories/import',
+    asyncHandler((req, res) => {
+      const { markdown } = req.body ?? {};
+      if (typeof markdown !== 'string' || !markdown.trim()) {
+        throw new HttpError(400, 'markdown (the .story.md file content) is required');
+      }
+      const result = importStory(deps.store, markdown);
+      res.status(201).json({
+        story: result.story,
+        episodeCount: result.episodes.length,
+        storylineCount: result.storylineCount,
+        canonVersions: result.canonVersions,
+      });
     }),
   );
 
@@ -457,6 +488,7 @@ class HttpError extends Error {
 function mapError(err: unknown): { status: number; body: Record<string, unknown> } {
   if (err instanceof HttpError) return { status: err.status, body: { error: err.message } };
   if (err instanceof NotFoundError) return { status: 404, body: { error: err.message } };
+  if (err instanceof ImportError) return { status: 400, body: { error: err.message } };
   if (err instanceof ValidationError) return { status: 400, body: { error: err.message, issues: err.issues } };
   if (err instanceof ClaudeError) {
     const status = err.kind === 'refusal' ? 422 : 400;

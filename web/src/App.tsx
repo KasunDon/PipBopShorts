@@ -89,6 +89,16 @@ export function App() {
             openStory(res.story.id);
           }
         }}
+        onImport={async (markdown) => {
+          const res = await run(() => api.importStory(markdown));
+          if (res) {
+            await refreshStories();
+            openStory(res.story.id);
+            alert(
+              `Imported "${res.story.title}" — ${res.episodeCount} episode(s), ${res.storylineCount} storyline(s), ${res.canonVersions} canon version(s).`,
+            );
+          }
+        }}
       />
       <main className="main">
         <header className="topbar">
@@ -194,11 +204,13 @@ function Sidebar({
   activeStoryId,
   onSelect,
   onCreate,
+  onImport,
 }: {
   stories: Story[];
   activeStoryId: string | null;
   onSelect: (id: string) => void;
   onCreate: (title: string, settingMode: string) => void;
+  onImport: (markdown: string) => void;
 }) {
   const [title, setTitle] = useState('');
   const [mode, setMode] = useState('shared');
@@ -232,6 +244,19 @@ function Sidebar({
           <option value="per-episode">Per-episode setting</option>
         </select>
         <button type="submit">+ Create story</button>
+        <label className="upload import-story" title="Import a .story.md package exported from any PipBopShorts instance">
+          📥 Import story (.story.md)
+          <input
+            type="file"
+            accept=".md,text/markdown"
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              onImport(await file.text());
+              e.target.value = '';
+            }}
+          />
+        </label>
       </form>
     </aside>
   );
@@ -281,6 +306,23 @@ function StoryPanel({
             <option value="shared">Shared setting across episodes</option>
             <option value="per-episode">Each episode has its own setting</option>
           </select>
+          <button
+            title="Download this story as a portable .story.md package (bible, episodes, canon, storylines)"
+            onClick={async () => {
+              const res = await run(() => api.exportStory(data.story.id));
+              if (res) {
+                const blob = new Blob([res.markdown], { type: 'text/markdown' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = res.filename;
+                a.click();
+                URL.revokeObjectURL(url);
+              }
+            }}
+          >
+            📤 Export .md
+          </button>
           <button
             className="danger"
             onClick={async () => {

@@ -99,6 +99,7 @@ Tests live in `tests/`:
 | `store.test.ts` | file-backed store, `.md` bibles/settings, persistence, cascading deletes |
 | `services.test.ts` | storyline creation, scene tweaking, render/refresh/extend, publish |
 | `canon.test.ts` | templates, canon extraction/versioning, auto audience marks, transitions, canon-aware generation |
+| `exchange.test.ts` | `.story.md` export/import round-trip, marker escaping, format-version guard |
 | `drift.test.ts` | drift detection, mapping to canon/scenes, accept-now / accept-gradually / reject |
 | `api.test.ts` | the full workflow end-to-end over HTTP (supertest), including canon + drift |
 
@@ -186,6 +187,8 @@ so you can exercise the whole flow safely.
 | `POST /api/storylines/:id/scenes/:sceneId/image` | Attach a reference image (base64) |
 | `POST /api/storylines/:id/generate` | Render all scenes |
 | `POST /api/storylines/:id/publish` | Publish to YouTube Shorts |
+| `GET /api/stories/:id/export` | Download the story as a portable `.story.md` package (bible, episodes + settings, canon history, storylines) |
+| `POST /api/stories/import` | Import a `.story.md` package as a new story (fresh ids; clips/publish state excluded by design) |
 | `GET /api/templates/story-bible` | Canonical story-bible `.md` template |
 | `GET /api/stories/:id/canon` | Canon registry (all versions) |
 | `POST /api/stories/:id/canon/extract` | Dissect the bible into a new canon version |
