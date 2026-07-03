@@ -11,6 +11,11 @@ finished short to YouTube Shorts.
 
 ## The workflow
 
+0. **Start with an idea** — type one sentence on the welcome screen and the AI drafts the
+   series title, production metadata (audience, genres, tones, format), a complete
+   template-conformant bible with character visual signatures and "never change" lists,
+   and (optionally) extracts canon v1 in the same flow. Episode briefs can likewise be
+   drafted from an idea — always into the form for your review before saving.
 1. **Story** — each story has a `.md` bible (built from a canonical **template** that
    captures premise, audience & tone, world rules, character visual signatures with
    "never change" lists, relationships, locations, story formula, and safety rails) plus
@@ -187,6 +192,8 @@ so you can exercise the whole flow safely.
 | `POST /api/storylines/:id/scenes/:sceneId/image` | Attach a reference image (base64) |
 | `POST /api/storylines/:id/generate` | Render all scenes |
 | `POST /api/storylines/:id/publish` | Publish to YouTube Shorts |
+| `POST /api/stories/bootstrap` | Idea → LLM-populated story (title, metadata, full bible, optional canon) |
+| `POST /api/stories/:id/episodes/draft` | Idea → drafted episode title/brief/setting (not persisted; review in the form) |
 | `GET /api/stories/:id/export` | Download the story as a portable `.story.md` package (bible, episodes + settings, canon history, storylines) |
 | `POST /api/stories/import` | Import a `.story.md` package as a new story (fresh ids; clips/publish state excluded by design) |
 | `GET /api/templates/story-bible` | Canonical story-bible `.md` template |

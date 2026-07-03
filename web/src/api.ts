@@ -105,6 +105,14 @@ export const api = {
       `/api/storylines/${storylineId}/drift/${reportId}/findings/${findingId}/resolve`,
       { action, note },
     ),
+  bootstrapStory: (idea: string, opts: { model?: string; withCanon?: boolean } = {}) =>
+    req<{ story: Story; registry: CanonRegistry | null }>('POST', '/api/stories/bootstrap', { idea, ...opts }),
+  draftEpisode: (storyId: string, idea: string, opts: { model?: string } = {}) =>
+    req<{ draft: { title: string; brief: string; setting: string } }>(
+      'POST',
+      `/api/stories/${storyId}/episodes/draft`,
+      { idea, ...opts },
+    ),
   exportStory: async (storyId: string): Promise<{ markdown: string; filename: string }> => {
     const res = await fetch(`/api/stories/${storyId}/export`);
     if (!res.ok) throw new Error(`Export failed (HTTP ${res.status})`);

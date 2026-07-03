@@ -17,6 +17,7 @@ import {
   PIXVERSE_QUALITIES,
   PIXVERSE_STYLES,
 } from './constants';
+import { bootstrapStory, draftEpisode } from './services/bootstrap';
 import { DEFAULT_DISSECT_MODEL, DISSECT_MODELS, extractCanon, patchMark } from './services/canon';
 import { checkDrift, resolveDrift } from './services/drift';
 import { exportFilename, exportStory, ImportError, importStory } from './services/exchange';
@@ -162,6 +163,32 @@ export function createApp(deps: AppDeps): express.Express {
       if (typeof markdown !== 'string') throw new HttpError(400, 'markdown is required');
       deps.store.setBible(req.params.storyId, markdown);
       res.json({ markdown });
+    }),
+  );
+
+  // ---- LLM idea bootstrap ----
+  app.post(
+    '/api/stories/bootstrap',
+    asyncHandler(async (req, res) => {
+      const { idea, model, effort, withCanon } = req.body ?? {};
+      if (!idea || typeof idea !== 'string' || !idea.trim()) throw new HttpError(400, 'idea is required');
+      const result = await bootstrapStory(deps.store, deps.claude, {
+        idea,
+        model,
+        effort,
+        withCanon: withCanon !== false,
+      });
+      res.status(201).json({ story: result.story, registry: result.registry });
+    }),
+  );
+
+  app.post(
+    '/api/stories/:storyId/episodes/draft',
+    asyncHandler(async (req, res) => {
+      const { idea, model, effort } = req.body ?? {};
+      if (!idea || typeof idea !== 'string' || !idea.trim()) throw new HttpError(400, 'idea is required');
+      const draft = await draftEpisode(deps.store, deps.claude, req.params.storyId, idea, { model, effort });
+      res.json({ draft });
     }),
   );
 

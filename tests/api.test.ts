@@ -191,6 +191,45 @@ describe('canon + drift over HTTP', () => {
   });
 });
 
+describe('idea bootstrap over HTTP', () => {
+  it('creates a fully-populated story (with canon) from an idea', async () => {
+    const { client: studioClaude } = makeStudioFakeClaude();
+    const { app } = makeApp({ claude: studioClaude });
+
+    const res = await request(app)
+      .post('/api/stories/bootstrap')
+      .send({ idea: 'raccoon space program for kids' })
+      .expect(201);
+    expect(res.body.story.title).toBe('Rocket Raccoons');
+    expect(res.body.story.meta.genres).toEqual(['comedy', 'sci-fi']);
+    expect(res.body.registry.currentVersion).toBe(1); // withCanon defaults on
+
+    const storyGet = await request(app).get(`/api/stories/${res.body.story.id}`).expect(200);
+    expect(storyGet.body.bible).toContain('Rocket Raccoons — Story Bible');
+  });
+
+  it('drafts an episode without persisting it', async () => {
+    const { client: studioClaude } = makeStudioFakeClaude();
+    const { app } = makeApp({ claude: studioClaude });
+    const storyRes = await request(app).post('/api/stories').send({ title: 'S', bible: 'b' });
+    const storyId = storyRes.body.story.id;
+
+    const draftRes = await request(app)
+      .post(`/api/stories/${storyId}/episodes/draft`)
+      .send({ idea: 'wobbly rocket' })
+      .expect(200);
+    expect(draftRes.body.draft.title).toBe('The Wobbly Launch');
+
+    const storyGet = await request(app).get(`/api/stories/${storyId}`).expect(200);
+    expect(storyGet.body.episodes).toHaveLength(0);
+  });
+
+  it('400s without an idea', async () => {
+    const { app } = makeApp();
+    await request(app).post('/api/stories/bootstrap').send({}).expect(400);
+  });
+});
+
 describe('story export/import over HTTP', () => {
   it('exports a downloadable .story.md and re-imports it', async () => {
     const { client: studioClaude } = makeStudioFakeClaude();

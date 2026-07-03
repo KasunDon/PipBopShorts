@@ -119,14 +119,46 @@ export function sampleDriftJson(): string {
   });
 }
 
+/** A story-bootstrap payload (idea → title/meta/bible). */
+export function sampleBootstrapJson(): string {
+  return JSON.stringify({
+    title: 'Rocket Raccoons',
+    setting_mode: 'shared',
+    meta: {
+      audience_min: 5,
+      audience_max: 8,
+      audience_notes: 'must work with sound off',
+      genres: ['comedy', 'sci-fi'],
+      tones: ['cheerful', 'curious', 'safe'],
+      format: '3D animated comedy shorts',
+      episode_length_sec: 60,
+      language: 'English',
+    },
+    bible_markdown:
+      '# Rocket Raccoons — Story Bible\n\n## 1. Premise\nTwo raccoon siblings run a tiny junkyard space program.\n\n## 4. Main Characters\n### Rizzo\n- **Visual signature:** grey raccoon, oversized amber goggles.\n- **Never change:** goggles, grey fur.\n',
+  });
+}
+
+/** An episode-draft payload (idea → title/brief/setting). */
+export function sampleEpisodeDraftJson(): string {
+  return JSON.stringify({
+    title: 'The Wobbly Launch',
+    brief: 'Rizzo builds a bottle rocket that only flies in circles. The siblings learn to aim together and land it in the pillow pile.',
+    setting_markdown: '# Junkyard launchpad\nStacked tires, fairy lights, soft pillow landing zone.',
+  });
+}
+
 /**
- * A fake Claude that routes by task: canon extraction, drift check, or
- * storyline generation — so end-to-end studio flows can run against one fake.
+ * A fake Claude that routes by task: canon extraction, drift check, story
+ * bootstrap, episode draft, or storyline generation — so end-to-end studio
+ * flows can run against one fake.
  */
 export function makeStudioFakeClaude(overrides?: {
   canonJson?: string;
   driftJson?: string;
   storylineJson?: string;
+  bootstrapJson?: string;
+  episodeDraftJson?: string;
 }): { client: AnthropicLike; calls: FakeClaudeCall[] } {
   return makeFakeClaude((params) => {
     const system = String(params.system ?? '');
@@ -135,6 +167,10 @@ export function makeStudioFakeClaude(overrides?: {
       text = overrides?.canonJson ?? sampleCanonExtractionJson();
     } else if (system.includes('report every drift')) {
       text = overrides?.driftJson ?? sampleDriftJson();
+    } else if (system.includes('head of story development')) {
+      text = overrides?.bootstrapJson ?? sampleBootstrapJson();
+    } else if (system.includes('episode developer')) {
+      text = overrides?.episodeDraftJson ?? sampleEpisodeDraftJson();
     } else {
       text = overrides?.storylineJson ?? sampleStorylineJson();
     }

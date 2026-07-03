@@ -99,6 +99,14 @@ export function App() {
             );
           }
         }}
+        onNewFromIdea={() => {
+          setStoryId(null);
+          setStory(null);
+          setEpisodeId(null);
+          setEpisode(null);
+          setStorylineId(null);
+          setProject(null);
+        }}
       />
       <main className="main">
         <header className="topbar">
@@ -134,7 +142,18 @@ export function App() {
         {busy && <div className="busybar" />}
 
         <div className="content">
-          {!storyId && <Welcome />}
+          {!storyId && (
+            <Welcome
+              config={config}
+              onLaunch={async (idea, model, withCanon) => {
+                const res = await run(() => api.bootstrapStory(idea, { model, withCanon }));
+                if (res) {
+                  await refreshStories();
+                  openStory(res.story.id);
+                }
+              }}
+            />
+          )}
 
           {storyId && story && !episodeId && config && (
             <StoryPanel
@@ -183,18 +202,86 @@ export function App() {
 
 type Run = <T>(fn: () => Promise<T>) => Promise<T | undefined>;
 
-function Welcome() {
+function Welcome({
+  config,
+  onLaunch,
+}: {
+  config: AppConfig | null;
+  onLaunch: (idea: string, model: string, withCanon: boolean) => Promise<void>;
+}) {
+  const [idea, setIdea] = useState('');
+  const [model, setModel] = useState('');
+  const [withCanon, setWithCanon] = useState(true);
+  const [pending, setPending] = useState(false);
+
+  const effectiveModel = model || config?.dissect.defaultModel || 'claude-sonnet-5';
+
   return (
     <div className="welcome">
-      <h2>Create and publish AI shorts</h2>
-      <ol>
-        <li>Create a <b>story</b> and write its bible (characters, setting, style).</li>
-        <li>Add an <b>episode</b> with a short brief.</li>
-        <li>Let <b>Claude</b> write a shot-by-shot storyline — pick the model and effort.</li>
-        <li>Render each scene with <b>PixVerse</b>, preview, and tweak.</li>
-        <li>Publish the finished short to <b>YouTube Shorts</b>.</li>
-      </ol>
-      <p className="muted">Pick or create a story on the left to begin.</p>
+      <h2>🎬 Start with an idea</h2>
+      <p className="muted">
+        Describe your series in a sentence or two — the AI drafts the title, audience, genres, tone, and a complete
+        production bible with character visual signatures. You review and edit everything afterwards.
+      </p>
+      <div className="idea-box">
+        <textarea
+          value={idea}
+          onChange={(e) => setIdea(e.target.value)}
+          rows={3}
+          placeholder='e.g. "Five cute animal friends in a magical grove have tiny, funny adventures — for kids 4–7"'
+          disabled={pending}
+        />
+        <div className="row idea-controls">
+          {config && (
+            <Field label="AI model">
+              <select value={effectiveModel} onChange={(e) => setModel(e.target.value)} disabled={pending}>
+                {config.dissect.models.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
+          <label className="checkbox" title="Also dissect the generated bible into a version-controlled canon registry">
+            <input type="checkbox" checked={withCanon} onChange={(e) => setWithCanon(e.target.checked)} disabled={pending} />
+            Extract canon too
+          </label>
+          <button
+            className="primary big"
+            disabled={pending || !idea.trim()}
+            onClick={async () => {
+              setPending(true);
+              try {
+                await onLaunch(idea.trim(), effectiveModel, withCanon);
+              } finally {
+                setPending(false);
+              }
+            }}
+          >
+            {pending ? '✨ Developing your series…' : '✨ Create my series'}
+          </button>
+        </div>
+        {pending && (
+          <p className="muted small">
+            Writing the bible{withCanon ? ' and extracting canon' : ''} — this takes a minute. Everything will be
+            editable when it lands.
+          </p>
+        )}
+      </div>
+
+      <details className="how-it-works">
+        <summary>How the studio works</summary>
+        <ol>
+          <li>A <b>story</b> holds a `.md` bible (characters, setting, style) + production metadata.</li>
+          <li><b>Canon</b> turns the bible into version-controlled consistency marks.</li>
+          <li>Add an <b>episode</b> with a short brief (AI can draft it from an idea).</li>
+          <li><b>Claude</b> writes a shot-by-shot storyline — you pick the model and effort.</li>
+          <li>Render each scene with <b>PixVerse</b>, preview, tweak, and check for canon drift.</li>
+          <li>Publish the finished short to <b>YouTube Shorts</b>.</li>
+        </ol>
+        <p className="muted small">Prefer manual setup? Create an empty story from the sidebar.</p>
+      </details>
     </div>
   );
 }
@@ -205,18 +292,25 @@ function Sidebar({
   onSelect,
   onCreate,
   onImport,
+  onNewFromIdea,
 }: {
   stories: Story[];
   activeStoryId: string | null;
   onSelect: (id: string) => void;
   onCreate: (title: string, settingMode: string) => void;
   onImport: (markdown: string) => void;
+  onNewFromIdea: () => void;
 }) {
   const [title, setTitle] = useState('');
   const [mode, setMode] = useState('shared');
   return (
     <aside className="sidebar">
       <div className="sidebar-head">Stories</div>
+      <div className="sidebar-idea">
+        <button className="primary" onClick={onNewFromIdea} title="Describe an idea and let the AI draft the whole series">
+          ✨ New from idea
+        </button>
+      </div>
       <ul className="story-list">
         {stories.map((s) => (
           <li key={s.id}>
@@ -284,6 +378,8 @@ function StoryPanel({
   const [epTitle, setEpTitle] = useState('');
   const [epBrief, setEpBrief] = useState('');
   const [epSetting, setEpSetting] = useState('');
+  const [epIdea, setEpIdea] = useState('');
+  const [drafting, setDrafting] = useState(false);
 
   useEffect(() => {
     setBible(data.bible);
@@ -386,6 +482,33 @@ function StoryPanel({
           ))}
           {data.episodes.length === 0 && <li className="muted small">No episodes yet.</li>}
         </ul>
+        <div className="row episode-idea">
+          <input
+            placeholder='✨ Episode idea, e.g. "the friends chase a runaway picnic basket"'
+            value={epIdea}
+            onChange={(e) => setEpIdea(e.target.value)}
+            disabled={drafting}
+          />
+          <button
+            disabled={drafting || !epIdea.trim()}
+            title="AI drafts the title, brief, and setting below — review before adding"
+            onClick={async () => {
+              setDrafting(true);
+              try {
+                const res = await run(() => api.draftEpisode(data.story.id, epIdea.trim()));
+                if (res) {
+                  setEpTitle(res.draft.title);
+                  setEpBrief(res.draft.brief);
+                  if (res.draft.setting) setEpSetting(res.draft.setting);
+                }
+              } finally {
+                setDrafting(false);
+              }
+            }}
+          >
+            {drafting ? 'Drafting…' : '✨ Draft with AI'}
+          </button>
+        </div>
         <form
           className="new-episode"
           onSubmit={async (e) => {
@@ -397,6 +520,7 @@ function StoryPanel({
             setEpTitle('');
             setEpBrief('');
             setEpSetting('');
+            setEpIdea('');
             onChanged();
           }}
         >

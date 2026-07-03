@@ -150,6 +150,53 @@ textarea:focus {
   color: var(--muted);
   border-style: dashed;
 }
+.sidebar-idea {
+  padding: 0 14px 10px;
+}
+.sidebar-idea button {
+  width: 100%;
+}
+
+/* Idea launcher */
+.welcome {
+  max-width: 720px;
+}
+.idea-box {
+  background: var(--card);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 18px;
+  margin: 16px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.idea-box textarea {
+  font-size: 15px;
+}
+.idea-controls {
+  align-items: flex-end;
+}
+button.big {
+  padding: 10px 18px;
+  font-size: 15px;
+}
+.how-it-works {
+  margin-top: 18px;
+  color: var(--muted);
+}
+.how-it-works summary {
+  cursor: pointer;
+}
+.how-it-works ol {
+  line-height: 1.9;
+}
+.episode-idea {
+  margin-bottom: 10px;
+}
+.episode-idea input {
+  flex: 1;
+}
 .import-story:hover {
   color: var(--text);
   border-color: var(--accent);
