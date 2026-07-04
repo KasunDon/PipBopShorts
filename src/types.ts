@@ -180,7 +180,10 @@ export interface PublishRecord {
 export interface Project {
   storyline: Storyline;
   clips: Record<string, Clip>;
+  /** Most recent publish attempt (null until first publish). */
   publish: PublishRecord | null;
+  /** Every publish attempt, newest last — the publish history. */
+  publishHistory?: PublishRecord[];
   /** Consistency (drift) reports run against this storyline. */
   driftReports?: DriftReport[];
 }

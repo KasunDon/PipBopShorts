@@ -235,10 +235,22 @@ export interface PublishRecord {
   publishedAt: string | null;
 }
 
+export interface ReferenceDefinition {
+  entityId: string;
+  name: string;
+  type: 'character' | 'location';
+  summary: string;
+  marks: Array<{ key: string; value: string; severity: string }>;
+  builtPrompt: string;
+  negativePrompt: string;
+  currentPrompt: string | null;
+}
+
 export interface Project {
   storyline: Storyline;
   clips: Record<string, Clip>;
   publish: PublishRecord | null;
+  publishHistory?: PublishRecord[];
   driftReports?: DriftReport[];
 }
 
@@ -257,6 +269,27 @@ export interface ProjectSummary {
 export type EventService = 'claude' | 'pixverse' | 'youtube';
 export type EventStatus = 'ok' | 'error';
 
+export interface CostEstimate {
+  usd: number;
+  credits: number | null;
+  kind: 'llm' | 'video' | 'image' | 'other';
+  provider: string;
+  model?: string;
+  exact: boolean;
+  tokens?: { inputTokens?: number; outputTokens?: number; cacheReadTokens?: number; cacheWriteTokens?: number };
+  breakdown: string[];
+}
+
+export interface CostContext {
+  storyId?: string;
+  episodeId?: string;
+  storylineId?: string;
+  sceneId?: string;
+  entityId?: string;
+  phase?: string;
+  label?: string;
+}
+
 export interface AuditEvent {
   id: string;
   ts: string;
@@ -271,4 +304,63 @@ export interface AuditEvent {
   request: unknown;
   response: unknown;
   error?: string;
+  cost?: CostEstimate | null;
+  context?: CostContext;
+}
+
+// ---- Cost report ----
+
+export interface CostBucket {
+  usd: number;
+  credits: number;
+  count: number;
+}
+export interface ModelBucket extends CostBucket {
+  inputTokens: number;
+  outputTokens: number;
+}
+export interface ScopeBucket extends CostBucket {
+  id: string;
+}
+export interface CostReport {
+  generatedAt: string;
+  totalUsd: number;
+  totalCredits: number;
+  eventCount: number;
+  billableCount: number;
+  tokens: { inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheWriteTokens: number };
+  byProvider: Record<string, CostBucket>;
+  byKind: Record<string, CostBucket>;
+  byModel: Record<string, ModelBucket>;
+  byPhase: Record<string, CostBucket>;
+  byStory: ScopeBucket[];
+  byEpisode: ScopeBucket[];
+  hasEstimates: boolean;
+}
+
+// ---- Storyline preview & render validation ----
+
+export interface PreviewCheck {
+  level: 'ok' | 'warn' | 'error';
+  message: string;
+}
+export interface StorylinePreview {
+  markdown: string;
+  checks: PreviewCheck[];
+  ok: boolean;
+}
+export interface SceneValidation {
+  sceneId: string;
+  heading: string;
+  issues: string[];
+  estCredits: number;
+  estUsd: number;
+}
+export interface RenderValidation {
+  scenes: SceneValidation[];
+  totalCredits: number;
+  totalUsd: number;
+  estUsdLabel: string;
+  ok: boolean;
+  invalidCount: number;
 }

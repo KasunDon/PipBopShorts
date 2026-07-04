@@ -422,6 +422,44 @@ export function getApprovedVersion(asset: CharacterAsset): PortraitVersion | nul
   return asset.versions.find((v) => v.id === asset.approvedVersionId) ?? null;
 }
 
+export interface ReferenceDefinition {
+  entityId: string;
+  name: string;
+  type: ReferenceAssetType;
+  summary: string;
+  /** Canon marks that define this character/location. */
+  marks: Array<{ key: string; value: string; severity: string }>;
+  /** The prompt that would be built from canon (before any tweak). */
+  builtPrompt: string;
+  negativePrompt: string;
+  /** The prompt actually used by the approved/last render, if any. */
+  currentPrompt: string | null;
+}
+
+/**
+ * The full definition of a reference asset — its canon marks plus the render
+ * prompt built from them — so it can be reviewed and the prompt edited before
+ * spending credits on generation.
+ */
+export function buildReferenceDefinition(store: Store, storyId: string, entityId: string): ReferenceDefinition {
+  store.getStory(storyId);
+  const canon = currentCanonVersion(store.getCanonRegistry(storyId));
+  const entity = requireCanonReferenceEntity(canon, entityId);
+  const type = entity.type as ReferenceAssetType;
+  const asset = store.getCharacterRegistry(storyId)?.characters[entityId];
+  const current = asset ? (getApprovedVersion(asset) ?? asset.versions[asset.versions.length - 1] ?? null) : null;
+  return {
+    entityId,
+    name: entity.name,
+    type,
+    summary: entity.summary,
+    marks: entity.marks.map((m) => ({ key: m.key, value: m.value, severity: m.severity })),
+    builtPrompt: buildPortraitPrompt(entity, canon),
+    negativePrompt: defaultNegative(type),
+    currentPrompt: current?.prompt ?? null,
+  };
+}
+
 export interface ResolvedReferences {
   /** First approved image id available among the referenced characters. */
   imageId: number | null;

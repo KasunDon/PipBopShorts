@@ -107,6 +107,79 @@ describe('full workflow over HTTP', () => {
   });
 });
 
+describe('preview, validation, and cost endpoints', () => {
+  it('previews the AI context and validates render cost before committing', async () => {
+    const { app } = makeApp();
+    const storyId = (await request(app).post('/api/stories').send({ title: 'Cost Story' }).expect(201)).body.story.id;
+    await request(app).put(`/api/stories/${storyId}/bible`).send({ markdown: '# Bible\nHero: a brave cat who explores space stations and helps robot friends every episode.' }).expect(200);
+    const episodeId = (
+      await request(app).post(`/api/stories/${storyId}/episodes`).send({ title: 'Ep 1', brief: 'Cat fixes a comet' }).expect(201)
+    ).body.episode.id;
+
+    // Preview the AI context before generating.
+    const preview = await request(app).get(`/api/episodes/${episodeId}/storyline-preview`).expect(200);
+    expect(preview.body.preview.markdown).toContain('Cat fixes a comet');
+    expect(Array.isArray(preview.body.preview.checks)).toBe(true);
+
+    // Generate, then validate the render cost.
+    const storylineId = (
+      await request(app).post(`/api/episodes/${episodeId}/storylines`).send({ model: 'claude-opus-4-8' }).expect(201)
+    ).body.project.storyline.id;
+
+    const validation = await request(app).get(`/api/storylines/${storylineId}/validate`).expect(200);
+    expect(validation.body.validation.scenes.length).toBeGreaterThan(0);
+    expect(validation.body.validation.totalUsd).toBeGreaterThan(0);
+    expect(validation.body.validation.estUsdLabel).toMatch(/^\$/);
+  });
+
+  it('serves a cost report with the expected shape', async () => {
+    const { app } = makeApp();
+    const res = await request(app).get('/api/costs/report').expect(200);
+    expect(res.body.report).toHaveProperty('totalUsd');
+    expect(res.body.report).toHaveProperty('byProvider');
+    expect(res.body.report).toHaveProperty('tokens');
+  });
+});
+
+describe('reference definition + publish history over HTTP', () => {
+  it('returns a character definition with marks and a built prompt', async () => {
+    const { client: studioClaude } = makeStudioFakeClaude();
+    const { app } = makeApp({ claude: studioClaude });
+    const storyId = (
+      await request(app).post('/api/stories').send({ title: 'Ref Story', bible: 'Bobo is a monkey with a green scarf.' }).expect(201)
+    ).body.story.id;
+    await request(app).post(`/api/stories/${storyId}/canon/extract`).send({}).expect(201);
+
+    const chars = await request(app).get(`/api/stories/${storyId}/characters`).expect(200);
+    const entityId = Object.keys(chars.body.registry.characters).find((id) => id.startsWith('CHAR_'))!;
+
+    const def = await request(app).get(`/api/stories/${storyId}/characters/${entityId}/definition`).expect(200);
+    expect(def.body.definition.marks.length).toBeGreaterThan(0);
+    expect(def.body.definition.builtPrompt).toBeTruthy();
+    expect(def.body.definition.negativePrompt).toBeTruthy();
+  });
+
+  it('accumulates a publish history across attempts', async () => {
+    const { app } = makeApp();
+    const storyId = (await request(app).post('/api/stories').send({ title: 'Pub Story' }).expect(201)).body.story.id;
+    await request(app).put(`/api/stories/${storyId}/bible`).send({ markdown: '# Bible\nHero cat.' }).expect(200);
+    const episodeId = (
+      await request(app).post(`/api/stories/${storyId}/episodes`).send({ title: 'E', brief: 'x' }).expect(201)
+    ).body.episode.id;
+    const storylineId = (
+      await request(app).post(`/api/episodes/${episodeId}/storylines`).send({ model: 'claude-opus-4-8' }).expect(201)
+    ).body.project.storyline.id;
+    await request(app).post(`/api/storylines/${storylineId}/generate`).send({ wait: true }).expect(200);
+
+    await request(app).post(`/api/storylines/${storylineId}/publish`).send({ privacyStatus: 'private' }).expect(200);
+    await request(app).post(`/api/storylines/${storylineId}/publish`).send({ privacyStatus: 'unlisted' }).expect(200);
+
+    const proj = await request(app).get(`/api/storylines/${storylineId}`).expect(200);
+    expect(proj.body.project.publishHistory).toHaveLength(2);
+    expect(proj.body.project.publish.status).toBe('published');
+  });
+});
+
 describe('canon + drift over HTTP', () => {
   it('exposes dissection models in config and serves templates', async () => {
     const { app } = makeApp();

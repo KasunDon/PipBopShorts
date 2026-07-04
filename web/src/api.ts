@@ -5,6 +5,7 @@ import type {
   CharacterAsset,
   CharacterRegistry,
   Clip,
+  CostReport,
   DriftFinding,
   DriftReport,
   Episode,
@@ -13,9 +14,12 @@ import type {
   PortraitVersion,
   Project,
   ProjectSummary,
+  ReferenceDefinition,
+  RenderValidation,
   Scene,
   Story,
   StoryMeta,
+  StorylinePreview,
   YoutubeMeta,
 } from './types';
 
@@ -106,6 +110,8 @@ export const api = {
     ),
   // ---- Character reference images ----
   getCharacters: (storyId: string) => req<{ registry: CharacterRegistry }>('GET', `/api/stories/${storyId}/characters`),
+  getReferenceDefinition: (storyId: string, entityId: string) =>
+    req<{ definition: ReferenceDefinition }>('GET', `/api/stories/${storyId}/characters/${entityId}/definition`),
   generatePortrait: (
     storyId: string,
     entityId: string,
@@ -195,6 +201,20 @@ export const api = {
   },
   getEvent: (id: string) => req<{ event: AuditEvent }>('GET', `/api/events/${id}`),
   clearEvents: () => req<void>('DELETE', '/api/events'),
+
+  // ---- Costs, preview & validation ----
+  costReport: (opts: { storyId?: string; episodeId?: string; since?: string } = {}) => {
+    const params = new URLSearchParams();
+    if (opts.storyId) params.set('storyId', opts.storyId);
+    if (opts.episodeId) params.set('episodeId', opts.episodeId);
+    if (opts.since) params.set('since', opts.since);
+    const qs = params.toString();
+    return req<{ report: CostReport }>('GET', `/api/costs/report${qs ? `?${qs}` : ''}`);
+  },
+  storylinePreview: (episodeId: string) =>
+    req<{ preview: StorylinePreview }>('GET', `/api/episodes/${episodeId}/storyline-preview`),
+  validateStoryline: (storylineId: string) =>
+    req<{ validation: RenderValidation }>('GET', `/api/storylines/${storylineId}/validate`),
 };
 
 interface PublishResult {

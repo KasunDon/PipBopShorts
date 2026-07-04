@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from './api';
 import { CanonSection, StoryMetaEditor } from './CanonPanel';
 import { CharactersPanel } from './CharactersPanel';
+import { CostsPanel } from './CostsPanel';
 import { DriftPanel } from './DriftPanel';
 import { EventsPanel } from './EventsPanel';
 import { SceneCard } from './SceneCard';
@@ -15,6 +16,7 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [showEvents, setShowEvents] = useState(false);
+  const [showCosts, setShowCosts] = useState(false);
 
   const [storyId, setStoryId] = useState<string | null>(null);
   const [story, setStory] = useState<{ story: Story; bible: string; episodes: Episode[] } | null>(null);
@@ -131,7 +133,22 @@ export function App() {
             {project && <span className="sep">/</span>}
             {project && <span className="crumb current">{project.storyline.title}</span>}
           </div>
-          <button className={`events-toggle ${showEvents ? 'active' : ''}`} onClick={() => setShowEvents((v) => !v)}>
+          <button
+            className={`events-toggle ${showCosts ? 'active' : ''}`}
+            onClick={() => {
+              setShowCosts((v) => !v);
+              setShowEvents(false);
+            }}
+          >
+            💰 Costs
+          </button>
+          <button
+            className={`events-toggle ${showEvents ? 'active' : ''}`}
+            onClick={() => {
+              setShowEvents((v) => !v);
+              setShowCosts(false);
+            }}
+          >
             🛰 Events
           </button>
           {config && (
@@ -151,8 +168,9 @@ export function App() {
 
         <div className="content">
           {showEvents && <EventsPanel onClose={() => setShowEvents(false)} />}
+          {showCosts && <CostsPanel onClose={() => setShowCosts(false)} />}
 
-          {!showEvents && !storyId && (
+          {!showEvents && !showCosts && !storyId && (
             <Welcome
               config={config}
               onLaunch={async (idea, model, withCanon, signal) => {
@@ -163,7 +181,7 @@ export function App() {
             />
           )}
 
-          {!showEvents && storyId && story && !episodeId && config && (
+          {!showEvents && !showCosts && storyId && story && !episodeId && config && (
             <StoryPanel
               data={story}
               config={config}
@@ -179,7 +197,7 @@ export function App() {
             />
           )}
 
-          {!showEvents && episodeId && episode && !storylineId && config && (
+          {!showEvents && !showCosts && episodeId && episode && !storylineId && config && (
             <EpisodePanel
               data={episode}
               config={config}
@@ -189,7 +207,7 @@ export function App() {
             />
           )}
 
-          {!showEvents && storylineId && project && config && (
+          {!showEvents && !showCosts && storylineId && project && config && (
             <ProjectPanel
               project={project}
               config={config}
@@ -628,10 +646,12 @@ function EpisodePanel({
   const [aspectRatio, setAspectRatio] = useState('9:16');
   const [quality, setQuality] = useState('540p');
   const [pixModel, setPixModel] = useState('v5');
+  const [preview, setPreview] = useState<import('./types').StorylinePreview | null>(null);
 
   useEffect(() => {
     setBrief(data.episode.brief);
     setSetting(data.setting);
+    setPreview(null);
   }, [data]);
 
   const modelInfo = config.claudeModels.find((m) => m.id === model);
@@ -760,25 +780,56 @@ function EpisodePanel({
         <Field label="Extra guidance (optional)">
           <textarea value={guidance} onChange={(e) => setGuidance(e.target.value)} rows={2} placeholder="Tone, references, must-have beats…" />
         </Field>
-        <button
-          className="primary"
-          onClick={async () => {
-            const res = await run(() =>
-              api.createStoryline(data.episode.id, {
-                model,
-                effort: modelInfo?.supportsEffort ? effort : undefined,
-                sceneCount,
-                guidance,
-                aspectRatio,
-                quality,
-                pixverseModel: pixModel,
-              }),
-            );
-            if (res) onOpenProject(res.project.storyline.id);
-          }}
-        >
-          ✨ Generate storyline
-        </button>
+        <div className="row">
+          <button
+            className="ghost"
+            title="Preview exactly what the AI will receive, and check inputs, before spending an LLM call"
+            onClick={async () => {
+              const res = await run(() => api.storylinePreview(data.episode.id));
+              if (res) setPreview(res.preview);
+            }}
+          >
+            👁 Preview AI context
+          </button>
+          <button
+            className="primary"
+            onClick={async () => {
+              const res = await run(() =>
+                api.createStoryline(data.episode.id, {
+                  model,
+                  effort: modelInfo?.supportsEffort ? effort : undefined,
+                  sceneCount,
+                  guidance,
+                  aspectRatio,
+                  quality,
+                  pixverseModel: pixModel,
+                }),
+              );
+              if (res) onOpenProject(res.project.storyline.id);
+            }}
+          >
+            ✨ Generate storyline
+          </button>
+        </div>
+        {preview && (
+          <div className="preview-box">
+            <div className="card-head">
+              <h4>Preview — what the AI will receive</h4>
+              <button className="ghost small" onClick={() => setPreview(null)}>
+                ✕ Close
+              </button>
+            </div>
+            <ul className="check-list">
+              {preview.checks.map((c, i) => (
+                <li key={i} className={`check check-${c.level}`}>
+                  {c.level === 'ok' ? '✅' : c.level === 'warn' ? '⚠️' : '⛔'} {c.message}
+                </li>
+              ))}
+            </ul>
+            {!preview.ok && <p className="muted small">Fix the ⛔ issue before generating.</p>}
+            <pre className="preview-md">{preview.markdown}</pre>
+          </div>
+        )}
       </section>
 
       <section className="card">
@@ -816,6 +867,7 @@ function ProjectPanel({
   const scenes = useMemo(() => [...project.storyline.scenes].sort((a, b) => a.order - b.order), [project]);
   const [privacy, setPrivacy] = useState('private');
   const [stitch, setStitch] = useState(true);
+  const [validation, setValidation] = useState<import('./types').RenderValidation | null>(null);
 
   const readyCount = scenes.filter((s) => project.clips[s.id]?.status === 'ready').length;
 
@@ -829,8 +881,24 @@ function ProjectPanel({
         <p className="muted">{project.storyline.logline}</p>
         <div className="row">
           <button
+            className="ghost"
+            title="Validate every scene against PixVerse rules and estimate the render cost before spending credits"
+            onClick={async () => {
+              const res = await run(() => api.validateStoryline(storylineId));
+              if (res) setValidation(res.validation);
+            }}
+          >
+            🧮 Validate &amp; estimate cost
+          </button>
+          <button
             className="primary"
             onClick={async () => {
+              if (
+                !confirm(
+                  `Render all ${scenes.length} scenes with PixVerse? This uses credits for every scene. Tip: run “Validate & estimate cost” first.`,
+                )
+              )
+                return;
               const res = await run(() => api.generateAll(storylineId, true));
               if (res) setProject(res.project);
             }}
@@ -841,6 +909,35 @@ function ProjectPanel({
             {readyCount}/{scenes.length} scenes ready
           </span>
         </div>
+        {validation && (
+          <div className={`validation-box ${validation.ok ? 'ok' : 'bad'}`}>
+            <div className="card-head">
+              <b>
+                Estimated render cost: {validation.estUsdLabel} · {validation.totalCredits} PixVerse credits
+              </b>
+              <button className="ghost small" onClick={() => setValidation(null)}>
+                ✕
+              </button>
+            </div>
+            {validation.ok ? (
+              <p className="check check-ok">✅ All {validation.scenes.length} scenes pass PixVerse validation.</p>
+            ) : (
+              <>
+                <p className="check check-error">⛔ {validation.invalidCount} scene(s) have parameter issues:</p>
+                <ul className="check-list">
+                  {validation.scenes
+                    .filter((s) => s.issues.length > 0)
+                    .map((s) => (
+                      <li key={s.sceneId} className="check check-error">
+                        <b>{s.heading}:</b> {s.issues.join(' ')}
+                      </li>
+                    ))}
+                </ul>
+              </>
+            )}
+            <p className="muted small">Cost is an estimate — tune the credit rate in the Costs panel notes.</p>
+          </div>
+        )}
       </div>
 
       <div className="scenes">
@@ -889,6 +986,7 @@ function ProjectPanel({
             className="primary"
             disabled={readyCount === 0}
             onClick={async () => {
+              if (!confirm(`Publish to YouTube (${privacy})? This uploads the short${stitch ? ' (stitched)' : ''}.`)) return;
               const res = await run(() => api.publish(storylineId, { privacyStatus: privacy, stitch }));
               if (res) {
                 const p = await api.getProject(storylineId);
@@ -904,15 +1002,37 @@ function ProjectPanel({
             🚀 Publish
           </button>
         </div>
-        {project.publish && (
-          <p className={`muted small publish-${project.publish.status}`}>
-            Last publish: {project.publish.status}
-            {project.publish.dryRun ? ' (dry-run)' : ''}
-            {project.publish.url ? ` — ${project.publish.url}` : ''}
-            {project.publish.error ? ` — ${project.publish.error}` : ''}
-          </p>
-        )}
+        <PublishHistory project={project} />
       </section>
+    </div>
+  );
+}
+
+function PublishHistory({ project }: { project: Project }) {
+  const history = [...(project.publishHistory ?? [])].reverse();
+  if (history.length === 0) {
+    return <p className="muted small">Not published yet.</p>;
+  }
+  return (
+    <div className="publish-history">
+      <h4 className="reference-group-head">Publish history</h4>
+      <ul className="publish-list">
+        {history.map((r, i) => (
+          <li key={i} className={`publish-row publish-${r.status}`}>
+            <span className={`badge ${r.status === 'published' ? 'live' : r.status === 'failed' ? 'bad' : 'warn'}`}>{r.status}</span>
+            {r.dryRun && <span className="badge warn">dry-run</span>}
+            <span className="muted small">{r.publishedAt ? new Date(r.publishedAt).toLocaleString() : '—'}</span>
+            {r.url ? (
+              <a className="md-link" href={r.url} target="_blank" rel="noreferrer">
+                {r.url}
+              </a>
+            ) : r.videoId ? (
+              <span className="mono">{r.videoId}</span>
+            ) : null}
+            {r.error && <span className="scene-error">{r.error}</span>}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

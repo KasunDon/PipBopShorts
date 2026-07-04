@@ -5,6 +5,7 @@ import { PixverseClient } from './clients/pixverse';
 import { YoutubeClient } from './clients/youtube';
 import { loadConfig } from './config';
 import { loadEnvFile } from './env';
+import { createPixverseProvider } from './costs/pricing';
 import { EventStore } from './events/eventStore';
 import { instrumentFetch } from './events/instrument';
 import { Store } from './store/store';
@@ -35,7 +36,9 @@ function main(): void {
     // (video calls will fail clearly); `||` also guards an empty-string value.
     apiKey: config.pixverse.apiKey || 'unset',
     baseUrl: config.pixverse.baseUrl,
-    fetchImpl: instrumentFetch(fetch, eventStore, 'pixverse'),
+    fetchImpl: instrumentFetch(fetch, eventStore, 'pixverse', {
+      pixverse: createPixverseProvider(config.pixverse.creditUsd),
+    }),
   });
 
   const youtube = new YoutubeClient({

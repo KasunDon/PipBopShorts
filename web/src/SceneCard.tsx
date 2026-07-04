@@ -158,6 +158,8 @@ export function SceneCard({
             </button>
             <button
               onClick={async () => {
+                const verb = status === 'ready' ? 're-render' : 'render';
+                if (!confirm(`${verb === 're-render' ? 'Re-render' : 'Render'} scene #${index + 1} with PixVerse? This uses credits.`)) return;
                 const res = await run(() => api.generateScene(storylineId, scene.id, true));
                 if (res) {
                   const p = await api.getProject(storylineId);
@@ -181,6 +183,7 @@ export function SceneCard({
             {status === 'ready' && (
               <button
                 onClick={async () => {
+                  if (!confirm(`Extend scene #${index + 1}? This renders a continuation on PixVerse and uses credits.`)) return;
                   await run(() => api.extendScene(storylineId, scene.id, true));
                   const p = await api.getProject(storylineId);
                   setProject(p.project);

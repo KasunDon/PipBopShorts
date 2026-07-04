@@ -66,6 +66,32 @@ describe('instrumentFetch', () => {
     expect(body.grant_type).toBe('refresh_token');
   });
 
+  it('redacts credential tokens but keeps LLM usage token counts', async () => {
+    const store = new EventStore();
+    const fake: typeof fetch = async () =>
+      jsonResponse({
+        totalCostUsd: 0.01,
+        usage: { input_tokens: 123, output_tokens: 45, cache_read_input_tokens: 6, access_token: 'secret' },
+      });
+    const wrapped = instrumentFetch(fake, store, 'claude');
+    await wrapped('http://localhost:8757/api/v1/claude/prompt', {
+      method: 'POST',
+      body: JSON.stringify({ model: 'claude-haiku-4-5', prompt: 'hi' }),
+    });
+
+    const event = store.list().events[0];
+    const usage = (event.response as { usage: Record<string, unknown> }).usage;
+    // Usage counts survive (needed for cost accounting)…
+    expect(usage.input_tokens).toBe(123);
+    expect(usage.output_tokens).toBe(45);
+    expect(usage.cache_read_input_tokens).toBe(6);
+    // …but a real credential token in the same object is still redacted.
+    expect(usage.access_token).toBe('[redacted]');
+    // And the derived cost carries the token counts.
+    expect(event.cost?.tokens?.inputTokens).toBe(123);
+    expect(event.cost?.tokens?.outputTokens).toBe(45);
+  });
+
   it('summarizes FormData uploads without buffering the file bytes', async () => {
     const store = new EventStore();
     const fake: typeof fetch = async () => jsonResponse({ ErrCode: 0, ErrMsg: 'ok', Resp: { img_id: 1, img_url: 'https://x/y.png' } });

@@ -1,9 +1,21 @@
-import type { EventService, EventStore } from './eventStore';
+import { currentCostContext } from '../costs/context';
+import { costFromEvent, type CostExtractorOptions } from '../costs/costFromEvent';
+import type { AuditEvent, EventService, EventStore, RecordInput } from './eventStore';
 
 type FetchLike = typeof fetch;
 
+/** Enrich a record with its cost (priced from request/response) and cost context. */
+function withCost(input: RecordInput, options: CostExtractorOptions): RecordInput {
+  const cost = costFromEvent({ ...input, id: '', ts: '' } as AuditEvent, options);
+  const context = currentCostContext();
+  return { ...input, cost, ...(context ? { context } : {}) };
+}
+
 const MAX_TEXT_LEN = 200_000;
-const SECRET_KEY_PATTERN = /api.?key|authorization|secret|token|password|refresh_token|access_token/i;
+// Redact credential-bearing keys only. `token` is intentionally NOT a bare
+// match — that would also redact usage counts like `input_tokens` /
+// `output_tokens`. Match credential token names and a standalone `token` key.
+const SECRET_KEY_PATTERN = /api[-_]?key|authorization|secret|password|(?:access|refresh|auth|bearer|session|id)[-_]?token|^token$/i;
 const TEXTUAL_CONTENT_TYPE = /json|text|xml|urlencoded/i;
 
 /** Deep-redact any object key that looks like a credential. */
@@ -149,7 +161,12 @@ function excerpt(text: string, max = 110): string {
  * an {@link AuditEvent} — request, response, timing, redacted secrets — while
  * returning the original, untouched Response to the caller.
  */
-export function instrumentFetch(fetchImpl: FetchLike, store: EventStore, service: EventService): FetchLike {
+export function instrumentFetch(
+  fetchImpl: FetchLike,
+  store: EventStore,
+  service: EventService,
+  costOptions: CostExtractorOptions = {},
+): FetchLike {
   const wrapped: FetchLike = async (input, init) => {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
     const method = (init?.method ?? (typeof input === 'object' && 'method' in input ? input.method : undefined) ?? 'GET').toUpperCase();
@@ -162,18 +179,23 @@ export function instrumentFetch(fetchImpl: FetchLike, store: EventStore, service
       response = await fetchImpl(input, init);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      store.record({
-        durationMs: Date.now() - started,
-        service,
-        type: inferType(service, method, pathname),
-        method,
-        url,
-        status: 'error',
-        summary: buildSummary(method, pathname, requestSummary.body, undefined, message),
-        request: requestSummary,
-        response: undefined,
-        error: message,
-      });
+      store.record(
+        withCost(
+          {
+            durationMs: Date.now() - started,
+            service,
+            type: inferType(service, method, pathname),
+            method,
+            url,
+            status: 'error',
+            summary: buildSummary(method, pathname, requestSummary.body, undefined, message),
+            request: requestSummary,
+            response: undefined,
+            error: message,
+          },
+          costOptions,
+        ),
+      );
       throw err;
     }
 
@@ -185,19 +207,24 @@ export function instrumentFetch(fetchImpl: FetchLike, store: EventStore, service
       Number((responseBody as Record<string, unknown>).ErrCode) !== 0;
     const status: 'ok' | 'error' = response.ok && !pixverseError ? 'ok' : 'error';
 
-    store.record({
-      durationMs: Date.now() - started,
-      service,
-      type: inferType(service, method, pathname),
-      method,
-      url,
-      status,
-      httpStatus: response.status,
-      summary: buildSummary(method, pathname, requestSummary.body, responseBody),
-      request: requestSummary,
-      response: responseBody,
-      error: status === 'error' ? `HTTP ${response.status}` : undefined,
-    });
+    store.record(
+      withCost(
+        {
+          durationMs: Date.now() - started,
+          service,
+          type: inferType(service, method, pathname),
+          method,
+          url,
+          status,
+          httpStatus: response.status,
+          summary: buildSummary(method, pathname, requestSummary.body, responseBody),
+          request: requestSummary,
+          response: responseBody,
+          error: status === 'error' ? `HTTP ${response.status}` : undefined,
+        },
+        costOptions,
+      ),
+    );
 
     return response;
   };

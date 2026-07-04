@@ -89,6 +89,12 @@ export class Store {
         if (episode.runtimeSec === undefined) episode.runtimeSec = null;
         if (episode.plannedNumber === undefined) episode.plannedNumber = null;
       }
+      for (const project of Object.values(db.projects)) {
+        if (project.publishHistory === undefined) {
+          // Seed history from the single legacy publish record, if any.
+          project.publishHistory = project.publish ? [project.publish] : [];
+        }
+      }
       return db;
     } catch {
       return emptyDb();

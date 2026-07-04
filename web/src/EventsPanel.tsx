@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from './api';
+import { fmtUsd } from './CostsPanel';
 import type { AuditEvent, EventService, EventStatus } from './types';
 
 const SERVICES: EventService[] = ['claude', 'pixverse', 'youtube'];
@@ -165,6 +166,11 @@ export function EventsPanel({ onClose }: { onClose: () => void }) {
                 <span className="event-method">{e.method}</span>
                 <span className="event-path">{pathOf(e.url)}</span>
                 <span className="event-summary">{e.summary}</span>
+                {e.cost && e.cost.usd > 0 && (
+                  <span className="event-cost" title={e.cost.breakdown.join('\n')}>
+                    {fmtUsd(e.cost.usd)}
+                  </span>
+                )}
                 <span className="event-duration muted small">{e.durationMs}ms</span>
               </button>
               {expandedId === e.id && <EventDetail event={e} />}

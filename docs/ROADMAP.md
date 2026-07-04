@@ -76,6 +76,18 @@ Consistency by reference, not just by prompt:
 - **Beat sheets & shot manifests**: storyline → beat sheet → per-scene manifest (camera
   preset, lighting preset, locked properties, allowed variation) as the unit the renderer
   consumes; seeds and generation params recorded per attempt for reproducibility.
+- **Audio & subtitles** *(requested — not built yet)*: the current pipeline renders silent
+  video only. Planned:
+  - **Background music**: per-episode music bed (mood/tempo from the bible's tone marks),
+    a music library or generative-audio provider behind the same cost framework as video,
+    with ducking under narration.
+  - **Voiceover / narration & dialogue TTS**: per-scene dialogue lines (already planned
+    below) rendered to speech with per-character voices, timed to each clip.
+  - **Sound effects**: per-scene SFX cues from the bible's character sound motifs.
+  - **Subtitles / captions**: auto-generated, styled, burned-in or sidecar `.srt`; required
+    for Shorts watch-with-sound-off. Multi-language captions tie into Phase 5 localization.
+  - **Mix & mux**: assemble music + VO + SFX + captions onto the stitched video (ffmpeg),
+    with a loudness target and safe-area caption placement.
 - **Dialogue & sound planning**: dialogue lines per scene (kid-appropriate line-length
   rules), sound-effect and music cue notes, character sound motifs from the bible.
 - **Assembly**: server-side stitch with transitions, title/end cards, safe-area checks for

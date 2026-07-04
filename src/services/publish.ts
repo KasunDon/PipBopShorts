@@ -98,6 +98,9 @@ export async function publishProject(
     record.error = err instanceof Error ? err.message : String(err);
   }
   project.publish = record;
+  // Append the completed attempt to the publish history (a snapshot, so later
+  // publishes don't mutate past entries).
+  project.publishHistory = [...(project.publishHistory ?? []), { ...record }];
   store.saveProject(project);
   return record;
 }

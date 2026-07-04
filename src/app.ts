@@ -22,6 +22,7 @@ import { bootstrapStory, draftEpisode } from './services/bootstrap';
 import { DEFAULT_DISSECT_MODEL, DISSECT_MODELS, extractCanon, patchMark } from './services/canon';
 import {
   approvePortrait,
+  buildReferenceDefinition,
   generatePortrait,
   refreshPortrait,
   syncCharactersFromCanon,
@@ -31,6 +32,8 @@ import { assertRuntime, extendPlan, generateNextEpisode, planStory } from './ser
 import { checkDrift, resolveDrift } from './services/drift';
 import { UserInputError } from './errors';
 import { EventStore, type EventService, type EventStatus } from './events/eventStore';
+import { withCostContext, type CostContext } from './costs/context';
+import { buildCostReport } from './costs/report';
 import { exportFilename, exportStory, ImportError, importStory } from './services/exchange';
 import {
   extendClip,
@@ -41,6 +44,7 @@ import {
   type GenerateOptions,
 } from './services/generation';
 import { episodeSettingTemplate, storyBibleTemplate } from './templates';
+import { buildStorylinePreview, validateStorylineForRender } from './services/preview';
 import { publishProject } from './services/publish';
 import {
   addScene,
@@ -67,9 +71,38 @@ export interface AppDeps {
 
 type Handler = (req: Request, res: Response) => Promise<unknown> | unknown;
 
+/** Infer the production phase a request belongs to from its path, for cost attribution. */
+function phaseFromPath(path: string): string | undefined {
+  if (/\/canon\/extract/.test(path)) return 'canon';
+  if (/\/characters\/[^/]+\/(portraits|still)/.test(path)) return 'reference';
+  if (/\/stories\/bootstrap/.test(path)) return 'bootstrap';
+  if (/\/episodes\/[^/]+\/storylines/.test(path)) return 'storyline';
+  if (/\/episodes\/draft/.test(path)) return 'episode-draft';
+  if (/\/episodes\/generate/.test(path)) return 'episode-gen';
+  if (/\/plan/.test(path)) return 'season';
+  if (/\/drift/.test(path)) return 'drift';
+  if (/\/(generate|refresh|extend)\b|\/scenes\/[^/]+\/image/.test(path)) return 'clip';
+  if (/\/publish/.test(path)) return 'publish';
+  return undefined;
+}
+
+function scopeFromRequest(req: Request): CostContext {
+  const p = (req.params ?? {}) as Record<string, string | undefined>;
+  return {
+    storyId: p.storyId,
+    episodeId: p.episodeId,
+    storylineId: p.storylineId,
+    sceneId: p.sceneId,
+    entityId: p.entityId,
+    phase: phaseFromPath(req.path),
+  };
+}
+
 function asyncHandler(fn: Handler) {
   return (req: Request, res: Response, next: NextFunction) => {
-    Promise.resolve(fn(req, res)).catch(next);
+    // Run within a cost context so any outbound call this handler makes is
+    // attributed to the right story/episode/scene/phase in the audit log.
+    withCostContext(scopeFromRequest(req), () => Promise.resolve(fn(req, res)).catch(next));
   };
 }
 
@@ -149,6 +182,17 @@ export function createApp(deps: AppDeps): express.Express {
   app.delete('/api/events', (_req, res) => {
     eventStore.clear();
     res.status(204).end();
+  });
+
+  // ---- Cost report (production spend across LLM + PixVerse) ----
+  app.get('/api/costs/report', (req, res) => {
+    const { storyId, episodeId, since } = req.query;
+    const report = buildCostReport(eventStore.all(), {
+      storyId: typeof storyId === 'string' ? storyId : undefined,
+      episodeId: typeof episodeId === 'string' ? episodeId : undefined,
+      since: typeof since === 'string' ? since : undefined,
+    });
+    res.json({ report });
   });
 
   // ---- Templates ----
@@ -400,6 +444,15 @@ export function createApp(deps: AppDeps): express.Express {
     }),
   );
 
+  // The canon marks + built render prompt for a character/location — reviewed
+  // and (via promptOverride) editable before generating.
+  app.get(
+    '/api/stories/:storyId/characters/:entityId/definition',
+    asyncHandler((req, res) => {
+      res.json({ definition: buildReferenceDefinition(deps.store, req.params.storyId, req.params.entityId) });
+    }),
+  );
+
   app.post(
     '/api/stories/:storyId/characters/:entityId/portraits',
     asyncHandler(async (req, res) => {
@@ -560,12 +613,31 @@ export function createApp(deps: AppDeps): express.Express {
   );
 
   // ---- Storyline generation ----
+  // Preview exactly what the AI will receive (bible + brief + setting + canon)
+  // plus pre-flight checks, before spending an LLM call.
+  app.get(
+    '/api/episodes/:episodeId/storyline-preview',
+    asyncHandler((req, res) => {
+      const episode = deps.store.getEpisode(req.params.episodeId);
+      res.json({ preview: buildStorylinePreview(deps.store, episode.storyId, episode.id) });
+    }),
+  );
+
   app.post(
     '/api/episodes/:episodeId/storylines',
     asyncHandler(async (req, res) => {
       const episode = deps.store.getEpisode(req.params.episodeId);
       const project = await createStorylineProject(deps.store, deps.claude, episode.storyId, episode.id, req.body ?? {});
       res.status(201).json({ project });
+    }),
+  );
+
+  // Validate every scene against PixVerse rules and estimate render cost before
+  // committing credits.
+  app.get(
+    '/api/storylines/:storylineId/validate',
+    asyncHandler((req, res) => {
+      res.json({ validation: validateStorylineForRender(deps.store, req.params.storylineId) });
     }),
   );
 

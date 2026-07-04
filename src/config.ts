@@ -6,6 +6,8 @@ export interface AppConfig {
   pixverse: {
     apiKey: string | undefined;
     baseUrl: string;
+    /** USD per PixVerse credit, for cost accounting. Tune to your plan. */
+    creditUsd: number;
   };
   claudeGateway: {
     baseUrl: string;
@@ -33,6 +35,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     pixverse: {
       apiKey: env.PIXVERSE_API_KEY,
       baseUrl: (env.PIXVERSE_BASE_URL ?? 'https://app-api.pixverse.ai/openapi/v2').replace(/\/$/, ''),
+      creditUsd: Number(env.PIXVERSE_CREDIT_USD ?? 0.012) || 0.012,
     },
     claudeGateway: {
       // Local Claude Code Gateway (HTTP wrapper around the `claude` CLI).

@@ -653,7 +653,7 @@ tr.transitioning {
 }
 .character-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
   gap: 12px;
 }
 .character-card {
@@ -1033,4 +1033,293 @@ button.ghost.small {
   .scene-body {
     grid-template-columns: 1fr;
   }
+}
+
+/* ---- Costs, preview & validation ---- */
+.events-toggle + .events-toggle {
+  margin-left: 0;
+}
+.costs-panel {
+  max-width: 1200px;
+}
+.cost-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.cost-tile {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+}
+.cost-tile.accent {
+  border-color: var(--accent);
+}
+.cost-tile-value {
+  font-size: 22px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.cost-tile-label {
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 4px;
+}
+.cost-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+.bucket-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.bucket-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.bucket-key {
+  flex: 1;
+  text-transform: capitalize;
+}
+.bucket-usd {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.cost-table-wrap {
+  overflow-x: auto;
+}
+.cost-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.cost-table th,
+.cost-table td {
+  text-align: right;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.cost-table th:first-child,
+.cost-table td:first-child {
+  text-align: left;
+}
+.cost-table th {
+  color: var(--muted);
+  font-weight: 500;
+}
+.mono {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 11px;
+}
+.event-cost {
+  font-variant-numeric: tabular-nums;
+  color: var(--warn);
+  min-width: 62px;
+  text-align: right;
+}
+
+/* Storyline preview + render validation */
+.preview-box,
+.validation-box {
+  margin-top: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  background: var(--card-2);
+}
+.validation-box.ok {
+  border-color: var(--good);
+}
+.validation-box.bad {
+  border-color: var(--bad);
+}
+.check-list {
+  list-style: none;
+  margin: 6px 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.check {
+  font-size: 13px;
+}
+.check-ok {
+  color: var(--good);
+}
+.check-warn {
+  color: var(--warn);
+}
+.check-error {
+  color: var(--bad);
+}
+.preview-md {
+  margin: 8px 0 0;
+  padding: 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 340px;
+  overflow: auto;
+}
+
+/* ---- Lightbox ---- */
+.lightbox-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.82);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 24px;
+}
+.lightbox-body {
+  position: relative;
+  max-width: 92vw;
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.lightbox-media {
+  max-width: 92vw;
+  max-height: 82vh;
+  border-radius: 8px;
+  background: #000;
+}
+.lightbox-close {
+  position: absolute;
+  top: -14px;
+  right: -14px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--card-2);
+  border: 1px solid var(--border);
+}
+.lightbox-caption {
+  color: var(--muted);
+  font-size: 12px;
+  max-width: 640px;
+  text-align: center;
+  max-height: 4.5em;
+  overflow: auto;
+}
+.lightbox-open {
+  color: var(--accent-2);
+  font-size: 12px;
+}
+
+/* Portrait becomes a zoomable button */
+.portrait-btn {
+  position: relative;
+  padding: 0;
+  border: none;
+  background: none;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+.portrait-zoom {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: rgba(0, 0, 0, 0.55);
+  border-radius: 6px;
+  padding: 1px 5px;
+  font-size: 12px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.portrait-btn:hover .portrait-zoom {
+  opacity: 1;
+}
+.still-thumb {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+/* Tweak input — full width on its own row (was cramped beside the button) */
+.tweak-input {
+  width: 100%;
+  margin-bottom: 6px;
+}
+.tweak-attach {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.tweak-attach button:not(.linkish) {
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+/* Definition box */
+.definition-box {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mark-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+}
+.mark-list .badge {
+  font-size: 10px;
+  padding: 1px 6px;
+}
+.definition-box textarea {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 12px;
+}
+
+/* Publish history */
+.publish-history {
+  margin-top: 12px;
+}
+.publish-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.publish-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
 }

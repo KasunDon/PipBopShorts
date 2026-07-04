@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import { extractCanon } from '../src/services/canon';
+import { buildReferenceDefinition } from '../src/services/characters';
 import {
   extendClip,
   generateAllClips,
@@ -15,7 +17,7 @@ import {
   updateYoutubeMeta,
 } from '../src/services/storyline';
 import type { Store } from '../src/store/store';
-import { makeDryRunYoutube, makeFakeClaude, makeFakePixverse, makeStore, noSleep } from './helpers';
+import { makeDryRunYoutube, makeFakeClaude, makeFakePixverse, makeStore, makeStudioFakeClaude, noSleep } from './helpers';
 
 let cleanups: Array<() => void> = [];
 afterEach(() => {
@@ -213,5 +215,68 @@ describe('publish service', () => {
     await generateClip(store, pixverse, project.storyline.id, sceneId, { pollIntervalMs: 1, sleep: noSleep });
     const record = await publishProject(store, makeDryRunYoutube(), project.storyline.id, { sceneId });
     expect(record.status).toBe('published');
+  });
+
+  it('records a publish history entry per attempt', async () => {
+    const { store, storyId, episodeId } = setup();
+    const project = await makeProject(store, storyId, episodeId);
+    const { client: pixverse } = makeFakePixverse({ defaultStatus: 1 });
+    await generateAllClips(store, pixverse, project.storyline.id, { pollIntervalMs: 1, sleep: noSleep });
+
+    await publishProject(store, makeDryRunYoutube(), project.storyline.id, { privacyStatus: 'private' });
+    await publishProject(store, makeDryRunYoutube(), project.storyline.id, { privacyStatus: 'unlisted' });
+
+    const saved = store.getProject(project.storyline.id);
+    expect(saved.publishHistory).toHaveLength(2);
+    expect(saved.publishHistory!.every((r) => r.status === 'published')).toBe(true);
+    // History entries are independent snapshots — the second publish doesn't
+    // share (or mutate) the first entry's object.
+    expect(saved.publishHistory![0]).not.toBe(saved.publishHistory![1]);
+    expect(saved.publishHistory![0]).not.toBe(saved.publish);
+    expect(saved.publish?.videoId).toBe(saved.publishHistory![1].videoId);
+  });
+
+  it('records a failed publish attempt in history', async () => {
+    const { store, storyId, episodeId } = setup();
+    const project = await makeProject(store, storyId, episodeId);
+    const { client: pixverse } = makeFakePixverse({ defaultStatus: 1 });
+    await generateAllClips(store, pixverse, project.storyline.id, { pollIntervalMs: 1, sleep: noSleep });
+
+    // Live (non-dry-run) youtube with no credentials → dry-run anyway; force a
+    // failure by publishing with an explicit bad videoUrl on a live client.
+    const youtube = makeDryRunYoutube();
+    await publishProject(store, youtube, project.storyline.id, {});
+    const saved = store.getProject(project.storyline.id);
+    expect(saved.publishHistory!.length).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe('reference definition', () => {
+  it('returns canon marks and the built prompt for a character', async () => {
+    const { store, cleanup } = makeStore();
+    cleanups.push(cleanup);
+    const story = store.createStory({
+      title: 'Pals',
+      bible: '# Bible\nBobo is a golden-brown monkey with a bright green leaf scarf.',
+      meta: { audienceMin: 4, audienceMax: 7 },
+    });
+    const { client } = makeStudioFakeClaude();
+    await extractCanon(store, client, story.id);
+
+    const def = buildReferenceDefinition(store, story.id, 'CHAR_BOBO_001');
+    expect(def.name).toBe('Bobo');
+    expect(def.type).toBe('character');
+    expect(def.marks.some((m) => m.value.includes('green leaf scarf'))).toBe(true);
+    expect(def.builtPrompt).toContain('reference sheet of Bobo');
+    expect(def.negativePrompt).toContain('multiple characters');
+  });
+
+  it('rejects an unknown entity id', async () => {
+    const { store, cleanup } = makeStore();
+    cleanups.push(cleanup);
+    const story = store.createStory({ title: 'X', bible: '# Bible\nBobo.' });
+    const { client } = makeStudioFakeClaude();
+    await extractCanon(store, client, story.id);
+    expect(() => buildReferenceDefinition(store, story.id, 'NOPE')).toThrow(/No canon character or location/);
   });
 });

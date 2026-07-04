@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from './api';
-import type { CharacterAsset, CharacterRegistry, PortraitVersion, ReferenceAssetType, Story } from './types';
+import { Lightbox, type LightboxMedia } from './Lightbox';
+import type { CharacterAsset, CharacterRegistry, PortraitVersion, ReferenceAssetType, ReferenceDefinition, Story } from './types';
 import { formatElapsed, useAsyncAction } from './useAsyncAction';
 
 type Run = <T>(fn: () => Promise<T>) => Promise<T | undefined>;
+type OpenPreview = (media: LightboxMedia) => void;
 
 function fileToBase64(file: File): Promise<{ dataBase64: string; contentType: string; filename: string }> {
   return new Promise((resolve, reject) => {
@@ -14,25 +16,37 @@ function fileToBase64(file: File): Promise<{ dataBase64: string; contentType: st
   });
 }
 
-function PortraitVideo({ v }: { v: PortraitVersion }) {
+function PortraitVideo({ v, onPreview }: { v: PortraitVersion; onPreview: OpenPreview }) {
   if (v.status !== 'ready') {
     return <div className={`portrait placeholder ${v.status}`}>{v.status === 'generating' ? 'Rendering…' : v.status}</div>;
   }
   if (v.videoId != null && v.previewUrl) {
-    return <video className="portrait" src={v.previewUrl} controls muted loop playsInline />;
+    return (
+      <button className="portrait-btn" title="Preview" onClick={() => onPreview({ url: v.previewUrl!, kind: 'video', caption: v.prompt })}>
+        <video className="portrait" src={v.previewUrl} muted loop playsInline />
+        <span className="portrait-zoom">🔍</span>
+      </button>
+    );
   }
-  if (v.previewUrl) return <img className="portrait" src={v.previewUrl} alt="reference" />;
+  if (v.previewUrl) {
+    return (
+      <button className="portrait-btn" title="Preview" onClick={() => onPreview({ url: v.previewUrl!, kind: 'image', caption: v.prompt })}>
+        <img className="portrait" src={v.previewUrl} alt="reference" />
+        <span className="portrait-zoom">🔍</span>
+      </button>
+    );
+  }
   return <div className="portrait placeholder">no preview</div>;
 }
 
-/** The still image PixVerse can actually use as an image-to-video source — shown distinctly from the video preview. */
-function StillThumb({ v }: { v: PortraitVersion }) {
+/** The still image PixVerse can consume as an image-to-video source — opens in the in-app lightbox. */
+function StillThumb({ v, onPreview }: { v: PortraitVersion; onPreview: OpenPreview }) {
   if (v.imageUrl) {
     return (
-      <a className="still-thumb" href={v.imageUrl} target="_blank" rel="noreferrer" title="Open the captured still image">
+      <button className="still-thumb" onClick={() => onPreview({ url: v.imageUrl!, kind: 'image', caption: 'Captured still' })} title="Preview the still image">
         <img src={v.imageUrl} alt="captured still" />
-        <span className="muted small">🖼 still image</span>
-      </a>
+        <span className="muted small">🖼 still</span>
+      </button>
     );
   }
   if (v.status === 'generating') return null;
@@ -46,18 +60,20 @@ function StillThumb({ v }: { v: PortraitVersion }) {
   return null;
 }
 
-/** Shows the input image a render was seeded from (image-guided tweak). */
-function SeedThumb({ url }: { url: string }) {
+function SeedThumb({ url, onPreview }: { url: string; onPreview: OpenPreview }) {
   return (
-    <a className="still-thumb seed" href={url} target="_blank" rel="noreferrer" title="Seeded from this attached image">
+    <button className="still-thumb seed" onClick={() => onPreview({ url, kind: 'image', caption: 'Seed image' })} title="Preview the seed image">
       <img src={url} alt="seed" />
-      <span className="muted small">📎 seeded from</span>
-    </a>
+      <span className="muted small">📎 seed</span>
+    </button>
   );
 }
 
 export function CharactersPanel({ story, run }: { story: Story; run: Run }) {
   const [registry, setRegistry] = useState<CharacterRegistry | null>(null);
+  const [lightbox, setLightbox] = useState<LightboxMedia | null>(null);
+  const [bulk, setBulk] = useState<{ done: number; total: number } | null>(null);
+  const openPreview = useCallback((media: LightboxMedia) => setLightbox(media), []);
 
   const reload = useCallback(async () => {
     const res = await run(() => api.getCharacters(story.id));
@@ -71,14 +87,45 @@ export function CharactersPanel({ story, run }: { story: Story; run: Run }) {
   const all = registry ? Object.values(registry.characters) : [];
   const characters = all.filter((a) => a.type !== 'location');
   const locations = all.filter((a) => a.type === 'location');
+  const missing = all.filter((a) => !a.approvedVersionId);
+
+  const renderAllMissing = async () => {
+    if (missing.length === 0) return;
+    if (
+      !confirm(
+        `Render reference images for ${missing.length} item(s) without an approved reference (${missing
+          .map((m) => m.name)
+          .join(', ')})?\n\nThis sends ${missing.length} generation(s) to PixVerse and uses credits. Already-approved references are skipped.`,
+      )
+    )
+      return;
+    setBulk({ done: 0, total: missing.length });
+    try {
+      for (let i = 0; i < missing.length; i++) {
+        await run(() => api.generatePortrait(story.id, missing[i].entityId, {}));
+        setBulk({ done: i + 1, total: missing.length });
+        await reload();
+      }
+    } finally {
+      setBulk(null);
+    }
+  };
 
   return (
     <section className="card">
+      {lightbox && <Lightbox media={lightbox} onClose={() => setLightbox(null)} />}
       <div className="card-head">
         <h3>🧸🏞 Reference images</h3>
-        <button className="ghost" onClick={reload}>
-          ↻ Sync from canon
-        </button>
+        <div className="row">
+          {missing.length > 0 && (
+            <button className="primary" disabled={bulk !== null} onClick={renderAllMissing} title="Generate references for everything not yet approved">
+              {bulk ? `Rendering ${bulk.done}/${bulk.total}…` : `✨ Render all missing (${missing.length})`}
+            </button>
+          )}
+          <button className="ghost" onClick={reload}>
+            ↻ Sync from canon
+          </button>
+        </div>
       </div>
       {all.length === 0 ? (
         <p className="muted small">
@@ -94,7 +141,7 @@ export function CharactersPanel({ story, run }: { story: Story; run: Run }) {
           ) : (
             <div className="character-grid">
               {characters.map((c) => (
-                <CharacterCard key={c.entityId} story={story} asset={c} run={run} onChanged={reload} />
+                <CharacterCard key={c.entityId} story={story} asset={c} run={run} onChanged={reload} onPreview={openPreview} />
               ))}
             </div>
           )}
@@ -105,7 +152,7 @@ export function CharactersPanel({ story, run }: { story: Story; run: Run }) {
           ) : (
             <div className="character-grid">
               {locations.map((c) => (
-                <CharacterCard key={c.entityId} story={story} asset={c} run={run} onChanged={reload} />
+                <CharacterCard key={c.entityId} story={story} asset={c} run={run} onChanged={reload} onPreview={openPreview} />
               ))}
             </div>
           )}
@@ -116,7 +163,7 @@ export function CharactersPanel({ story, run }: { story: Story; run: Run }) {
 }
 
 function tweakPlaceholder(type: ReferenceAssetType): string {
-  return type === 'location' ? '✨ Tweak prompt (e.g. add string lights at dusk)…' : '✨ Tweak prompt (e.g. add a tiny hat)…';
+  return type === 'location' ? '✨ Tweak (e.g. add string lights at dusk)…' : '✨ Tweak (e.g. add a tiny explorer hat)…';
 }
 
 function CharacterCard({
@@ -124,21 +171,24 @@ function CharacterCard({
   asset,
   run,
   onChanged,
+  onPreview,
 }: {
   story: Story;
   asset: CharacterAsset;
   run: Run;
   onChanged: () => void;
+  onPreview: OpenPreview;
 }) {
   const [tweak, setTweak] = useState('');
   const [tweakImage, setTweakImage] = useState<{ dataBase64: string; contentType: string; filename: string } | null>(null);
   const [showVersions, setShowVersions] = useState(false);
+  const [def, setDef] = useState<ReferenceDefinition | null>(null);
+  const [editPrompt, setEditPrompt] = useState('');
   const [busy, setBusy] = useState(false);
   const gen = useAsyncAction({ timeoutMs: 5 * 60 * 1000 });
   const approved = asset.versions.find((v) => v.id === asset.approvedVersionId) ?? null;
   const latest = asset.versions[asset.versions.length - 1] ?? null;
 
-  // Fast, synchronous-ish actions (approve/upload) keep the simple pattern.
   const act = async (fn: () => Promise<unknown>) => {
     setBusy(true);
     try {
@@ -149,16 +199,30 @@ function CharacterCard({
     }
   };
 
-  // Slow render actions get elapsed feedback + cancel + retry-friendly errors.
-  const generate = (opts: Parameters<typeof api.generatePortrait>[2]) =>
-    gen.execute(async (signal) => {
+  const generate = (opts: Parameters<typeof api.generatePortrait>[2], confirmMsg: string) => {
+    if (!confirm(confirmMsg)) return Promise.resolve(undefined);
+    return gen.execute(async (signal) => {
       await api.generatePortrait(story.id, asset.entityId, { ...opts, signal });
       onChanged();
       return true;
     });
+  };
+
+  const toggleDefinition = async () => {
+    if (def) {
+      setDef(null);
+      return;
+    }
+    const res = await run(() => api.getReferenceDefinition(story.id, asset.entityId));
+    if (res) {
+      setDef(res.definition);
+      setEditPrompt(res.definition.currentPrompt ?? res.definition.builtPrompt);
+    }
+  };
 
   const anyBusy = busy || gen.pending;
   const showcase = approved ?? latest;
+  const kindNoun = asset.type === 'location' ? 'location' : 'character';
 
   return (
     <div className="character-card">
@@ -168,15 +232,22 @@ function CharacterCard({
         <span className="muted small">{asset.entityId}</span>
       </div>
 
-      {showcase ? <PortraitVideo v={showcase} /> : <div className="portrait placeholder">No render yet</div>}
+      {showcase ? <PortraitVideo v={showcase} onPreview={onPreview} /> : <div className="portrait placeholder">No render yet</div>}
       <div className="thumb-row">
-        {showcase && <StillThumb v={showcase} />}
-        {showcase?.sourceImageUrl && <SeedThumb url={showcase.sourceImageUrl} />}
+        {showcase && <StillThumb v={showcase} onPreview={onPreview} />}
+        {showcase?.sourceImageUrl && <SeedThumb url={showcase.sourceImageUrl} onPreview={onPreview} />}
       </div>
 
       <div className="character-actions">
-        <button className="primary" disabled={anyBusy} onClick={() => generate({})}>
+        <button
+          className="primary"
+          disabled={anyBusy}
+          onClick={() => generate({}, `Render a reference image for ${asset.name} with PixVerse? This uses credits.`)}
+        >
           {asset.versions.length === 0 ? '✨ Generate' : '↻ Refresh'}
+        </button>
+        <button className="ghost" disabled={anyBusy} onClick={toggleDefinition} title="See the canon definition and edit the render prompt">
+          {def ? 'Hide definition' : '🔍 Definition'}
         </button>
         {showcase && showcase.status === 'ready' && showcase.id !== asset.approvedVersionId && (
           <button disabled={anyBusy} onClick={() => act(() => api.approvePortrait(story.id, asset.entityId, showcase.id))}>
@@ -205,6 +276,40 @@ function CharacterCard({
         </label>
       </div>
 
+      {def && (
+        <div className="definition-box">
+          <p className="muted small">{def.summary}</p>
+          <ul className="mark-list">
+            {def.marks.map((m) => (
+              <li key={m.key}>
+                <span className={`badge sev-${m.severity}`}>{m.severity}</span> <b>{m.key}:</b> {m.value}
+              </li>
+            ))}
+          </ul>
+          <label className="field">
+            <span>Render prompt (edit before generating)</span>
+            <textarea value={editPrompt} onChange={(e) => setEditPrompt(e.target.value)} rows={5} disabled={anyBusy} />
+          </label>
+          <div className="row">
+            <button className="ghost small" disabled={anyBusy} onClick={() => setEditPrompt(def.builtPrompt)} title="Reset to the canon-built prompt">
+              ↺ Reset to canon prompt
+            </button>
+            <button
+              className="primary"
+              disabled={anyBusy || !editPrompt.trim()}
+              onClick={() =>
+                generate(
+                  { source: 'tweak', promptOverride: editPrompt.trim() },
+                  `Render ${asset.name} from your edited prompt? This uses PixVerse credits.`,
+                )
+              }
+            >
+              ✨ Generate from this prompt
+            </button>
+          </div>
+        </div>
+      )}
+
       {gen.pending && (
         <div className="row idea-progress">
           <span className="muted small">✨ Rendering… {formatElapsed(gen.elapsedSec)} elapsed</span>
@@ -216,46 +321,18 @@ function CharacterCard({
       {gen.error && (
         <div className="error inline" role="alert">
           {gen.error}
-          <div className="row">
-            <button className="ghost small" onClick={() => generate({})}>
-              ↻ Retry
-            </button>
-            <button onClick={gen.dismissError}>×</button>
-          </div>
+          <button onClick={gen.dismissError}>×</button>
         </div>
       )}
 
       <div className="tweak-box">
-        <div className="tweak-row">
-          <input
-            placeholder={tweakPlaceholder(asset.type)}
-            value={tweak}
-            onChange={(e) => setTweak(e.target.value)}
-            disabled={anyBusy}
-          />
-          <button
-            disabled={anyBusy || (!tweak.trim() && !tweakImage)}
-            title="Regenerate from the current prompt plus your adjustment (and attached image, if any)"
-            onClick={async () => {
-              const base = (approved ?? latest)?.prompt ?? '';
-              const adjust = tweak.trim();
-              const promptOverride = adjust ? (base ? `${base}\n\nAdjustment: ${adjust}` : adjust) : base;
-              const res = await generate({
-                source: 'tweak',
-                promptOverride,
-                dataBase64: tweakImage?.dataBase64,
-                contentType: tweakImage?.contentType,
-                filename: tweakImage?.filename,
-              });
-              if (res !== undefined) {
-                setTweak('');
-                setTweakImage(null);
-              }
-            }}
-          >
-            Tweak &amp; regenerate
-          </button>
-        </div>
+        <input
+          className="tweak-input"
+          placeholder={tweakPlaceholder(asset.type)}
+          value={tweak}
+          onChange={(e) => setTweak(e.target.value)}
+          disabled={anyBusy}
+        />
         <div className="tweak-attach">
           <label className="upload small" title="Attach an image to guide the render (image-to-video)">
             📎 {tweakImage ? 'Change image' : 'Attach image'}
@@ -279,12 +356,33 @@ function CharacterCard({
               </button>
             </span>
           )}
+          <button
+            disabled={anyBusy || (!tweak.trim() && !tweakImage)}
+            title="Regenerate from the current prompt plus your adjustment (and attached image, if any)"
+            onClick={async () => {
+              const base = (approved ?? latest)?.prompt ?? '';
+              const adjust = tweak.trim();
+              const promptOverride = adjust ? (base ? `${base}\n\nAdjustment: ${adjust}` : adjust) : base;
+              const res = await generate(
+                {
+                  source: 'tweak',
+                  promptOverride,
+                  dataBase64: tweakImage?.dataBase64,
+                  contentType: tweakImage?.contentType,
+                  filename: tweakImage?.filename,
+                },
+                `Re-render ${kindNoun} ${asset.name} with your tweak? This uses PixVerse credits.`,
+              );
+              if (res !== undefined) {
+                setTweak('');
+                setTweakImage(null);
+              }
+            }}
+          >
+            Tweak &amp; regenerate
+          </button>
         </div>
-        {tweakImage && (
-          <p className="muted small">
-            The attached image will seed an image-to-video render, keeping the result anchored to it.
-          </p>
-        )}
+        {tweakImage && <p className="muted small">The attached image will seed an image-to-video render, anchoring the result to it.</p>}
       </div>
 
       {asset.versions.length > 0 && (
@@ -296,8 +394,8 @@ function CharacterCard({
         <div className="version-strip">
           {[...asset.versions].reverse().map((v) => (
             <div key={v.id} className={`version-thumb ${v.id === asset.approvedVersionId ? 'approved' : ''}`}>
-              <PortraitVideo v={v} />
-              <StillThumb v={v} />
+              <PortraitVideo v={v} onPreview={onPreview} />
+              <StillThumb v={v} onPreview={onPreview} />
               <div className="muted small">
                 v{v.version} · {v.source}
               </div>
