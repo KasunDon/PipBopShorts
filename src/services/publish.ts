@@ -2,6 +2,7 @@ import type { YoutubeClient } from '../clients/youtube';
 import { UserInputError } from '../errors';
 import type { Store } from '../store/store';
 import type { Clip, Project, PublishRecord, Scene } from '../types';
+import { buildCaptionsSrt } from './captions';
 import { stitchClips } from './stitch';
 
 export interface PublishOptions {
@@ -69,9 +70,12 @@ export async function publishProject(
         }
       }
       if (ready.length > 1 && options.stitch && !youtube.isDryRun) {
+        // Burn in captions when any scene has one (sound-off ready).
+        const srt = buildCaptionsSrt(store, storylineId);
         const stitched = await stitchClips(
           ready.map((r) => r.clip.url as string),
           options.fetchImpl,
+          { burnSrt: srt || undefined },
         );
         if (stitched) videoBytes = stitched;
       }

@@ -8,12 +8,22 @@ type FetchLike = typeof fetch;
 
 export { hasFfmpeg };
 
+export interface StitchOptions {
+  /** SRT subtitle text to burn into the stitched video (sound-off captions). */
+  burnSrt?: string;
+}
+
 /**
- * Concatenate several clip URLs into a single MP4 using ffmpeg. Best-effort:
- * returns null (rather than throwing) when ffmpeg is unavailable or fails, so
- * callers can gracefully fall back to publishing a single clip.
+ * Concatenate several clip URLs into a single MP4 using ffmpeg, optionally
+ * burning in a subtitle (.srt) track. Best-effort: returns null (rather than
+ * throwing) when ffmpeg is unavailable or fails, so callers can gracefully fall
+ * back to publishing a single clip.
  */
-export async function stitchClips(urls: string[], fetchImpl: FetchLike = fetch): Promise<Uint8Array | null> {
+export async function stitchClips(
+  urls: string[],
+  fetchImpl: FetchLike = fetch,
+  options: StitchOptions = {},
+): Promise<Uint8Array | null> {
   if (urls.length === 0) return null;
   if (!hasFfmpeg()) return null;
 
@@ -30,14 +40,28 @@ export async function stitchClips(urls: string[], fetchImpl: FetchLike = fetch):
     }
     const listPath = path.join(dir, 'list.txt');
     writeFileSync(listPath, files.map((f) => `file '${f.replace(/'/g, "'\\''")}'`).join('\n'), 'utf8');
-    const outPath = path.join(dir, 'out.mp4');
-    const res = spawnSync(
+    const concatPath = path.join(dir, 'concat.mp4');
+    const concat = spawnSync(
       FFMPEG_BIN,
-      ['-y', '-f', 'concat', '-safe', '0', '-i', listPath, '-c', 'copy', outPath],
+      ['-y', '-f', 'concat', '-safe', '0', '-i', listPath, '-c', 'copy', concatPath],
       { stdio: 'ignore' },
     );
-    if (res.status !== 0) return null;
-    return readFileSync(outPath);
+    if (concat.status !== 0) return null;
+
+    const srt = options.burnSrt?.trim();
+    if (!srt) return readFileSync(concatPath);
+
+    // Second pass: burn the captions in (re-encodes the video; audio copied).
+    const srtPath = path.join(dir, 'subs.srt');
+    writeFileSync(srtPath, srt, 'utf8');
+    const outPath = path.join(dir, 'out.mp4');
+    const burn = spawnSync(
+      FFMPEG_BIN,
+      ['-y', '-i', concatPath, '-vf', `subtitles=${srtPath}`, '-c:a', 'copy', outPath],
+      { stdio: 'ignore' },
+    );
+    // If burning fails, fall back to the un-captioned concat rather than failing.
+    return burn.status === 0 ? readFileSync(outPath) : readFileSync(concatPath);
   } catch {
     return null;
   } finally {
