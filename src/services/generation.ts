@@ -5,6 +5,7 @@ import {
   type PixverseClient,
   type PixverseVideoResult,
 } from '../clients/pixverse';
+import { UserInputError } from '../errors';
 import type { Store } from '../store/store';
 import type { Clip, ClipAttempt, ClipStatus, Project, Scene } from '../types';
 import { resolveSceneReferences, type ResolvedReferences } from './characters';
@@ -240,6 +241,24 @@ export async function extendClip(
     store.saveProject(project);
     return clip;
   }
+}
+
+/**
+ * Approve (or un-approve) a rendered clip as final. Only a ready clip can be
+ * approved; publishing requires approval. Editing or re-rendering a scene resets
+ * this (idleClip drops the flag), so approval always reflects the current render.
+ */
+export function setClipApproval(store: Store, storylineId: string, sceneId: string, approved: boolean): Clip {
+  const project = store.getProject(storylineId);
+  const clip = project.clips[sceneId];
+  if (!clip) throw new Error(`Clip not found: ${sceneId}`);
+  if (approved && clip.status !== 'ready') {
+    throw new UserInputError('Only a rendered (ready) clip can be approved.');
+  }
+  clip.approved = approved;
+  clip.updatedAt = new Date().toISOString();
+  store.saveProject(project);
+  return clip;
 }
 
 /** Upload a reference image to PixVerse for use as a scene's image-to-video source. */

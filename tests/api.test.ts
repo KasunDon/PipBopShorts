@@ -98,6 +98,12 @@ describe('full workflow over HTTP', () => {
       expect(genAll.body.project.clips[scene.id].status).toBe('ready');
     }
 
+    // Publish is gated on clip approval.
+    await request(app).post(`/api/storylines/${storylineId}/publish`).send({ privacyStatus: 'unlisted' }).expect(400);
+    for (const scene of genAll.body.project.storyline.scenes) {
+      await request(app).post(`/api/storylines/${storylineId}/scenes/${scene.id}/clip/approval`).send({ approved: true }).expect(200);
+    }
+
     // Publish
     const pubRes = await request(app)
       .post(`/api/storylines/${storylineId}/publish`)
@@ -170,7 +176,10 @@ describe('reference definition + publish history over HTTP', () => {
     const storylineId = (
       await request(app).post(`/api/episodes/${episodeId}/storylines`).send({ model: 'claude-opus-4-8' }).expect(201)
     ).body.project.storyline.id;
-    await request(app).post(`/api/storylines/${storylineId}/generate`).send({ wait: true }).expect(200);
+    const gen = await request(app).post(`/api/storylines/${storylineId}/generate`).send({ wait: true }).expect(200);
+    for (const scene of gen.body.project.storyline.scenes) {
+      await request(app).post(`/api/storylines/${storylineId}/scenes/${scene.id}/clip/approval`).send({ approved: true }).expect(200);
+    }
 
     await request(app).post(`/api/storylines/${storylineId}/publish`).send({ privacyStatus: 'private' }).expect(200);
     await request(app).post(`/api/storylines/${storylineId}/publish`).send({ privacyStatus: 'unlisted' }).expect(200);
@@ -523,6 +532,30 @@ describe('CTA endpoint coverage', () => {
 
     // Bad reorder payload → 400.
     await request(app).post(`/api/storylines/${storylineId}/reorder`).send({}).expect(400);
+  });
+
+  it('approves a ready clip, resets approval on edit, and 400s approving a non-ready clip', async () => {
+    const { app } = makeApp();
+    const { storylineId, scenes } = await scaffold(app);
+    const sceneId = scenes[0].id;
+
+    // Can't approve before it's rendered.
+    await request(app).post(`/api/storylines/${storylineId}/scenes/${sceneId}/clip/approval`).send({ approved: true }).expect(400);
+
+    await request(app).post(`/api/storylines/${storylineId}/scenes/${sceneId}/generate`).send({ wait: true }).expect(200);
+    const approved = await request(app)
+      .post(`/api/storylines/${storylineId}/scenes/${sceneId}/clip/approval`)
+      .send({ approved: true })
+      .expect(200);
+    expect(approved.body.clip.approved).toBe(true);
+
+    // Editing the scene invalidates the render and its approval.
+    const edited = await request(app)
+      .patch(`/api/storylines/${storylineId}/scenes/${sceneId}`)
+      .send({ heading: 'Changed' })
+      .expect(200);
+    expect(edited.body.project.clips[sceneId].approved).toBeFalsy();
+    expect(edited.body.project.clips[sceneId].status).toBe('idle');
   });
 
   it('refreshes and extends a rendered scene', async () => {

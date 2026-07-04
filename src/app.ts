@@ -52,6 +52,7 @@ import {
   generateAllClips,
   generateClip,
   refreshClip,
+  setClipApproval,
   uploadReferenceImage,
   type GenerateOptions,
 } from './services/generation';
@@ -1038,6 +1039,23 @@ export function createApp(deps: AppDeps): express.Express {
     }),
   );
 
+  // Human sign-off on a rendered clip — the publish gate.
+  app.post(
+    '/api/storylines/:storylineId/scenes/:sceneId/clip/approval',
+    asyncHandler((req, res) => {
+      const approved = req.body?.approved !== false;
+      const clip = setClipApproval(deps.store, req.params.storylineId, req.params.sceneId, approved);
+      recordMutation(req, {
+        resource: 'clip-approval',
+        action: 'update',
+        summary: `${approved ? 'Approved' : 'Unapproved'} clip for scene ${req.params.sceneId}`,
+        before: { approved: !approved },
+        after: { approved },
+      });
+      res.json({ clip });
+    }),
+  );
+
   app.post(
     '/api/storylines/:storylineId/scenes/:sceneId/extend',
     asyncHandler(async (req, res) => {
@@ -1073,7 +1091,11 @@ export function createApp(deps: AppDeps): express.Express {
   app.post(
     '/api/storylines/:storylineId/publish',
     asyncHandler(async (req, res) => {
-      const record = await publishProject(deps.store, deps.youtube, req.params.storylineId, req.body ?? {});
+      // The app enforces the approval gate; the service default stays permissive.
+      const record = await publishProject(deps.store, deps.youtube, req.params.storylineId, {
+        ...(req.body ?? {}),
+        requireApproval: (req.body ?? {}).requireApproval !== false,
+      });
       recordMutation(req, {
         resource: 'publish',
         action: 'update',

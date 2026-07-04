@@ -1225,8 +1225,13 @@ function ProjectPanel({
   const [applyingDefaults, setApplyingDefaults] = useState(false);
 
   const readyCount = scenes.filter((s) => project.clips[s.id]?.status === 'ready').length;
+  const approvedCount = scenes.filter((s) => project.clips[s.id]?.approved).length;
   const generatingCount = scenes.filter((s) => project.clips[s.id]?.status === 'generating').length;
   const canRenderAll = validation !== null && validation.ok && generatingCount === 0;
+  // Publishing is gated on every rendered clip being approved.
+  const canPublish =
+    readyCount > 0 &&
+    scenes.filter((s) => project.clips[s.id]?.status === 'ready').every((s) => project.clips[s.id]?.approved);
 
   // Reference lookup so each scene can show which characters/locations it uses
   // and whether they're approved — reviewable before rendering.
@@ -1330,6 +1335,9 @@ function ProjectPanel({
           <span className="badge plain">
             {readyCount}/{scenes.length} ready
           </span>
+          {readyCount > 0 && (
+            <span className={`badge ${approvedCount === readyCount ? 'live' : 'warn'}`}>{approvedCount} approved</span>
+          )}
           {generatingCount > 0 && <span className="badge busy">{generatingCount} rendering</span>}
           {!canRenderAll && (
             <span className="gate-note">
@@ -1526,7 +1534,8 @@ function ProjectPanel({
           </label>
           <button
             className="primary"
-            disabled={readyCount === 0}
+            disabled={!canPublish}
+            title={canPublish ? 'Publish the short' : 'Approve every rendered clip before publishing'}
             onClick={async () => {
               if (!confirm(`Publish to YouTube (${privacy})? This uploads the short${stitch ? ' (stitched)' : ''}.`)) return;
               const res = await run(() => api.publish(storylineId, { privacyStatus: privacy, stitch }));
@@ -1543,6 +1552,12 @@ function ProjectPanel({
           >
             <IconSend /> Publish
           </button>
+          {!canPublish && (
+            <span className="gate-note">
+              <IconAlert />{' '}
+              {readyCount === 0 ? 'Render scenes first.' : `Approve all ${readyCount} rendered clip(s) before publishing.`}
+            </span>
+          )}
         </div>
         <PublishHistory project={project} />
       </section>

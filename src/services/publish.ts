@@ -1,4 +1,5 @@
 import type { YoutubeClient } from '../clients/youtube';
+import { UserInputError } from '../errors';
 import type { Store } from '../store/store';
 import type { Clip, Project, PublishRecord, Scene } from '../types';
 import { stitchClips } from './stitch';
@@ -11,6 +12,8 @@ export interface PublishOptions {
   videoUrl?: string;
   /** Attempt to concatenate all ready clips into one video (requires ffmpeg). */
   stitch?: boolean;
+  /** Require every clip being published to be human-approved first (the publish gate). */
+  requireApproval?: boolean;
   fetchImpl?: typeof fetch;
 }
 
@@ -50,11 +53,20 @@ export async function publishProject(
       if (!clip || clip.status !== 'ready' || !clip.url) {
         throw new Error('Selected scene has no rendered clip to publish');
       }
+      if (options.requireApproval && !clip.approved) {
+        throw new UserInputError('Approve the clip before publishing.');
+      }
       videoUrl = clip.url;
     } else {
       const ready = readyClipsInOrder(project);
       if (ready.length === 0) {
         throw new Error('No ready clips to publish. Generate the scenes first.');
+      }
+      if (options.requireApproval) {
+        const unapproved = ready.filter((r) => !r.clip.approved);
+        if (unapproved.length > 0) {
+          throw new UserInputError(`Approve all clips before publishing (${unapproved.length} not approved).`);
+        }
       }
       if (ready.length > 1 && options.stitch && !youtube.isDryRun) {
         const stitched = await stitchClips(

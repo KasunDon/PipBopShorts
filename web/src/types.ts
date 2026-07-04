@@ -255,6 +255,7 @@ export interface Clip {
   error: string | null;
   attempts: unknown[];
   updatedAt: string;
+  approved?: boolean;
 }
 
 export interface PublishRecord {

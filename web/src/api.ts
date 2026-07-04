@@ -98,6 +98,8 @@ export const api = {
     req<{ clip: Clip }>('POST', `/api/storylines/${storylineId}/scenes/${sceneId}/generate`, { wait }),
   refreshScene: (storylineId: string, sceneId: string) =>
     req<{ clip: Clip }>('POST', `/api/storylines/${storylineId}/scenes/${sceneId}/refresh`),
+  approveClip: (storylineId: string, sceneId: string, approved: boolean) =>
+    req<{ clip: Clip }>('POST', `/api/storylines/${storylineId}/scenes/${sceneId}/clip/approval`, { approved }),
   extendScene: (storylineId: string, sceneId: string, wait = true) =>
     req<{ clip: Clip }>('POST', `/api/storylines/${storylineId}/scenes/${sceneId}/extend`, { wait }),
   generateAll: (storylineId: string, wait = true) =>

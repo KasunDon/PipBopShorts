@@ -182,6 +182,8 @@ export interface Clip {
   error: string | null;
   attempts: ClipAttempt[];
   updatedAt: string;
+  /** Human sign-off that this rendered clip is final. Publishing requires it. Reset on any re-render/edit. */
+  approved?: boolean;
 }
 
 export type PublishStatus = 'unpublished' | 'publishing' | 'published' | 'failed';

@@ -213,6 +213,19 @@ export function SceneCard({
             <button className={dirty ? 'primary' : ''} onClick={save} disabled={!dirty}>
               {dirty ? 'Save changes' : 'Saved'}
             </button>
+            {status === 'ready' && (
+              <button
+                className={clip?.approved ? 'ghost' : 'primary'}
+                title={clip?.approved ? 'This clip is approved for publishing' : 'Approve this clip for publishing'}
+                onClick={async () => {
+                  await run(() => api.approveClip(storylineId, scene.id, !clip?.approved));
+                  const p = await api.getProject(storylineId);
+                  setProject(p.project);
+                }}
+              >
+                <IconCheck /> {clip?.approved ? 'Approved' : 'Approve'}
+              </button>
+            )}
             <button
               disabled={status === 'generating'}
               title={status === 'generating' ? 'Already rendering — you will be notified when it finishes' : undefined}

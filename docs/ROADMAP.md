@@ -123,8 +123,12 @@ Consistency by reference, not just by prompt:
   preserving everything else and honouring locked canon marks; each edit records
   before/after + what changed + what was preserved as per-scene patch history
   (`POST /scenes/:id/patch`, inline control on each scene card).
-- **Approval workflow**: clip status gains `draft → candidate → approved → canonical`;
-  publishing requires approved clips; approved clips become references for future scenes.
+- **Approval workflow** — *partly shipped*: each rendered clip carries a human
+  **approved** sign-off (reset on any edit/re-render), **publishing is gated** on
+  every rendered clip being approved, and the console shows an approved count +
+  per-clip Approve control. Still to do: the richer `draft → candidate →
+  canonical` states, and making approved clips reusable as references for future
+  scenes.
 - **Continuity QC checklist** auto-run on rendered clips (LLM vision pass against canon
   marks: accessory present? colors right? style consistent?).
 - ~~**Canon diff view** in the UI~~ — **shipped**: the canon panel shows a
