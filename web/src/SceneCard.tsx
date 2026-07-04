@@ -56,6 +56,7 @@ export function SceneCard({
   const [patching, setPatching] = useState(false);
   const [showPatchLog, setShowPatchLog] = useState(false);
   const [commentText, setCommentText] = useState('');
+  const [effective, setEffective] = useState<string | null>(null);
   const [qc, setQc] = useState<QcResult | null>(null);
   const [qcing, setQcing] = useState(false);
 
@@ -142,6 +143,21 @@ export function SceneCard({
           <Field label="Prompt (what PixVerse renders)">
             <textarea value={draft.prompt} onChange={(e) => update('prompt', e.target.value)} rows={4} />
           </Field>
+          <button
+            className="small ghost"
+            title="Preview the exact prompt sent to PixVerse (with lighting + approved references injected)"
+            onClick={async () => {
+              if (effective) {
+                setEffective(null);
+                return;
+              }
+              const res = await run(() => api.effectivePrompt(storylineId, scene.id));
+              if (res) setEffective(res.effective.prompt);
+            }}
+          >
+            {effective ? 'Hide effective prompt' : 'Effective prompt'}
+          </button>
+          {effective && <pre className="effective-prompt">{effective}</pre>}
           <Field label="Caption (sound-off subtitle)">
             <input value={draft.caption ?? ''} onChange={(e) => update('caption', e.target.value)} placeholder="On-screen caption…" />
           </Field>

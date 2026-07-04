@@ -1406,6 +1406,18 @@ textarea:disabled {
   width: calc(100% - 24px);
   font-size: 12.5px;
 }
+.effective-prompt {
+  margin: 6px 0;
+  padding: 8px 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 200px;
+  overflow: auto;
+}
 .scene-move {
   display: inline-flex;
   gap: 2px;

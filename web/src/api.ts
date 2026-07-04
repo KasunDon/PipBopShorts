@@ -145,6 +145,11 @@ export const api = {
     req<{ clip: Clip }>('POST', `/api/storylines/${storylineId}/scenes/${sceneId}/generate`, { wait }),
   refreshScene: (storylineId: string, sceneId: string) =>
     req<{ clip: Clip }>('POST', `/api/storylines/${storylineId}/scenes/${sceneId}/refresh`),
+  effectivePrompt: (storylineId: string, sceneId: string) =>
+    req<{ effective: { prompt: string; usesImage: boolean; references: string[] } }>(
+      'GET',
+      `/api/storylines/${storylineId}/scenes/${sceneId}/effective-prompt`,
+    ),
   approveClip: (storylineId: string, sceneId: string, approved: boolean) =>
     req<{ clip: Clip }>('POST', `/api/storylines/${storylineId}/scenes/${sceneId}/clip/approval`, { approved }),
   approveAllClips: (storylineId: string) =>

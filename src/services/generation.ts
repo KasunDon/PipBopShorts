@@ -59,6 +59,27 @@ function statusFromResult(result: PixverseVideoResult): ClipStatus {
   }
 }
 
+/**
+ * The exact prompt + whether an image reference is used that will be sent to
+ * PixVerse for a scene — with lighting and approved reference descriptors
+ * injected. Read-only preview for transparency (no render).
+ */
+export function resolveEffectivePrompt(
+  store: Store,
+  storylineId: string,
+  sceneId: string,
+): { prompt: string; usesImage: boolean; references: string[] } {
+  const project = store.getProject(storylineId);
+  const scene = getScene(project, sceneId);
+  const refs = resolveSceneReferences(store, project.storyline.storyId, scene.referenceCharacterIds ?? [], scene.primaryReferenceId);
+  const params = sceneToParams(scene, refs);
+  return {
+    prompt: params.prompt ?? '',
+    usesImage: typeof params.imageId === 'number',
+    references: refs.descriptors.map((d) => d.name),
+  };
+}
+
 function getScene(project: Project, sceneId: string): Scene {
   const scene = project.storyline.scenes.find((s) => s.id === sceneId);
   if (!scene) throw new Error(`Scene not found: ${sceneId}`);

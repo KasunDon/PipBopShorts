@@ -761,6 +761,17 @@ describe('CTA endpoint coverage', () => {
     expect((genReq?.body as { seed?: number })?.seed).toBe(4242);
   });
 
+  it('previews the effective prompt with lighting injected', async () => {
+    const { app } = makeApp();
+    const { storylineId, scenes } = await scaffold(app);
+    const sceneId = scenes[0].id;
+    await request(app).patch(`/api/storylines/${storylineId}/scenes/${sceneId}`).send({ lighting: 'moody low-key' }).expect(200);
+    const res = await request(app).get(`/api/storylines/${storylineId}/scenes/${sceneId}/effective-prompt`).expect(200);
+    expect(res.body.effective.prompt).toContain('moody low-key lighting');
+    expect(res.body.effective).toHaveProperty('usesImage');
+    expect(Array.isArray(res.body.effective.references)).toBe(true);
+  });
+
   it('appends the lighting preset to the render prompt', async () => {
     const { store, cleanup } = makeStore();
     cleanups.push(cleanup);

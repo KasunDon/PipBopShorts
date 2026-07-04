@@ -67,6 +67,7 @@ import {
   generateAllClips,
   generateClip,
   refreshClip,
+  resolveEffectivePrompt,
   setClipApproval,
   uploadReferenceImage,
   type GenerateOptions,
@@ -1157,6 +1158,14 @@ export function createApp(deps: AppDeps): express.Express {
         after: { prompt: result.patch.after },
       });
       res.json({ project: result.project, patch: result.patch });
+    }),
+  );
+
+  // The exact prompt (with lighting + references injected) that will be sent to PixVerse.
+  app.get(
+    '/api/storylines/:storylineId/scenes/:sceneId/effective-prompt',
+    asyncHandler((req, res) => {
+      res.json({ effective: resolveEffectivePrompt(deps.store, req.params.storylineId, req.params.sceneId) });
     }),
   );
 
