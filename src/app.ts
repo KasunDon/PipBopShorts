@@ -38,6 +38,7 @@ import {
 } from './services/characters';
 import { assertRuntime, extendPlan, generateNextEpisode, planStory } from './services/season';
 import { autofixStoryline } from './services/autofix';
+import { patchScene } from './services/patch';
 import { checkDrift, resolveDrift } from './services/drift';
 import { JobRunner } from './services/jobs';
 import { restoreFromAudit } from './services/restore';
@@ -868,6 +869,33 @@ export function createApp(deps: AppDeps): express.Express {
         after: updated ? { ...updated } : undefined,
       });
       res.json({ project });
+    }),
+  );
+
+  // Directed "change one thing, preserve everything else" edit to a scene's prompt.
+  app.post(
+    '/api/storylines/:storylineId/scenes/:sceneId/patch',
+    asyncHandler(async (req, res) => {
+      const { request: changeRequest, model, effort } = req.body ?? {};
+      const before = deps.store
+        .getProject(req.params.storylineId)
+        .storyline.scenes.find((s) => s.id === req.params.sceneId);
+      const result = await patchScene(
+        deps.store,
+        deps.claude,
+        req.params.storylineId,
+        req.params.sceneId,
+        typeof changeRequest === 'string' ? changeRequest : '',
+        { model, effort },
+      );
+      recordMutation(req, {
+        resource: 'scene-patch',
+        action: 'update',
+        summary: `Patched scene "${before?.heading ?? req.params.sceneId}": ${result.patch.changed}`,
+        before: { prompt: result.patch.before },
+        after: { prompt: result.patch.after },
+      });
+      res.json({ project: result.project, patch: result.patch });
     }),
   );
 

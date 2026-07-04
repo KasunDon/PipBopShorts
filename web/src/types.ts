@@ -208,6 +208,19 @@ export interface Scene {
   imageId?: number;
   imageUrl?: string;
   referenceCharacterIds?: string[];
+  patchHistory?: ScenePatch[];
+}
+
+export interface ScenePatch {
+  id: string;
+  request: string;
+  before: string;
+  after: string;
+  changed: string;
+  preserved: string[];
+  rationale: string;
+  model: string;
+  createdAt: string;
 }
 
 export interface YoutubeMeta {

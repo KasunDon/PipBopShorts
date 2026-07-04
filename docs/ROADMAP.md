@@ -118,9 +118,11 @@ Consistency by reference, not just by prompt:
 - **Reference library for locations & props** (same pattern as characters): approved
   stills attached to canon entities and injected into the relevant scenes.
 - Multi-reference scenes: send more than one approved image when the model supports it.
-- **Scene patch requests** ("make Bobo look worried, change nothing else"): a directed
-  regeneration flow that builds a *patch prompt* — change-one-property + preserve-exactly
-  + reject-if list — instead of free regeneration. Patch history per scene.
+- ~~**Scene patch requests**~~ — **shipped**: a directed edit ("make the hero look
+  worried, change nothing else") rewrites only the requested property via the LLM,
+  preserving everything else and honouring locked canon marks; each edit records
+  before/after + what changed + what was preserved as per-scene patch history
+  (`POST /scenes/:id/patch`, inline control on each scene card).
 - **Approval workflow**: clip status gains `draft → candidate → approved → canonical`;
   publishing requires approved clips; approved clips become references for future scenes.
 - **Continuity QC checklist** auto-run on rendered clips (LLM vision pass against canon

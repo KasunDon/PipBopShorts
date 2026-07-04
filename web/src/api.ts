@@ -23,6 +23,7 @@ import type {
   RenderValidation,
   Scene,
   SceneDefaultsResult,
+  ScenePatch,
   Story,
   StoryMeta,
   StorylinePreview,
@@ -80,6 +81,12 @@ export const api = {
     req<{ project: Project }>('PATCH', `/api/storylines/${storylineId}/scenes/${sceneId}`, patch),
   addScene: (storylineId: string, partial?: Partial<Scene>) =>
     req<{ project: Project }>('POST', `/api/storylines/${storylineId}/scenes`, partial ?? {}),
+  patchScene: (storylineId: string, sceneId: string, request: string, opts: { model?: string } = {}) =>
+    req<{ project: Project; patch: ScenePatch }>(
+      'POST',
+      `/api/storylines/${storylineId}/scenes/${sceneId}/patch`,
+      { request, ...opts },
+    ),
   removeScene: (storylineId: string, sceneId: string) =>
     req<{ project: Project }>('DELETE', `/api/storylines/${storylineId}/scenes/${sceneId}`),
   reorder: (storylineId: string, orderedIds: string[]) =>

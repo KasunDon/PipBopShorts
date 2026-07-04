@@ -50,11 +50,28 @@ export function SceneCard({
 }) {
   const [draft, setDraft] = useState<Scene>(scene);
   const [dirty, setDirty] = useState(false);
+  const [patchReq, setPatchReq] = useState('');
+  const [patching, setPatching] = useState(false);
+  const [showPatchLog, setShowPatchLog] = useState(false);
 
   useEffect(() => {
     setDraft(scene);
     setDirty(false);
   }, [scene]);
+
+  const applyPatch = async () => {
+    if (!patchReq.trim()) return;
+    setPatching(true);
+    try {
+      const res = await run(() => api.patchScene(storylineId, scene.id, patchReq.trim()));
+      if (res) {
+        setProject(res.project);
+        setPatchReq('');
+      }
+    } finally {
+      setPatching(false);
+    }
+  };
 
   const update = <K extends keyof Scene>(key: K, value: Scene[K]) => {
     setDraft((d) => ({ ...d, [key]: value }));
@@ -98,6 +115,43 @@ export function SceneCard({
           <Field label="Prompt (what PixVerse renders)">
             <textarea value={draft.prompt} onChange={(e) => update('prompt', e.target.value)} rows={4} />
           </Field>
+
+          <div className="scene-patch">
+            <input
+              value={patchReq}
+              onChange={(e) => setPatchReq(e.target.value)}
+              placeholder='Directed edit — change one thing (e.g. "make the hero look worried")'
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') applyPatch();
+              }}
+            />
+            <button
+              className="small"
+              disabled={patching || !patchReq.trim()}
+              onClick={applyPatch}
+              title="Change only this and preserve everything else (locked by default)"
+            >
+              {patching ? 'Editing…' : 'Apply edit'}
+            </button>
+            {scene.patchHistory && scene.patchHistory.length > 0 && (
+              <button className="small ghost" onClick={() => setShowPatchLog((s) => !s)}>
+                {showPatchLog ? 'Hide edits' : `Edits (${scene.patchHistory.length})`}
+              </button>
+            )}
+          </div>
+          {showPatchLog && scene.patchHistory && (
+            <ul className="patch-log">
+              {[...scene.patchHistory].reverse().map((p) => (
+                <li key={p.id}>
+                  <span className="patch-req">“{p.request}”</span>
+                  <span className="muted small"> — {p.changed}</span>
+                  {p.preserved.length > 0 && (
+                    <span className="muted small"> · kept: {p.preserved.join(', ')}</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
           <Field label="Negative prompt">
             <textarea value={draft.negativePrompt} onChange={(e) => update('negativePrompt', e.target.value)} rows={2} />
           </Field>

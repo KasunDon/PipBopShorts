@@ -1112,6 +1112,32 @@ textarea:disabled {
   background: rgba(139, 92, 246, 0.08);
 }
 
+/* Directed scene edit (patch) */
+.scene-patch {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 8px 0;
+}
+.scene-patch input {
+  flex: 1;
+  font-size: 12.5px;
+}
+.patch-log {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 8px 10px;
+  border-left: 3px solid var(--accent, #8b5cf6);
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.patch-log .patch-req {
+  font-weight: 600;
+}
+
 /* Canon version diff */
 .canon-diff {
   margin: 10px 0;

@@ -116,6 +116,26 @@ export interface Scene {
   imageUrl?: string;
   /** Canon character entity ids whose approved reference images this scene uses. */
   referenceCharacterIds?: string[];
+  /** Directed "change one thing" edits applied to this scene's prompt, newest last. */
+  patchHistory?: ScenePatch[];
+}
+
+/**
+ * A single directed patch to a scene's prompt: the operator asked for one change
+ * ("make Bobo look worried") and the model rewrote only that, preserving
+ * everything else — the "locked by default" edit. Kept as history so edits are
+ * auditable and reversible.
+ */
+export interface ScenePatch {
+  id: string;
+  request: string;
+  before: string;
+  after: string;
+  changed: string;
+  preserved: string[];
+  rationale: string;
+  model: string;
+  createdAt: string;
 }
 
 export interface YoutubeMeta {

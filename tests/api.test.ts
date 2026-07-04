@@ -541,6 +541,33 @@ describe('CTA endpoint coverage', () => {
     expect(extended.body.clip.status).toBe('ready');
   });
 
+  it('applies a directed scene patch over HTTP and records it', async () => {
+    const { client: studioClaude } = makeStudioFakeClaude();
+    const { app } = makeApp({ claude: studioClaude });
+    const { storylineId, scenes } = await scaffold(app);
+    const sceneId = scenes[0].id;
+
+    const res = await request(app)
+      .post(`/api/storylines/${storylineId}/scenes/${sceneId}/patch`)
+      .send({ request: 'make the hero look worried' })
+      .expect(200);
+    expect(res.body.patch.changed).toBeTruthy();
+    expect(res.body.patch.after).toContain('worried');
+    const scene = res.body.project.storyline.scenes.find((s: { id: string }) => s.id === sceneId);
+    expect(scene.prompt).toContain('worried');
+    expect(scene.patchHistory).toHaveLength(1);
+  });
+
+  it('400s a scene patch with no change request', async () => {
+    const { client: studioClaude } = makeStudioFakeClaude();
+    const { app } = makeApp({ claude: studioClaude });
+    const { storylineId, scenes } = await scaffold(app);
+    await request(app)
+      .post(`/api/storylines/${storylineId}/scenes/${scenes[0].id}/patch`)
+      .send({ request: '   ' })
+      .expect(400);
+  });
+
   it('auto-fixes invalid render parameters via the autofix CTA', async () => {
     const { client: studioClaude } = makeStudioFakeClaude();
     const { app, deps } = makeApp({ claude: studioClaude });

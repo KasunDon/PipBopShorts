@@ -165,6 +165,16 @@ export function sampleAutofixJson(): string {
   });
 }
 
+/** A scene-patch payload: change one thing, preserve the rest. */
+export function samplePatchJson(): string {
+  return JSON.stringify({
+    new_prompt: 'A vivid shot number 1 of the hero in a neon city, cinematic lighting, the hero now looks worried',
+    changed: "Added a worried expression to the hero's face.",
+    preserved: ['neon city setting', 'cinematic lighting', 'hero design'],
+    rationale: 'Only the facial expression was adjusted; nothing else in the shot moved.',
+  });
+}
+
 /** A story-bootstrap payload (idea → title/meta/bible). */
 export function sampleBootstrapJson(): string {
   return JSON.stringify({
@@ -220,6 +230,7 @@ export function makeStudioFakeClaude(overrides?: {
   episodeDraftJson?: string;
   planJson?: string;
   autofixJson?: string;
+  patchJson?: string;
 }): { client: AnthropicLike; calls: FakeClaudeCall[] } {
   return makeFakeClaude((params) => {
     const system = String(params.system ?? '');
@@ -230,6 +241,8 @@ export function makeStudioFakeClaude(overrides?: {
       text = overrides?.driftJson ?? sampleDriftJson();
     } else if (system.includes('technical delivery supervisor')) {
       text = overrides?.autofixJson ?? sampleAutofixJson();
+    } else if (system.includes('applying a DIRECTED edit')) {
+      text = overrides?.patchJson ?? samplePatchJson();
     } else if (system.includes('head of story development')) {
       text = overrides?.bootstrapJson ?? sampleBootstrapJson();
     } else if (system.includes('season architect')) {
