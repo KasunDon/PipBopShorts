@@ -42,6 +42,7 @@ import { autofixStoryline } from './services/autofix';
 import { generateBeatSheet } from './services/beatsheet';
 import { buildShotManifest } from './services/manifest';
 import { addSceneComment, deleteSceneComment, setSceneCommentResolved } from './services/comments';
+import { planStorylineDialogue } from './services/dialogue';
 import { suggestEpisodeIdeas } from './services/ideas';
 import { patchScene } from './services/patch';
 import { checkDrift, resolveDrift } from './services/drift';
@@ -908,6 +909,16 @@ export function createApp(deps: AppDeps): express.Express {
       const { model, effort } = req.body ?? {};
       const result = await autofixStoryline(deps.store, deps.claude, req.params.storylineId, { model, effort });
       res.json({ result, validation: validateStorylineForRender(deps.store, req.params.storylineId) });
+    }),
+  );
+
+  // Per-scene dialogue + sound-off captions (planning aid).
+  app.post(
+    '/api/storylines/:storylineId/dialogue-plan',
+    asyncHandler(async (req, res) => {
+      const { model, effort } = req.body ?? {};
+      const plan = await planStorylineDialogue(deps.store, deps.claude, req.params.storylineId, { model, effort });
+      res.json({ plan });
     }),
   );
 

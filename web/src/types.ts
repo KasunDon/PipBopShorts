@@ -45,6 +45,14 @@ export interface Beat {
   purpose: string;
 }
 
+export interface SceneDialogue {
+  sceneId: string;
+  sceneNumber: number;
+  heading: string;
+  caption: string;
+  lines: Array<{ speaker: string; text: string }>;
+}
+
 export interface StoryAnalytics {
   storyId: string;
   episodes: number;

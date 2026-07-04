@@ -26,6 +26,7 @@ import type {
   RenderValidation,
   Scene,
   SceneDefaultsResult,
+  SceneDialogue,
   ScenePatch,
   Story,
   StoryAnalytics,
@@ -270,6 +271,8 @@ export const api = {
     req<{ preview: StorylinePreview }>('GET', `/api/episodes/${episodeId}/storyline-preview`),
   validateStoryline: (storylineId: string) =>
     req<{ validation: RenderValidation }>('GET', `/api/storylines/${storylineId}/validate`),
+  planDialogue: (storylineId: string, opts: { model?: string } = {}) =>
+    req<{ plan: SceneDialogue[] }>('POST', `/api/storylines/${storylineId}/dialogue-plan`, opts),
   autofixStoryline: (storylineId: string, opts: { model?: string; signal?: AbortSignal } = {}) => {
     const { signal, ...body } = opts;
     return req<{ result: AutofixResult; validation: RenderValidation }>(

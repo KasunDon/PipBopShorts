@@ -158,8 +158,10 @@ Consistency by reference, not just by prompt:
     for Shorts watch-with-sound-off. Multi-language captions tie into Phase 5 localization.
   - **Mix & mux**: assemble music + VO + SFX + captions onto the stitched video (ffmpeg),
     with a loudness target and safe-area caption placement.
-- **Dialogue & sound planning**: dialogue lines per scene (kid-appropriate line-length
-  rules), sound-effect and music cue notes, character sound motifs from the bible.
+- **Dialogue & sound planning**: *dialogue + captions shipped* — per-scene
+  sound-off captions and optional in-character dialogue lines, canon-grounded with
+  a child-audience mode for short/simple lines. Still to do: SFX/music cue notes
+  and character sound motifs from the bible.
 - **Assembly**: server-side stitch with transitions, title/end cards, safe-area checks for
   Shorts; per-scene retry queue with cost tracking.
 - ~~**Series planning**: episode idea backlog~~ — **shipped**: "Suggest ideas"

@@ -42,6 +42,7 @@ import type {
   ReferenceReadinessItem,
   RenderPreset,
   RenderValidation,
+  SceneDialogue,
   Story,
   StoryAnalytics,
   StudioAnalytics,
@@ -1424,6 +1425,8 @@ function ProjectPanel({
   const [stitch, setStitch] = useState(true);
   const [validation, setValidation] = useState<RenderValidation | null>(null);
   const [autofix, setAutofix] = useState<AutofixResult | null>(null);
+  const [dialogue, setDialogue] = useState<SceneDialogue[] | null>(null);
+  const [planningDialogue, setPlanningDialogue] = useState(false);
   const [readiness, setReadiness] = useState<ReferenceReadiness | null>(null);
   const [gateOpen, setGateOpen] = useState(false);
   const [globalAspect, setGlobalAspect] = useState(scenes[0]?.aspectRatio ?? config.pixverse.aspectRatios[0]);
@@ -1572,6 +1575,21 @@ function ProjectPanel({
           <a className="btn-link" href={`/api/storylines/${storylineId}/manifest.md`} download title="Download the per-scene shot manifest (production document)">
             <IconDownload /> Shot manifest
           </a>
+          <button
+            disabled={planningDialogue}
+            title="Draft per-scene captions (sound-off) and any dialogue lines"
+            onClick={async () => {
+              setPlanningDialogue(true);
+              try {
+                const res = await run(() => api.planDialogue(storylineId));
+                if (res) setDialogue(res.plan);
+              } finally {
+                setPlanningDialogue(false);
+              }
+            }}
+          >
+            <IconDoc /> {planningDialogue ? 'Writing…' : 'Dialogue & captions'}
+          </button>
           <button
             className="primary"
             disabled={!canRenderAll}
@@ -1754,6 +1772,29 @@ function ProjectPanel({
             <p className="muted small">
               Video costs are estimates (the provider bills in credits) — reconcile against your invoice in Costs.
             </p>
+          </div>
+        )}
+
+        {dialogue && dialogue.length > 0 && (
+          <div className="dialogue-plan">
+            <div className="card-head">
+              <span className="muted small">Dialogue & captions (sound-off ready)</span>
+              <button className="ghost small" onClick={() => setDialogue(null)} aria-label="Dismiss">
+                <IconX />
+              </button>
+            </div>
+            <ul className="dialogue-list">
+              {dialogue.map((d) => (
+                <li key={d.sceneId}>
+                  <b>Scene {d.sceneNumber}</b> <span className="dialogue-caption">“{d.caption}”</span>
+                  {d.lines.map((l, j) => (
+                    <span key={j} className="muted small dialogue-line">
+                      {l.speaker}: {l.text}
+                    </span>
+                  ))}
+                </li>
+              ))}
+            </ul>
           </div>
         )}
       </div>

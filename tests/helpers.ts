@@ -175,6 +175,16 @@ export function samplePatchJson(): string {
   });
 }
 
+/** A dialogue/caption plan payload for a 2-scene storyline. */
+export function sampleDialogueJson(): string {
+  return JSON.stringify({
+    scenes: [
+      { scene_number: 1, caption: 'A neon night begins!', lines: [{ speaker: 'Hero', text: "Let's go!" }] },
+      { scene_number: 2, caption: 'The chase is on.', lines: [] },
+    ],
+  });
+}
+
 /** A beat-sheet payload. */
 export function sampleBeatSheetJson(): string {
   return JSON.stringify({
@@ -257,6 +267,7 @@ export function makeStudioFakeClaude(overrides?: {
   patchJson?: string;
   ideasJson?: string;
   beatSheetJson?: string;
+  dialogueJson?: string;
 }): { client: AnthropicLike; calls: FakeClaudeCall[] } {
   return makeFakeClaude((params) => {
     const system = String(params.system ?? '');
@@ -273,6 +284,8 @@ export function makeStudioFakeClaude(overrides?: {
       text = overrides?.ideasJson ?? sampleEpisodeIdeasJson();
     } else if (system.includes('building a BEAT SHEET')) {
       text = overrides?.beatSheetJson ?? sampleBeatSheetJson();
+    } else if (system.includes('dialogue and caption writer')) {
+      text = overrides?.dialogueJson ?? sampleDialogueJson();
     } else if (system.includes('head of story development')) {
       text = overrides?.bootstrapJson ?? sampleBootstrapJson();
     } else if (system.includes('season architect')) {

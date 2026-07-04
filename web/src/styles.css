@@ -1201,6 +1201,35 @@ textarea:disabled {
   background: var(--surface-3);
 }
 
+/* Dialogue & caption plan */
+.dialogue-plan {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+.dialogue-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.dialogue-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.dialogue-caption {
+  font-style: italic;
+  color: var(--text-2);
+}
+.dialogue-line {
+  padding-left: 10px;
+}
+
 /* Beat sheet */
 .beat-list {
   margin: 8px 0 0;

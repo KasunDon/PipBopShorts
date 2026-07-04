@@ -631,6 +631,16 @@ describe('CTA endpoint coverage', () => {
     expect(extended.body.clip.status).toBe('ready');
   });
 
+  it('plans dialogue and captions for a storyline', async () => {
+    const { client: studioClaude } = makeStudioFakeClaude();
+    const { app } = makeApp({ claude: studioClaude });
+    const { storylineId } = await scaffold(app);
+    const res = await request(app).post(`/api/storylines/${storylineId}/dialogue-plan`).send({}).expect(200);
+    expect(res.body.plan.length).toBeGreaterThan(0);
+    expect(res.body.plan[0]).toHaveProperty('caption');
+    expect(res.body.plan[0]).toHaveProperty('sceneId');
+  });
+
   it('downloads a shot manifest for a storyline', async () => {
     const { app } = makeApp();
     const { storylineId, scenes } = await scaffold(app);
