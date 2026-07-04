@@ -139,6 +139,15 @@ describe('preview, validation, and cost endpoints', () => {
     expect(validation.body.validation.estUsdLabel).toMatch(/^\$/);
   });
 
+  it('serves per-story analytics', async () => {
+    const { app } = makeApp();
+    const storyId = (await request(app).post('/api/stories').send({ title: 'Metrics' }).expect(201)).body.story.id;
+    const res = await request(app).get(`/api/stories/${storyId}/analytics`).expect(200);
+    expect(res.body.analytics).toMatchObject({ episodes: 0, storylines: 0, scenes: 0 });
+    expect(res.body.analytics.canon).toHaveProperty('versions');
+    expect(res.body.analytics.drift).toHaveProperty('driftRate');
+  });
+
   it('serves a cost report with the expected shape', async () => {
     const { app } = makeApp();
     const res = await request(app).get('/api/costs/report').expect(200);

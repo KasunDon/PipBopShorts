@@ -39,6 +39,17 @@ export interface EpisodeIdea {
   synopsis: string;
 }
 
+export interface StoryAnalytics {
+  storyId: string;
+  episodes: number;
+  storylines: number;
+  scenes: number;
+  clips: { total: number; ready: number; approved: number };
+  publishes: number;
+  canon: { versions: number; entities: number; marks: number; lockedMarks: number };
+  drift: { reports: number; findings: number; resolved: number; open: number; safety: number; driftRate: number };
+}
+
 export interface PlannedEpisode {
   number: number;
   title: string;

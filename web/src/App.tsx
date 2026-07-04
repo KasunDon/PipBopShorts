@@ -41,6 +41,7 @@ import type {
   ReferenceReadinessItem,
   RenderValidation,
   Story,
+  StoryAnalytics,
   StorylinePreview,
 } from './types';
 import { formatElapsed, useAsyncAction } from './useAsyncAction';
@@ -536,10 +537,11 @@ function Welcome({
    Story page (tabbed)
 --------------------------------------------------------------------------- */
 
-type StoryTab = 'episodes' | 'bible' | 'canon' | 'references' | 'season' | 'settings';
+type StoryTab = 'episodes' | 'insights' | 'bible' | 'canon' | 'references' | 'season' | 'settings';
 
 const STORY_TABS: Array<{ id: StoryTab; label: string }> = [
   { id: 'episodes', label: 'Episodes' },
+  { id: 'insights', label: 'Insights' },
   { id: 'bible', label: 'Bible' },
   { id: 'canon', label: 'Canon' },
   { id: 'references', label: 'References' },
@@ -597,6 +599,7 @@ function StoryPanel({
       {tab === 'episodes' && (
         <EpisodesTab data={data} config={config} onChanged={onChanged} onOpenEpisode={onOpenEpisode} run={run} />
       )}
+      {tab === 'insights' && <InsightsTab storyId={data.story.id} run={run} />}
       {tab === 'bible' && <BibleTab data={data} onStoriesChanged={onStoriesChanged} run={run} />}
       {tab === 'canon' && <CanonSection story={data.story} config={config} run={run} />}
       {tab === 'references' && <CharactersPanel story={data.story} run={run} lastJob={lastJob} />}
@@ -605,6 +608,48 @@ function StoryPanel({
         <SettingsTab data={data} config={config} onChanged={onChanged} onStoriesChanged={onStoriesChanged} onDeleted={onDeleted} run={run} />
       )}
     </div>
+  );
+}
+
+function InsightsTab({ storyId, run }: { storyId: string; run: Run }) {
+  const [a, setA] = useState<StoryAnalytics | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    run(() => api.storyAnalytics(storyId)).then((res) => {
+      if (live && res) setA(res.analytics);
+    });
+    return () => {
+      live = false;
+    };
+  }, [storyId, run]);
+
+  if (!a) return <p className="muted small">Loading insights…</p>;
+
+  const tile = (label: string, value: string | number, sub?: string) => (
+    <div className="stat-tile">
+      <span className="stat-value">{value}</span>
+      <span className="stat-label">{label}</span>
+      {sub && <span className="stat-sub muted small">{sub}</span>}
+    </div>
+  );
+
+  return (
+    <section className="card">
+      <div className="card-head">
+        <h3>Production insights</h3>
+      </div>
+      <div className="stat-grid">
+        {tile('Episodes', a.episodes)}
+        {tile('Storylines', a.storylines)}
+        {tile('Scenes', a.scenes)}
+        {tile('Clips ready', `${a.clips.ready}/${a.clips.total}`, `${a.clips.approved} approved`)}
+        {tile('Published', a.publishes)}
+        {tile('Canon', `v${a.canon.versions}`, `${a.canon.entities} entities · ${a.canon.marks} marks (${a.canon.lockedMarks} locked)`)}
+        {tile('Open drifts', a.drift.open, `${a.drift.resolved} resolved · ${a.drift.safety} safety`)}
+        {tile('Drift rate', a.drift.driftRate, 'open findings ÷ scenes')}
+      </div>
+    </section>
   );
 }
 

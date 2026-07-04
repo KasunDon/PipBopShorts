@@ -37,6 +37,7 @@ import {
   uploadPortraitStill,
 } from './services/characters';
 import { assertRuntime, extendPlan, generateNextEpisode, planStory } from './services/season';
+import { storyAnalytics } from './services/analytics';
 import { autofixStoryline } from './services/autofix';
 import { suggestEpisodeIdeas } from './services/ideas';
 import { patchScene } from './services/patch';
@@ -383,6 +384,15 @@ export function createApp(deps: AppDeps): express.Express {
     '/api/stories/:storyId/bible',
     asyncHandler((req, res) => {
       res.json({ markdown: deps.store.getBible(req.params.storyId) });
+    }),
+  );
+
+  // Per-story production analytics (volume, approval/publish progress, canon
+  // stability, drift health) for the studio dashboard.
+  app.get(
+    '/api/stories/:storyId/analytics',
+    asyncHandler((req, res) => {
+      res.json({ analytics: storyAnalytics(deps.store, req.params.storyId) });
     }),
   );
 

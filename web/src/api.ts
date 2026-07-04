@@ -26,6 +26,7 @@ import type {
   SceneDefaultsResult,
   ScenePatch,
   Story,
+  StoryAnalytics,
   StoryMeta,
   StorylinePreview,
   YoutubeMeta,
@@ -56,6 +57,7 @@ export const api = {
   createStory: (data: { title: string; settingMode?: string; bible?: string }) =>
     req<{ story: Story }>('POST', '/api/stories', data),
   getStory: (id: string) => req<{ story: Story; bible: string; episodes: Episode[] }>('GET', `/api/stories/${id}`),
+  storyAnalytics: (id: string) => req<{ analytics: StoryAnalytics }>('GET', `/api/stories/${id}/analytics`),
   updateStory: (id: string, patch: { title?: string; settingMode?: string; continuity?: string; meta?: Partial<StoryMeta> }) =>
     req<{ story: Story }>('PATCH', `/api/stories/${id}`, patch),
   deleteStory: (id: string) => req<void>('DELETE', `/api/stories/${id}`),
