@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { buildCaptionsSrt } from '../src/services/captions';
+import { localizeCaptionsSrt } from '../src/services/captionsLocalize';
 import { planStorylineDialogue } from '../src/services/dialogue';
 import { createStorylineProject, updateScene } from '../src/services/storyline';
 import type { Store } from '../src/store/store';
@@ -48,5 +49,17 @@ describe('captions / subtitles', () => {
     // It's timed from 5s (after the first uncaptioned 5s scene), not 0s.
     expect(srt).toContain('00:00:05,000 --> 00:00:10,000');
     expect(srt.startsWith('1\n')).toBe(true);
+  });
+
+  it('localizes captions into a timed SRT in another language', async () => {
+    const { store, cleanup } = makeStore();
+    cleanups.push(cleanup);
+    const storylineId = await project(store);
+    const { client } = makeStudioFakeClaude();
+    await planStorylineDialogue(store, client, storylineId); // persists 2 captions
+
+    const srt = await localizeCaptionsSrt(store, client, storylineId, 'Spanish');
+    expect(srt).toContain('ES caption 1');
+    expect(srt).toContain('00:00:00,000 --> 00:00:05,000');
   });
 });

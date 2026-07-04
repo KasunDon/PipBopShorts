@@ -316,6 +316,8 @@ export const api = {
     req<{ plan: SceneDialogue[] }>('POST', `/api/storylines/${storylineId}/dialogue-plan`, opts),
   planSound: (storylineId: string, opts: { model?: string } = {}) =>
     req<{ plan: SoundPlan }>('POST', `/api/storylines/${storylineId}/sound-plan`, opts),
+  localizeCaptions: (storylineId: string, language: string) =>
+    req<{ srt: string }>('POST', `/api/storylines/${storylineId}/captions/localize`, { language }),
   autofixStoryline: (storylineId: string, opts: { model?: string; signal?: AbortSignal } = {}) => {
     const { signal, ...body } = opts;
     return req<{ result: AutofixResult; validation: RenderValidation }>(

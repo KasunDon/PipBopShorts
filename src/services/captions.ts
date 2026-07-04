@@ -9,21 +9,19 @@ function srtTime(totalSeconds: number): string {
   return `${pad(h)}:${pad(m)}:${pad(s)},${pad(ms, 3)}`;
 }
 
-/**
- * Build an SRT subtitle track from each scene's caption, timed to the scene
- * durations (the stitched short plays scenes back-to-back). Scenes without a
- * caption are skipped but still advance the clock. Deterministic — no network.
- */
-export function buildCaptionsSrt(store: Store, storylineId: string): string {
-  const project = store.getProject(storylineId);
-  const scenes = [...project.storyline.scenes].sort((a, b) => a.order - b.order);
+export interface CaptionEntry {
+  caption: string;
+  durationSec: number;
+}
 
+/** Build SRT text from (caption, duration) pairs; captioned blocks are timed back-to-back. */
+export function buildSrt(entries: CaptionEntry[]): string {
   const blocks: string[] = [];
   let cursor = 0;
   let index = 0;
-  for (const scene of scenes) {
-    const dur = Number(scene.duration) || 0;
-    const caption = (scene.caption ?? '').trim();
+  for (const entry of entries) {
+    const dur = Number(entry.durationSec) || 0;
+    const caption = (entry.caption ?? '').trim();
     if (caption) {
       index += 1;
       blocks.push(`${index}\n${srtTime(cursor)} --> ${srtTime(cursor + dur)}\n${caption}`);
@@ -31,4 +29,20 @@ export function buildCaptionsSrt(store: Store, storylineId: string): string {
     cursor += dur;
   }
   return blocks.join('\n\n') + (blocks.length ? '\n' : '');
+}
+
+/** Scenes in order with their caption + duration. */
+export function captionEntries(store: Store, storylineId: string): CaptionEntry[] {
+  const project = store.getProject(storylineId);
+  return [...project.storyline.scenes]
+    .sort((a, b) => a.order - b.order)
+    .map((s) => ({ caption: s.caption ?? '', durationSec: Number(s.duration) || 0 }));
+}
+
+/**
+ * Build an SRT subtitle track from each scene's caption, timed to the scene
+ * durations (the stitched short plays scenes back-to-back). Deterministic.
+ */
+export function buildCaptionsSrt(store: Store, storylineId: string): string {
+  return buildSrt(captionEntries(store, storylineId));
 }

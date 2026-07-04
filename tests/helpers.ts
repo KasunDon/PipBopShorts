@@ -274,6 +274,7 @@ export function makeStudioFakeClaude(overrides?: {
   qcJson?: string;
   thumbsJson?: string;
   insightsJson?: string;
+  captionsLocalizeJson?: string;
 }): { client: AnthropicLike; calls: FakeClaudeCall[] } {
   return makeFakeClaude((params) => {
     const system = String(params.system ?? '');
@@ -310,6 +311,11 @@ export function makeStudioFakeClaude(overrides?: {
             { scene_number: 2, sfx: ['whoosh'], motif: '' },
           ],
         });
+    } else if (system.includes('translate short-form video captions')) {
+      // Echo a translated marker per caption, preserving count.
+      const user = String((params.messages as Array<{ content: string }>)?.[0]?.content ?? '');
+      const n = (user.match(/^\d+\.\s/gm) ?? []).length || 1;
+      text = overrides?.captionsLocalizeJson ?? JSON.stringify({ captions: Array.from({ length: n }, (_, i) => `ES caption ${i + 1}`) });
     } else if (system.includes('localize a YouTube')) {
       text =
         overrides?.localizeJson ??

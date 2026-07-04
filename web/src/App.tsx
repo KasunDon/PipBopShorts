@@ -1675,6 +1675,25 @@ function ProjectPanel({
             <IconDownload /> Subtitles .srt
           </a>
           <button
+            title="Translate the captions into another language and download the .srt"
+            onClick={async () => {
+              const lang = prompt('Localize captions into which language?');
+              if (!lang || !lang.trim()) return;
+              const res = await run(() => api.localizeCaptions(storylineId, lang.trim()));
+              if (res) {
+                const blob = new Blob([res.srt], { type: 'application/x-subrip' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `captions.${lang.trim().toLowerCase()}.srt`;
+                a.click();
+                URL.revokeObjectURL(url);
+              }
+            }}
+          >
+            <IconDownload /> Localized .srt
+          </button>
+          <button
             disabled={planningDialogue}
             title="Draft per-scene captions (sound-off) and any dialogue lines"
             onClick={async () => {

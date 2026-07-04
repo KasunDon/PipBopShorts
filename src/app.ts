@@ -73,6 +73,7 @@ import {
 } from './services/generation';
 import { episodeSettingTemplate, storyBibleTemplate } from './templates';
 import { buildCaptionsSrt } from './services/captions';
+import { localizeCaptionsSrt } from './services/captionsLocalize';
 import { buildStorylinePreview, validateStorylineForRender } from './services/preview';
 import { productionReadiness } from './services/readiness';
 import { publishProject } from './services/publish';
@@ -1011,6 +1012,22 @@ export function createApp(deps: AppDeps): express.Express {
         .type('application/x-subrip; charset=utf-8')
         .setHeader('Content-Disposition', `attachment; filename="${slug}.srt"`)
         .send(buildCaptionsSrt(deps.store, req.params.storylineId));
+    }),
+  );
+
+  // Localized subtitle track — translate the captions and return a timed SRT.
+  app.post(
+    '/api/storylines/:storylineId/captions/localize',
+    asyncHandler(async (req, res) => {
+      const { language, model, effort } = req.body ?? {};
+      const srt = await localizeCaptionsSrt(
+        deps.store,
+        deps.claude,
+        req.params.storylineId,
+        typeof language === 'string' ? language : '',
+        { model, effort },
+      );
+      res.json({ srt });
     }),
   );
 

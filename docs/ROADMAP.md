@@ -163,8 +163,9 @@ Consistency by reference, not just by prompt:
   - **Subtitles / captions**: *sidecar `.srt` + burned-in captions shipped* —
     dialogue planning persists each scene's caption; a downloadable `.srt` is built
     timed to the scene durations, and on a stitched publish the captions are burned
-    into the video via ffmpeg's `subtitles` filter (bundled ffmpeg supports it).
-    Still to do: caption styling and multi-language caption variants.
+    into the video via ffmpeg's `subtitles` filter (bundled ffmpeg supports it),
+    styled (bold/outlined/safe-area). **Multi-language caption `.srt`** is also
+    shipped — translate the captions into any language and download a timed SRT.
   - **Mix & mux**: assemble music + VO + SFX + captions onto the stitched video (ffmpeg),
     with a loudness target and safe-area caption placement.
 - ~~**Dialogue & sound planning**~~ — **shipped**: per-scene sound-off captions +
