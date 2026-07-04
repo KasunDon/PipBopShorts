@@ -781,6 +781,19 @@ describe('CTA endpoint coverage', () => {
     expect((genReq?.body as { prompt?: string })?.prompt).toContain('golden hour lighting');
   });
 
+  it('approves all rendered clips at once', async () => {
+    const { app } = makeApp();
+    const { storylineId, scenes } = await scaffold(app);
+    for (const s of scenes) {
+      await request(app).post(`/api/storylines/${storylineId}/scenes/${s.id}/generate`).send({ wait: true }).expect(200);
+    }
+    const res = await request(app).post(`/api/storylines/${storylineId}/clips/approve-all`).expect(200);
+    expect(res.body.approved).toBe(scenes.length);
+    expect(scenes.every((s: { id: string }) => res.body.project.clips[s.id].approved)).toBe(true);
+    // Idempotent — a second call approves nothing new.
+    expect((await request(app).post(`/api/storylines/${storylineId}/clips/approve-all`).expect(200)).body.approved).toBe(0);
+  });
+
   it('retries failed clips', async () => {
     // A renderer that always reports failure.
     const { client: failing } = makeFakePixverse({ defaultStatus: 8 });

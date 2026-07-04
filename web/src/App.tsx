@@ -1761,6 +1761,21 @@ function ProjectPanel({
           {readyCount > 0 && (
             <span className={`badge ${approvedCount === readyCount ? 'live' : 'warn'}`}>{approvedCount} approved</span>
           )}
+          {readyCount > approvedCount && (
+            <button
+              className="small"
+              title="Approve every rendered clip (needed before publishing)"
+              onClick={async () => {
+                const res = await run(() => api.approveAllClips(storylineId));
+                if (res) {
+                  setProject(res.project);
+                  pushToast('ok', `Approved ${res.approved} clip(s).`);
+                }
+              }}
+            >
+              <IconCheck /> Approve all
+            </button>
+          )}
           {generatingCount > 0 && <span className="badge busy">{generatingCount} rendering</span>}
           {failedCount > 0 && (
             <button

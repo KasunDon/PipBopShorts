@@ -141,6 +141,8 @@ export const api = {
     req<{ clip: Clip }>('POST', `/api/storylines/${storylineId}/scenes/${sceneId}/refresh`),
   approveClip: (storylineId: string, sceneId: string, approved: boolean) =>
     req<{ clip: Clip }>('POST', `/api/storylines/${storylineId}/scenes/${sceneId}/clip/approval`, { approved }),
+  approveAllClips: (storylineId: string) =>
+    req<{ project: Project; approved: number }>('POST', `/api/storylines/${storylineId}/clips/approve-all`),
   qcScene: (storylineId: string, sceneId: string) =>
     req<{ qc: QcResult }>('POST', `/api/storylines/${storylineId}/scenes/${sceneId}/qc`),
   extendScene: (storylineId: string, sceneId: string, wait = true) =>

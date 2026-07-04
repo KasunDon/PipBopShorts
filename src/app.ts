@@ -1393,6 +1393,29 @@ export function createApp(deps: AppDeps): express.Express {
     }),
   );
 
+  // Approve every rendered clip at once (the publish gate needs all approved).
+  app.post(
+    '/api/storylines/:storylineId/clips/approve-all',
+    asyncHandler((req, res) => {
+      const project = deps.store.getProject(req.params.storylineId);
+      let approved = 0;
+      for (const clip of Object.values(project.clips)) {
+        if (clip.status === 'ready' && !clip.approved) {
+          setClipApproval(deps.store, req.params.storylineId, clip.sceneId, true);
+          approved += 1;
+        }
+      }
+      recordMutation(req, {
+        resource: 'clip-approval',
+        action: 'update',
+        summary: `Approved ${approved} clip(s)`,
+        before: null,
+        after: { approved },
+      });
+      res.json({ project: deps.store.getProject(req.params.storylineId), approved });
+    }),
+  );
+
   // Human sign-off on a rendered clip — the publish gate.
   app.post(
     '/api/storylines/:storylineId/scenes/:sceneId/clip/approval',
