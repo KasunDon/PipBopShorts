@@ -1495,6 +1495,7 @@ function ProjectPanel({
   const scenes = useMemo(() => [...project.storyline.scenes].sort((a, b) => a.order - b.order), [project]);
   const [privacy, setPrivacy] = useState('private');
   const [stitch, setStitch] = useState(true);
+  const [crossfade, setCrossfade] = useState(false);
   const [scheduleAt, setScheduleAt] = useState('');
   const [renderAt, setRenderAt] = useState('');
   const [validation, setValidation] = useState<RenderValidation | null>(null);
@@ -2032,13 +2033,19 @@ function ProjectPanel({
             <input type="checkbox" checked={stitch} onChange={(e) => setStitch(e.target.checked)} />
             Stitch all clips (needs ffmpeg)
           </label>
+          <label className="checkbox">
+            <input type="checkbox" checked={crossfade} disabled={!stitch} onChange={(e) => setCrossfade(e.target.checked)} />
+            Crossfade transitions
+          </label>
           <button
             className="primary"
             disabled={!canPublish}
             title={canPublish ? 'Publish the short' : 'Approve every rendered clip before publishing'}
             onClick={async () => {
               if (!confirm(`Publish to YouTube (${privacy})? This uploads the short${stitch ? ' (stitched)' : ''}.`)) return;
-              const res = await run(() => api.publish(storylineId, { privacyStatus: privacy, stitch }));
+              const res = await run(() =>
+                api.publish(storylineId, { privacyStatus: privacy, stitch, transition: crossfade ? 'fade' : 'none' }),
+              );
               if (res) {
                 const p = await api.getProject(storylineId);
                 setProject(p.project);

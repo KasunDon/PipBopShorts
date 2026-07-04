@@ -13,6 +13,8 @@ export interface PublishOptions {
   videoUrl?: string;
   /** Attempt to concatenate all ready clips into one video (requires ffmpeg). */
   stitch?: boolean;
+  /** Crossfade between clips instead of a hard cut when stitching. */
+  transition?: 'none' | 'fade';
   /** Require every clip being published to be human-approved first (the publish gate). */
   requireApproval?: boolean;
   fetchImpl?: typeof fetch;
@@ -75,7 +77,7 @@ export async function publishProject(
         const stitched = await stitchClips(
           ready.map((r) => r.clip.url as string),
           options.fetchImpl,
-          { burnSrt: srt || undefined },
+          { burnSrt: srt || undefined, transition: options.transition },
         );
         if (stitched) videoBytes = stitched;
       }

@@ -172,8 +172,11 @@ Consistency by reference, not just by prompt:
   per-scene SFX cues and character sound motifs — all canon-grounded with a
   child-audience mode. (Actual TTS/music generation + mux remains under Audio &
   subtitles above.)
-- **Assembly**: server-side stitch with transitions, title/end cards, safe-area checks for
-  Shorts; per-scene retry queue with cost tracking.
+- **Assembly**: *stitch + crossfade transitions + burned captions shipped* —
+  server-side concat with optional xfade crossfades and burned-in `.srt` captions
+  on publish. Still to do: title/end cards (bundled ffmpeg lacks `drawtext`, so
+  this needs a text-capable ffmpeg or an image-composited card), safe-area checks,
+  and a per-scene retry queue with cost tracking.
 - ~~**Series planning**: episode idea backlog~~ — **shipped**: "Suggest ideas"
   brainstorms distinct future-episode concepts (title + hook + synopsis) grounded
   in the bible, canon, tone/audience, and existing episodes (no repeats); each

@@ -1,6 +1,23 @@
+import { spawnSync } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
+import { FFMPEG_BIN } from '../src/services/ffmpeg';
 import { hasFfmpeg, stitchClips } from '../src/services/stitch';
 import { synthesizeTestVideo } from './helpers';
+
+/** A ~2s solid-colour clip, long enough to crossfade. */
+function synthesizeClip(seconds: number, color: string): Uint8Array {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pipbop-stitchfix-'));
+  try {
+    const p = path.join(dir, 'c.mp4');
+    spawnSync(FFMPEG_BIN, ['-y', '-f', 'lavfi', '-i', `color=c=${color}:s=64x64:d=${seconds}`, '-r', '10', '-pix_fmt', 'yuv420p', p], { stdio: 'ignore' });
+    return new Uint8Array(fs.readFileSync(p));
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
 
 let cleanups: Array<() => void> = [];
 afterEach(() => {
@@ -29,5 +46,20 @@ describe('stitchClips with burned captions', () => {
     if (!hasFfmpeg()) return;
     const out = await stitchClips(['a.mp4', 'b.mp4'], clipFetch(synthesizeTestVideo()));
     expect(out).not.toBeNull();
+  });
+
+  it('crossfades between clips when transition=fade', async () => {
+    if (!hasFfmpeg()) return;
+    const clip = synthesizeClip(2, 'red');
+    const out = await stitchClips(['a.mp4', 'b.mp4'], clipFetch(clip), { transition: 'fade', transitionSec: 0.5 });
+    expect(out).not.toBeNull();
+    expect((out as Uint8Array).length).toBeGreaterThan(0);
+  });
+
+  it('falls back to a hard cut when clips are too short to crossfade', async () => {
+    if (!hasFfmpeg()) return;
+    // The tiny synthesized fixture is far shorter than the 0.5s transition.
+    const out = await stitchClips(['a.mp4', 'b.mp4'], clipFetch(synthesizeTestVideo()), { transition: 'fade' });
+    expect(out).not.toBeNull(); // still stitched, just without the crossfade
   });
 });
