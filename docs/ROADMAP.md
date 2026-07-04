@@ -192,9 +192,10 @@ Consistency by reference, not just by prompt:
 - *Localization (metadata) + A/B title options shipped* — one-click translate a
   Short's title/description/tags/hashtags into any language, and generate A/B
   title options (each with its marketing angle) to pick from, both previewed in
-  the metadata editor. Still open: publish scheduling, A/B **thumbnails**,
-  retention analytics fed back into the story formula, and dubbed/translated
-  video variants with canon-consistent visuals.
+  the metadata editor. **Publish scheduling** is also shipped — queue a publish
+  for a future time; a server-side scheduler fires it (approval-gated, survives
+  restart). Still open: A/B **thumbnails**, retention analytics fed back into the
+  story formula, and dubbed/translated video variants with canon-consistent visuals.
 
 ---
 

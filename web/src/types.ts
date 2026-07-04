@@ -371,12 +371,22 @@ export interface ReferenceDefinition {
   currentPrompt: string | null;
 }
 
+export interface PublishSchedule {
+  at: string;
+  privacyStatus?: 'public' | 'unlisted' | 'private';
+  stitch?: boolean;
+  status: 'pending' | 'published' | 'failed' | 'cancelled';
+  error: string | null;
+  createdAt: string;
+}
+
 export interface Project {
   storyline: Storyline;
   clips: Record<string, Clip>;
   publish: PublishRecord | null;
   publishHistory?: PublishRecord[];
   driftReports?: DriftReport[];
+  schedule?: PublishSchedule | null;
 }
 
 export interface ProjectSummary {

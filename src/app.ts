@@ -68,6 +68,7 @@ import {
 import { episodeSettingTemplate, storyBibleTemplate } from './templates';
 import { buildStorylinePreview, validateStorylineForRender } from './services/preview';
 import { publishProject } from './services/publish';
+import { cancelSchedule, schedulePublish } from './services/scheduler';
 import {
   addScene,
   applySceneDefaults,
@@ -1280,6 +1281,32 @@ export function createApp(deps: AppDeps): express.Express {
         after: record,
       });
       res.json({ publish: record });
+    }),
+  );
+
+  // Schedule a publish for a future time (fires server-side; requires approved clips then).
+  app.post(
+    '/api/storylines/:storylineId/publish/schedule',
+    asyncHandler((req, res) => {
+      const { at, privacyStatus, stitch } = req.body ?? {};
+      if (!at || typeof at !== 'string') throw new HttpError(400, 'at (ISO timestamp) is required');
+      const project = schedulePublish(deps.store, req.params.storylineId, { at, privacyStatus, stitch });
+      recordMutation(req, {
+        resource: 'publish-schedule',
+        action: 'update',
+        summary: `Scheduled publish for ${new Date(at).toISOString()}`,
+        before: null,
+        after: project.schedule,
+      });
+      res.status(201).json({ schedule: project.schedule });
+    }),
+  );
+
+  app.delete(
+    '/api/storylines/:storylineId/publish/schedule',
+    asyncHandler((req, res) => {
+      const project = cancelSchedule(deps.store, req.params.storylineId);
+      res.json({ schedule: project.schedule });
     }),
   );
 

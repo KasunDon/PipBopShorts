@@ -1204,6 +1204,11 @@ textarea:disabled {
 .lang-input {
   width: 120px;
 }
+.schedule-row {
+  margin-top: 10px;
+  align-items: center;
+  gap: 10px;
+}
 .title-variants {
   list-style: none;
   margin: 6px 0;

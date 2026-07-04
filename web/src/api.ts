@@ -17,6 +17,7 @@ import type {
   PortraitVersion,
   Project,
   ProjectSummary,
+  PublishSchedule,
   AutofixResult,
   Beat,
   CanonDiff,
@@ -129,6 +130,10 @@ export const api = {
 
   publish: (storylineId: string, opts: Record<string, unknown>) =>
     req<{ publish: PublishResult }>('POST', `/api/storylines/${storylineId}/publish`, opts),
+  schedulePublish: (storylineId: string, opts: { at: string; privacyStatus?: string; stitch?: boolean }) =>
+    req<{ schedule: PublishSchedule }>('POST', `/api/storylines/${storylineId}/publish/schedule`, opts),
+  cancelSchedule: (storylineId: string) =>
+    req<{ schedule: PublishSchedule }>('DELETE', `/api/storylines/${storylineId}/publish/schedule`),
 
   // ---- Canon & drift ----
   getCanon: (storyId: string) => req<{ registry: CanonRegistry | null }>('GET', `/api/stories/${storyId}/canon`),

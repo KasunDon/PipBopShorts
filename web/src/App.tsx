@@ -1425,6 +1425,7 @@ function ProjectPanel({
   const scenes = useMemo(() => [...project.storyline.scenes].sort((a, b) => a.order - b.order), [project]);
   const [privacy, setPrivacy] = useState('private');
   const [stitch, setStitch] = useState(true);
+  const [scheduleAt, setScheduleAt] = useState('');
   const [validation, setValidation] = useState<RenderValidation | null>(null);
   const [autofix, setAutofix] = useState<AutofixResult | null>(null);
   const [dialogue, setDialogue] = useState<SceneDialogue[] | null>(null);
@@ -1908,6 +1909,61 @@ function ProjectPanel({
             <span className="gate-note">
               <IconAlert />{' '}
               {readyCount === 0 ? 'Render scenes first.' : `Approve all ${readyCount} rendered clip(s) before publishing.`}
+            </span>
+          )}
+        </div>
+
+        <div className="row schedule-row">
+          <label className="checkbox">
+            <IconClock /> Schedule for later
+          </label>
+          <input
+            type="datetime-local"
+            value={scheduleAt}
+            onChange={(e) => setScheduleAt(e.target.value)}
+            disabled={project.schedule?.status === 'pending'}
+          />
+          {project.schedule?.status === 'pending' ? (
+            <>
+              <span className="badge warn">
+                scheduled {new Date(project.schedule.at).toLocaleString()}
+              </span>
+              <button
+                className="ghost small"
+                onClick={async () => {
+                  const res = await run(() => api.cancelSchedule(storylineId));
+                  if (res) {
+                    const p = await api.getProject(storylineId);
+                    setProject(p.project);
+                  }
+                }}
+              >
+                Cancel
+              </button>
+            </>
+          ) : (
+            <button
+              className="small"
+              disabled={!canPublish || !scheduleAt}
+              title={canPublish ? 'Queue a publish for the chosen time' : 'Approve all clips first'}
+              onClick={async () => {
+                const res = await run(() =>
+                  api.schedulePublish(storylineId, { at: new Date(scheduleAt).toISOString(), privacyStatus: privacy, stitch }),
+                );
+                if (res) {
+                  const p = await api.getProject(storylineId);
+                  setProject(p.project);
+                  pushToast('ok', `Publish scheduled for ${new Date(res.schedule.at).toLocaleString()}.`);
+                }
+              }}
+            >
+              Schedule
+            </button>
+          )}
+          {project.schedule && project.schedule.status !== 'pending' && (
+            <span className="muted small">
+              last schedule: {project.schedule.status}
+              {project.schedule.error ? ` — ${project.schedule.error}` : ''}
             </span>
           )}
         </div>

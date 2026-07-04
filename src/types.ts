@@ -220,6 +220,16 @@ export interface PublishRecord {
   publishedAt: string | null;
 }
 
+export interface PublishSchedule {
+  /** ISO timestamp at/after which the scheduled publish should fire. */
+  at: string;
+  privacyStatus?: 'public' | 'unlisted' | 'private';
+  stitch?: boolean;
+  status: 'pending' | 'published' | 'failed' | 'cancelled';
+  error: string | null;
+  createdAt: string;
+}
+
 /** Top-level project record aggregating a storyline, its clips, and publish state. */
 export interface Project {
   storyline: Storyline;
@@ -230,6 +240,8 @@ export interface Project {
   publishHistory?: PublishRecord[];
   /** Consistency (drift) reports run against this storyline. */
   driftReports?: DriftReport[];
+  /** A pending/queued scheduled publish, if any. */
+  schedule?: PublishSchedule | null;
 }
 
 // ---------------------------------------------------------------------------

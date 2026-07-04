@@ -9,6 +9,7 @@ import { createPixverseProvider } from './costs/pricing';
 import { EventStore } from './events/eventStore';
 import { instrumentFetch } from './events/instrument';
 import { JobRunner } from './services/jobs';
+import { PublishScheduler } from './services/scheduler';
 import { Store } from './store/store';
 
 function main(): void {
@@ -60,6 +61,10 @@ function main(): void {
   const jobs = new JobRunner({ store, pixverse });
   const resumed = jobs.resume();
   jobs.start();
+
+  // Fire scheduled publishes server-side (survives tab close; approval-gated).
+  const scheduler = new PublishScheduler({ store, youtube });
+  scheduler.start();
 
   const app = createApp({ store, claude, pixverse, youtube, eventStore, jobs, webDir: defaultWebDir() });
 
