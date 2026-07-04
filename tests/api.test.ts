@@ -631,6 +631,18 @@ describe('CTA endpoint coverage', () => {
     expect(extended.body.clip.status).toBe('ready');
   });
 
+  it('downloads a shot manifest for a storyline', async () => {
+    const { app } = makeApp();
+    const { storylineId, scenes } = await scaffold(app);
+    // Add a directed edit + a note so they appear in the manifest.
+    const res = await request(app).get(`/api/storylines/${storylineId}/manifest.md`).expect(200);
+    expect(res.headers['content-type']).toContain('text/markdown');
+    expect(res.headers['content-disposition']).toContain('.manifest.md');
+    expect(res.text).toContain('# Shot Manifest');
+    expect(res.text).toContain(`## Scene 1: ${scenes[0].heading}`);
+    expect(res.text).toContain('**Render**');
+  });
+
   it('applies a directed scene patch over HTTP and records it', async () => {
     const { client: studioClaude } = makeStudioFakeClaude();
     const { app } = makeApp({ claude: studioClaude });

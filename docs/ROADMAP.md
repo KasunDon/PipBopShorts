@@ -142,9 +142,10 @@ Consistency by reference, not just by prompt:
 - **Beat sheets & shot manifests**: *beat sheets shipped* — generate a structural
   beat sheet (hook → complication → turn → climax → resolution) for an episode,
   grounded in bible/brief/setting + canon, one-click foldable into the storyline
-  guidance. Still to do: per-scene shot manifests (camera/lighting presets, locked
-  properties, allowed variation) as the renderer's unit, with seeds/params per
-  attempt for reproducibility.
+  guidance. A downloadable **per-scene shot manifest** (every scene's render
+  params, references, prompt, directed edits, open notes, clip status) is also
+  shipped as the reproducible production document. Still to do: camera/lighting
+  *presets* as first-class manifest fields and per-attempt seeds for exact repro.
 - **Audio & subtitles** *(requested — not built yet)*: the current pipeline renders silent
   video only. Planned:
   - **Background music**: per-episode music bed (mood/tempo from the bible's tone marks),

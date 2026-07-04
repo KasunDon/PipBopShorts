@@ -40,6 +40,7 @@ import { assertRuntime, extendPlan, generateNextEpisode, planStory } from './ser
 import { storyAnalytics, studioAnalytics } from './services/analytics';
 import { autofixStoryline } from './services/autofix';
 import { generateBeatSheet } from './services/beatsheet';
+import { buildShotManifest } from './services/manifest';
 import { addSceneComment, deleteSceneComment, setSceneCommentResolved } from './services/comments';
 import { suggestEpisodeIdeas } from './services/ideas';
 import { patchScene } from './services/patch';
@@ -907,6 +908,16 @@ export function createApp(deps: AppDeps): express.Express {
       const { model, effort } = req.body ?? {};
       const result = await autofixStoryline(deps.store, deps.claude, req.params.storylineId, { model, effort });
       res.json({ result, validation: validateStorylineForRender(deps.store, req.params.storylineId) });
+    }),
+  );
+
+  // Downloadable per-scene shot manifest (the reproducible production document).
+  app.get(
+    '/api/storylines/:storylineId/manifest.md',
+    asyncHandler((req, res) => {
+      const project = deps.store.getProject(req.params.storylineId);
+      const slug = project.storyline.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'storyline';
+      sendMarkdown(res, `${slug}.manifest.md`, buildShotManifest(deps.store, req.params.storylineId));
     }),
   );
 

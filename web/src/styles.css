@@ -1184,6 +1184,23 @@ textarea:disabled {
   margin-top: 2px;
 }
 
+.btn-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+  text-decoration: none;
+}
+.btn-link:hover {
+  background: var(--surface-3);
+}
+
 /* Beat sheet */
 .beat-list {
   margin: 8px 0 0;

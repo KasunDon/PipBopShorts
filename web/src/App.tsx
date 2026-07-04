@@ -1569,6 +1569,9 @@ function ProjectPanel({
           >
             <IconEye /> Validate and estimate cost
           </button>
+          <a className="btn-link" href={`/api/storylines/${storylineId}/manifest.md`} download title="Download the per-scene shot manifest (production document)">
+            <IconDownload /> Shot manifest
+          </a>
           <button
             className="primary"
             disabled={!canRenderAll}
