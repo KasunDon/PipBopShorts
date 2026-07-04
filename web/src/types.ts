@@ -250,6 +250,14 @@ export interface Scene {
   imageUrl?: string;
   referenceCharacterIds?: string[];
   patchHistory?: ScenePatch[];
+  comments?: SceneComment[];
+}
+
+export interface SceneComment {
+  id: string;
+  text: string;
+  resolved: boolean;
+  createdAt: string;
 }
 
 export interface ScenePatch {

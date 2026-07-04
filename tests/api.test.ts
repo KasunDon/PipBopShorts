@@ -632,6 +632,37 @@ describe('CTA endpoint coverage', () => {
     expect(scene.patchHistory).toHaveLength(1);
   });
 
+  it('adds, resolves, and deletes scene review comments over HTTP', async () => {
+    const { app } = makeApp();
+    const { storylineId, scenes } = await scaffold(app);
+    const sceneId = scenes[0].id;
+
+    const added = await request(app)
+      .post(`/api/storylines/${storylineId}/scenes/${sceneId}/comments`)
+      .send({ text: 'Revisit the lighting' })
+      .expect(201);
+    const comment = added.body.project.storyline.scenes.find((s: { id: string }) => s.id === sceneId).comments[0];
+    expect(comment.text).toBe('Revisit the lighting');
+    expect(comment.resolved).toBe(false);
+
+    const resolved = await request(app)
+      .patch(`/api/storylines/${storylineId}/scenes/${sceneId}/comments/${comment.id}`)
+      .send({ resolved: true })
+      .expect(200);
+    expect(resolved.body.project.storyline.scenes.find((s: { id: string }) => s.id === sceneId).comments[0].resolved).toBe(true);
+
+    const del = await request(app)
+      .delete(`/api/storylines/${storylineId}/scenes/${sceneId}/comments/${comment.id}`)
+      .expect(200);
+    expect(del.body.project.storyline.scenes.find((s: { id: string }) => s.id === sceneId).comments).toHaveLength(0);
+  });
+
+  it('400s an empty scene comment', async () => {
+    const { app } = makeApp();
+    const { storylineId, scenes } = await scaffold(app);
+    await request(app).post(`/api/storylines/${storylineId}/scenes/${scenes[0].id}/comments`).send({ text: '  ' }).expect(400);
+  });
+
   it('400s a scene patch with no change request', async () => {
     const { client: studioClaude } = makeStudioFakeClaude();
     const { app } = makeApp({ claude: studioClaude });

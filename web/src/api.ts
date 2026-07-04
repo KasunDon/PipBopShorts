@@ -86,6 +86,12 @@ export const api = {
     req<{ project: Project }>('PATCH', `/api/storylines/${storylineId}/scenes/${sceneId}`, patch),
   addScene: (storylineId: string, partial?: Partial<Scene>) =>
     req<{ project: Project }>('POST', `/api/storylines/${storylineId}/scenes`, partial ?? {}),
+  addComment: (storylineId: string, sceneId: string, text: string) =>
+    req<{ project: Project }>('POST', `/api/storylines/${storylineId}/scenes/${sceneId}/comments`, { text }),
+  resolveComment: (storylineId: string, sceneId: string, commentId: string, resolved: boolean) =>
+    req<{ project: Project }>('PATCH', `/api/storylines/${storylineId}/scenes/${sceneId}/comments/${commentId}`, { resolved }),
+  deleteComment: (storylineId: string, sceneId: string, commentId: string) =>
+    req<{ project: Project }>('DELETE', `/api/storylines/${storylineId}/scenes/${sceneId}/comments/${commentId}`),
   patchScene: (storylineId: string, sceneId: string, request: string, opts: { model?: string } = {}) =>
     req<{ project: Project; patch: ScenePatch }>(
       'POST',

@@ -175,7 +175,9 @@ Consistency by reference, not just by prompt:
   runner), scene-count scaling, per-act drift checks.
 - **Season arcs**: season-level canon (what may evolve across a season vs. never),
   scheduled production runs.
-- **Team workflow**: review/approve roles, comments on scenes, audit log of canon changes.
+- **Team workflow**: review/approve roles, ~~comments on scenes~~ (**shipped** —
+  per-scene review notes with resolve/delete, never touching the render), audit
+  log of canon changes (**shipped** — canon edits are versioned + `store`-audited).
 
 ## Phase 5 — Distribution intelligence
 

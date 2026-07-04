@@ -53,6 +53,7 @@ export function SceneCard({
   const [patchReq, setPatchReq] = useState('');
   const [patching, setPatching] = useState(false);
   const [showPatchLog, setShowPatchLog] = useState(false);
+  const [commentText, setCommentText] = useState('');
 
   useEffect(() => {
     setDraft(scene);
@@ -70,6 +71,15 @@ export function SceneCard({
       }
     } finally {
       setPatching(false);
+    }
+  };
+
+  const addComment = async () => {
+    if (!commentText.trim()) return;
+    const res = await run(() => api.addComment(storylineId, scene.id, commentText.trim()));
+    if (res) {
+      setProject(res.project);
+      setCommentText('');
     }
   };
 
@@ -321,6 +331,51 @@ export function SceneCard({
           )}
           {scene.imageUrl && <p className="muted small">Reference image attached (image-to-video). Camera movement will apply.</p>}
           {clip?.error && <p className="scene-error">{clip.error}</p>}
+
+          <div className="scene-comments">
+            {scene.comments && scene.comments.length > 0 && (
+              <ul className="comment-list">
+                {scene.comments.map((c) => (
+                  <li key={c.id} className={`comment ${c.resolved ? 'resolved' : ''}`}>
+                    <button
+                      className="comment-check"
+                      title={c.resolved ? 'Mark unresolved' : 'Mark resolved'}
+                      onClick={async () => {
+                        const res = await run(() => api.resolveComment(storylineId, scene.id, c.id, !c.resolved));
+                        if (res) setProject(res.project);
+                      }}
+                    >
+                      {c.resolved ? <IconCheck /> : <span className="comment-dot" />}
+                    </button>
+                    <span className="comment-text">{c.text}</span>
+                    <button
+                      className="comment-del"
+                      title="Delete note"
+                      onClick={async () => {
+                        const res = await run(() => api.deleteComment(storylineId, scene.id, c.id));
+                        if (res) setProject(res.project);
+                      }}
+                    >
+                      ×
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="comment-add">
+              <input
+                value={commentText}
+                onChange={(e) => setCommentText(e.target.value)}
+                placeholder="Add a review note…"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') addComment();
+                }}
+              />
+              <button className="small ghost" disabled={!commentText.trim()} onClick={addComment}>
+                Note
+              </button>
+            </div>
+          </div>
         </div>
 
         <div className="scene-right">

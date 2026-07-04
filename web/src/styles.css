@@ -1216,6 +1216,65 @@ textarea:disabled {
   font-style: italic;
 }
 
+/* Scene review comments */
+.scene-comments {
+  margin-top: 8px;
+}
+.comment-list {
+  list-style: none;
+  margin: 0 0 6px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.comment {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  padding: 4px 8px;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+}
+.comment.resolved .comment-text {
+  text-decoration: line-through;
+  color: var(--text-3);
+}
+.comment-check {
+  padding: 0;
+  background: none;
+  border: none;
+  display: inline-flex;
+  color: var(--ok);
+}
+.comment-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1.5px solid var(--warn);
+  display: inline-block;
+}
+.comment-text {
+  flex: 1;
+}
+.comment-del {
+  padding: 0 6px;
+  background: none;
+  border: none;
+  color: var(--text-3);
+  font-size: 16px;
+  line-height: 1;
+}
+.comment-add {
+  display: flex;
+  gap: 6px;
+}
+.comment-add input {
+  flex: 1;
+  font-size: 12.5px;
+}
+
 /* Directed scene edit (patch) */
 .scene-patch {
   display: flex;

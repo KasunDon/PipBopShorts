@@ -39,6 +39,7 @@ import {
 import { assertRuntime, extendPlan, generateNextEpisode, planStory } from './services/season';
 import { storyAnalytics, studioAnalytics } from './services/analytics';
 import { autofixStoryline } from './services/autofix';
+import { addSceneComment, deleteSceneComment, setSceneCommentResolved } from './services/comments';
 import { suggestEpisodeIdeas } from './services/ideas';
 import { patchScene } from './services/patch';
 import { checkDrift, resolveDrift } from './services/drift';
@@ -902,6 +903,37 @@ export function createApp(deps: AppDeps): express.Express {
         before,
         after: updated ? { ...updated } : undefined,
       });
+      res.json({ project });
+    }),
+  );
+
+  // ---- Scene review comments ----
+  app.post(
+    '/api/storylines/:storylineId/scenes/:sceneId/comments',
+    asyncHandler((req, res) => {
+      const project = addSceneComment(deps.store, req.params.storylineId, req.params.sceneId, req.body?.text ?? '');
+      res.status(201).json({ project });
+    }),
+  );
+
+  app.patch(
+    '/api/storylines/:storylineId/scenes/:sceneId/comments/:commentId',
+    asyncHandler((req, res) => {
+      const project = setSceneCommentResolved(
+        deps.store,
+        req.params.storylineId,
+        req.params.sceneId,
+        req.params.commentId,
+        req.body?.resolved !== false,
+      );
+      res.json({ project });
+    }),
+  );
+
+  app.delete(
+    '/api/storylines/:storylineId/scenes/:sceneId/comments/:commentId',
+    asyncHandler((req, res) => {
+      const project = deleteSceneComment(deps.store, req.params.storylineId, req.params.sceneId, req.params.commentId);
       res.json({ project });
     }),
   );
