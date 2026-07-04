@@ -89,3 +89,73 @@ export function storyAnalytics(store: Store, storyId: string): StoryAnalytics {
     },
   };
 }
+
+export interface StudioStorySummary {
+  storyId: string;
+  title: string;
+  episodes: number;
+  storylines: number;
+  scenes: number;
+  approvedClips: number;
+  publishes: number;
+  openDrifts: number;
+  safetyDrifts: number;
+  driftRate: number;
+}
+export interface StudioAnalytics {
+  stories: number;
+  episodes: number;
+  storylines: number;
+  scenes: number;
+  approvedClips: number;
+  publishes: number;
+  openDrifts: number;
+  safetyDrifts: number;
+  /** Per-story rows, most safety-sensitive / most-drifting first so problems surface. */
+  perStory: StudioStorySummary[];
+}
+
+/** Studio-wide roll-up across every story — the cross-IP dashboard. */
+export function studioAnalytics(store: Store): StudioAnalytics {
+  const totals: StudioAnalytics = {
+    stories: 0,
+    episodes: 0,
+    storylines: 0,
+    scenes: 0,
+    approvedClips: 0,
+    publishes: 0,
+    openDrifts: 0,
+    safetyDrifts: 0,
+    perStory: [],
+  };
+
+  for (const story of store.listStories()) {
+    const a = storyAnalytics(store, story.id);
+    totals.stories += 1;
+    totals.episodes += a.episodes;
+    totals.storylines += a.storylines;
+    totals.scenes += a.scenes;
+    totals.approvedClips += a.clips.approved;
+    totals.publishes += a.publishes;
+    totals.openDrifts += a.drift.open;
+    totals.safetyDrifts += a.drift.safety;
+    totals.perStory.push({
+      storyId: story.id,
+      title: story.title,
+      episodes: a.episodes,
+      storylines: a.storylines,
+      scenes: a.scenes,
+      approvedClips: a.clips.approved,
+      publishes: a.publishes,
+      openDrifts: a.drift.open,
+      safetyDrifts: a.drift.safety,
+      driftRate: a.drift.driftRate,
+    });
+  }
+
+  // Surface the riskiest first: safety findings, then open drifts, then drift rate.
+  totals.perStory.sort(
+    (x, y) => y.safetyDrifts - x.safetyDrifts || y.openDrifts - x.openDrifts || y.driftRate - x.driftRate,
+  );
+  return totals;
+}

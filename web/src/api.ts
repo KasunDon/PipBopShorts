@@ -27,6 +27,7 @@ import type {
   ScenePatch,
   Story,
   StoryAnalytics,
+  StudioAnalytics,
   StoryMeta,
   StorylinePreview,
   YoutubeMeta,
@@ -54,6 +55,7 @@ export const api = {
   config: () => req<AppConfig>('GET', '/api/config'),
 
   listStories: () => req<{ stories: Story[] }>('GET', '/api/stories'),
+  studioAnalytics: () => req<{ analytics: StudioAnalytics }>('GET', '/api/studio/analytics'),
   createStory: (data: { title: string; settingMode?: string; bible?: string }) =>
     req<{ story: Story }>('POST', '/api/stories', data),
   getStory: (id: string) => req<{ story: Story; bible: string; episodes: Episode[] }>('GET', `/api/stories/${id}`),

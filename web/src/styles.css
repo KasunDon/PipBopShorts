@@ -1112,6 +1112,20 @@ textarea:disabled {
   background: rgba(139, 92, 246, 0.08);
 }
 
+.studio-risk {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.studio-risk li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 /* Audit field diff */
 .event-fielddiff {
   margin-bottom: 10px;

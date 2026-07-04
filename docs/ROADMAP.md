@@ -166,11 +166,11 @@ Consistency by reference, not just by prompt:
 
 ## Phase 4 — Studio scale
 
-- **Multi-IP dashboards** — *per-story analytics shipped*: an Insights tab shows
-  episodes/storylines/scenes, clips ready/approved, publishes, canon stability
-  (versions/entities/marks/locked), and drift health (open vs resolved, safety,
-  drift rate). Still to do: the cross-IP roll-up dashboard, trend charts over
-  time, and shared style presets.
+- **Multi-IP dashboards** — *shipped*: a per-story Insights tab (volume, clips
+  ready/approved, publishes, canon stability, drift health) **and** a studio-wide
+  overview on the home screen that rolls up every story and surfaces the riskiest
+  (safety findings / open drifts) first with jump-to links. Still to do: trend
+  charts over time and shared cross-IP style presets.
 - **Longer formats**: 3-act structure support (primary thread + friendship thread + comedy
   runner), scene-count scaling, per-act drift checks.
 - **Season arcs**: season-level canon (what may evolve across a season vs. never),

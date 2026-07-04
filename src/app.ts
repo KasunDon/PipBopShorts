@@ -37,7 +37,7 @@ import {
   uploadPortraitStill,
 } from './services/characters';
 import { assertRuntime, extendPlan, generateNextEpisode, planStory } from './services/season';
-import { storyAnalytics } from './services/analytics';
+import { storyAnalytics, studioAnalytics } from './services/analytics';
 import { autofixStoryline } from './services/autofix';
 import { suggestEpisodeIdeas } from './services/ideas';
 import { patchScene } from './services/patch';
@@ -329,6 +329,14 @@ export function createApp(deps: AppDeps): express.Express {
     '/api/stories',
     asyncHandler((_req, res) => {
       res.json({ stories: deps.store.listStories() });
+    }),
+  );
+
+  // Studio-wide analytics roll-up across every story (cross-IP dashboard).
+  app.get(
+    '/api/studio/analytics',
+    asyncHandler((_req, res) => {
+      res.json({ analytics: studioAnalytics(deps.store) });
     }),
   );
 

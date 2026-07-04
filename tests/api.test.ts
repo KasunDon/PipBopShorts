@@ -139,6 +139,16 @@ describe('preview, validation, and cost endpoints', () => {
     expect(validation.body.validation.estUsdLabel).toMatch(/^\$/);
   });
 
+  it('serves the studio-wide analytics roll-up', async () => {
+    const { app } = makeApp();
+    await request(app).post('/api/stories').send({ title: 'One' }).expect(201);
+    await request(app).post('/api/stories').send({ title: 'Two' }).expect(201);
+    const res = await request(app).get('/api/studio/analytics').expect(200);
+    expect(res.body.analytics.stories).toBe(2);
+    expect(Array.isArray(res.body.analytics.perStory)).toBe(true);
+    expect(res.body.analytics.perStory).toHaveLength(2);
+  });
+
   it('serves per-story analytics', async () => {
     const { app } = makeApp();
     const storyId = (await request(app).post('/api/stories').send({ title: 'Metrics' }).expect(201)).body.story.id;

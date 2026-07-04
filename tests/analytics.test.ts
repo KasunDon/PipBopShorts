@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { storyAnalytics } from '../src/services/analytics';
+import { storyAnalytics, studioAnalytics } from '../src/services/analytics';
 import { extractCanon } from '../src/services/canon';
 import { checkDrift } from '../src/services/drift';
 import { generateClip, setClipApproval } from '../src/services/generation';
@@ -48,6 +48,30 @@ describe('storyAnalytics', () => {
     expect(a.drift.findings).toBeGreaterThan(0);
     expect(a.drift.open).toBe(a.drift.findings); // none resolved yet
     expect(a.drift.driftRate).toBeGreaterThan(0);
+  });
+
+  it('rolls up across stories and surfaces the riskiest first', async () => {
+    const { store, cleanup } = makeStore();
+    cleanups.push(cleanup);
+    const { client } = makeStudioFakeClaude();
+
+    // Story A: canon + a storyline + a drift report (has findings).
+    const a = store.createStory({ title: 'Alpha', bible: '# Bible\nBobo has a green scarf.', meta: { audienceMin: 4, audienceMax: 7 } });
+    await extractCanon(store, client, a.id);
+    const epA = store.createEpisode(a.id, { title: 'E1', brief: 'x' });
+    const projA = await createStorylineProject(store, client, a.id, epA.id, {});
+    await checkDrift(store, client, projA.storyline.id);
+
+    // Story B: nothing produced.
+    store.createStory({ title: 'Beta', bible: '# Bible\nQuiet.' });
+
+    const studio = studioAnalytics(store);
+    expect(studio.stories).toBe(2);
+    expect(studio.storylines).toBe(1);
+    expect(studio.openDrifts).toBeGreaterThan(0);
+    expect(studio.perStory).toHaveLength(2);
+    // Alpha (with open drifts) sorts ahead of Beta.
+    expect(studio.perStory[0].title).toBe('Alpha');
   });
 
   it('is all-zero for a fresh story with no production', () => {

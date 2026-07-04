@@ -50,6 +50,30 @@ export interface StoryAnalytics {
   drift: { reports: number; findings: number; resolved: number; open: number; safety: number; driftRate: number };
 }
 
+export interface StudioStorySummary {
+  storyId: string;
+  title: string;
+  episodes: number;
+  storylines: number;
+  scenes: number;
+  approvedClips: number;
+  publishes: number;
+  openDrifts: number;
+  safetyDrifts: number;
+  driftRate: number;
+}
+export interface StudioAnalytics {
+  stories: number;
+  episodes: number;
+  storylines: number;
+  scenes: number;
+  approvedClips: number;
+  publishes: number;
+  openDrifts: number;
+  safetyDrifts: number;
+  perStory: StudioStorySummary[];
+}
+
 export interface PlannedEpisode {
   number: number;
   title: string;

@@ -42,6 +42,7 @@ import type {
   RenderValidation,
   Story,
   StoryAnalytics,
+  StudioAnalytics,
   StorylinePreview,
 } from './types';
 import { formatElapsed, useAsyncAction } from './useAsyncAction';
@@ -253,14 +254,17 @@ export function App() {
           {overlay === 'costs' && <CostsPanel onClose={() => setOverlay(null)} />}
 
           {showBrowse && !storyId && (
-            <Welcome
-              config={config}
-              onLaunch={async (idea, model, withCanon, signal) => {
-                const res = await api.bootstrapStory(idea, { model, withCanon, signal });
-                await refreshStories();
-                openStory(res.story.id);
-              }}
-            />
+            <>
+              <Welcome
+                config={config}
+                onLaunch={async (idea, model, withCanon, signal) => {
+                  const res = await api.bootstrapStory(idea, { model, withCanon, signal });
+                  await refreshStories();
+                  openStory(res.story.id);
+                }}
+              />
+              {stories.length > 0 && <StudioDashboard onOpenStory={openStory} />}
+            </>
           )}
 
           {showBrowse && storyId && story && !episodeId && config && (
@@ -608,6 +612,68 @@ function StoryPanel({
         <SettingsTab data={data} config={config} onChanged={onChanged} onStoriesChanged={onStoriesChanged} onDeleted={onDeleted} run={run} />
       )}
     </div>
+  );
+}
+
+function StudioDashboard({ onOpenStory }: { onOpenStory: (id: string) => void }) {
+  const [a, setA] = useState<StudioAnalytics | null>(null);
+  useEffect(() => {
+    let live = true;
+    api.studioAnalytics().then((res) => live && setA(res.analytics)).catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, []);
+  if (!a || a.stories === 0) return null;
+
+  return (
+    <section className="card">
+      <div className="card-head">
+        <h3>Studio overview</h3>
+        <span className="muted small">{a.stories} stories</span>
+      </div>
+      <div className="stat-grid">
+        <div className="stat-tile">
+          <span className="stat-value">{a.episodes}</span>
+          <span className="stat-label">Episodes</span>
+        </div>
+        <div className="stat-tile">
+          <span className="stat-value">{a.scenes}</span>
+          <span className="stat-label">Scenes</span>
+        </div>
+        <div className="stat-tile">
+          <span className="stat-value">{a.approvedClips}</span>
+          <span className="stat-label">Approved clips</span>
+        </div>
+        <div className="stat-tile">
+          <span className="stat-value">{a.publishes}</span>
+          <span className="stat-label">Published</span>
+        </div>
+        <div className="stat-tile">
+          <span className="stat-value">{a.openDrifts}</span>
+          <span className="stat-label">Open drifts</span>
+          {a.safetyDrifts > 0 && <span className="stat-sub" style={{ color: 'var(--danger)' }}>{a.safetyDrifts} safety</span>}
+        </div>
+      </div>
+      {a.perStory.some((s) => s.openDrifts > 0 || s.safetyDrifts > 0) && (
+        <ul className="studio-risk">
+          {a.perStory
+            .filter((s) => s.openDrifts > 0 || s.safetyDrifts > 0)
+            .slice(0, 5)
+            .map((s) => (
+              <li key={s.storyId}>
+                <button className="link" onClick={() => onOpenStory(s.storyId)}>
+                  {s.title}
+                </button>
+                {s.safetyDrifts > 0 && <span className="badge safety">{s.safetyDrifts} safety</span>}
+                <span className="muted small">
+                  {s.openDrifts} open drift{s.openDrifts === 1 ? '' : 's'} · rate {s.driftRate}
+                </span>
+              </li>
+            ))}
+        </ul>
+      )}
+    </section>
   );
 }
 
