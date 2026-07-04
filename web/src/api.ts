@@ -120,6 +120,8 @@ export const api = {
     ),
   removeScene: (storylineId: string, sceneId: string) =>
     req<{ project: Project }>('DELETE', `/api/storylines/${storylineId}/scenes/${sceneId}`),
+  duplicateScene: (storylineId: string, sceneId: string) =>
+    req<{ project: Project }>('POST', `/api/storylines/${storylineId}/scenes/${sceneId}/duplicate`),
   reorder: (storylineId: string, orderedIds: string[]) =>
     req<{ project: Project }>('POST', `/api/storylines/${storylineId}/reorder`, { orderedIds }),
   updateYoutube: (storylineId: string, patch: Partial<YoutubeMeta>) =>

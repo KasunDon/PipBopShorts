@@ -671,6 +671,19 @@ describe('CTA endpoint coverage', () => {
     expect(orig.body.project.clips[scenes[0].id].approved).toBe(true);
   });
 
+  it('duplicates a scene in place', async () => {
+    const { app } = makeApp();
+    const { storylineId, scenes } = await scaffold(app);
+    const res = await request(app).post(`/api/storylines/${storylineId}/scenes/${scenes[0].id}/duplicate`).expect(201);
+    const list = res.body.project.storyline.scenes;
+    expect(list).toHaveLength(scenes.length + 1);
+    // The copy sits right after the original, with a new id and "(copy)" heading.
+    expect(list[1].id).not.toBe(scenes[0].id);
+    expect(list[1].heading).toBe(`${scenes[0].heading} (copy)`);
+    expect(list[1].prompt).toBe(scenes[0].prompt);
+    expect(list.map((s: { order: number }) => s.order)).toEqual(list.map((_: unknown, i: number) => i));
+  });
+
   it('add, reorder, tweak, remove a scene, and edit youtube metadata', async () => {
     const { app } = makeApp();
     const { storylineId, scenes } = await scaffold(app);

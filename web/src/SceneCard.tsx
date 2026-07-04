@@ -350,6 +350,16 @@ export function SceneCard({
                 }}
               />
             </label>
+            <button
+              className="ghost"
+              title="Duplicate this scene (creates a variation right after)"
+              onClick={async () => {
+                const res = await run(() => api.duplicateScene(storylineId, scene.id));
+                if (res) setProject(res.project);
+              }}
+            >
+              Duplicate
+            </button>
             {total > 1 && (
               <button
                 className="danger ghost"

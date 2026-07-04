@@ -255,6 +255,25 @@ export function addScene(store: Store, storylineId: string, partial?: Partial<Sc
   return store.saveProject(project);
 }
 
+/** Duplicate a scene in place (new id, cleared render/patch/comment state), inserted right after it. */
+export function duplicateScene(store: Store, storylineId: string, sceneId: string): Project {
+  const project = store.getProject(storylineId);
+  const idx = project.storyline.scenes.findIndex((s) => s.id === sceneId);
+  if (idx < 0) throw new UserInputError(`Scene not found: ${sceneId}`);
+  const copy: Scene = {
+    ...structuredClone(project.storyline.scenes[idx]),
+    id: makeId('scene'),
+    heading: `${project.storyline.scenes[idx].heading} (copy)`,
+    patchHistory: undefined,
+    comments: undefined,
+  };
+  project.storyline.scenes.splice(idx + 1, 0, copy);
+  project.storyline.scenes.forEach((s, i) => (s.order = i));
+  project.clips[copy.id] = idleClip(copy.id);
+  touch(project);
+  return store.saveProject(project);
+}
+
 export function removeScene(store: Store, storylineId: string, sceneId: string): Project {
   const project = store.getProject(storylineId);
   project.storyline.scenes = project.storyline.scenes.filter((s) => s.id !== sceneId);

@@ -82,6 +82,7 @@ import {
   addScene,
   applySceneDefaults,
   createStorylineProject,
+  duplicateScene,
   duplicateStoryline,
   removeScene,
   reorderScenes,
@@ -1156,6 +1157,14 @@ export function createApp(deps: AppDeps): express.Express {
         after: { prompt: result.patch.after },
       });
       res.json({ project: result.project, patch: result.patch });
+    }),
+  );
+
+  app.post(
+    '/api/storylines/:storylineId/scenes/:sceneId/duplicate',
+    asyncHandler((req, res) => {
+      const project = duplicateScene(deps.store, req.params.storylineId, req.params.sceneId);
+      res.status(201).json({ project });
     }),
   );
 
