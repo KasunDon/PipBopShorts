@@ -107,6 +107,7 @@ export function SceneCard({
         style: draft.style,
         cameraMovement: draft.cameraMovement,
         caption: draft.caption ?? '',
+        seed: draft.seed,
       }),
     );
     if (res) {
@@ -130,6 +131,15 @@ export function SceneCard({
           </Field>
           <Field label="Caption (sound-off subtitle)">
             <input value={draft.caption ?? ''} onChange={(e) => update('caption', e.target.value)} placeholder="On-screen caption…" />
+          </Field>
+          <Field label="Seed (blank = random)">
+            <input
+              type="number"
+              min={0}
+              value={draft.seed ?? ''}
+              onChange={(e) => update('seed', e.target.value === '' ? (undefined as unknown as number) : Number(e.target.value))}
+              placeholder="reproducible seed"
+            />
           </Field>
 
           <div className="scene-patch">

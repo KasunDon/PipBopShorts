@@ -28,7 +28,7 @@ export function buildShotManifest(store: Store, storylineId: string): string {
     const refs = resolveSceneReferences(store, storyId, scene.referenceCharacterIds ?? []);
     lines.push(`\n## Scene ${i + 1}: ${scene.heading}  \`${status}\``);
     lines.push(
-      `- **Render**: ${scene.duration}s · ${scene.aspectRatio} · ${scene.model} · ${scene.quality} · motion ${scene.motionMode} · style ${scene.style} · camera ${scene.cameraMovement}`,
+      `- **Render**: ${scene.duration}s · ${scene.aspectRatio} · ${scene.model} · ${scene.quality} · motion ${scene.motionMode} · style ${scene.style} · camera ${scene.cameraMovement}${typeof scene.seed === 'number' ? ` · seed ${scene.seed}` : ''}`,
     );
     if (scene.referenceCharacterIds?.length) {
       const names = refs.descriptors.map((d) => d.name);

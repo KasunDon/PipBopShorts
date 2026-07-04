@@ -176,6 +176,7 @@ export function updateScene(store: Store, storylineId: string, sceneId: string, 
     'referenceCharacterIds',
     'primaryReferenceId',
     'caption',
+    'seed',
   ];
   for (const key of editable) {
     if (key in patch && patch[key] !== undefined) {
@@ -196,6 +197,7 @@ export function updateScene(store: Store, storylineId: string, sceneId: string, 
       style: scene.style,
       cameraMovement: scene.cameraMovement,
       imageId: scene.imageId,
+      seed: scene.seed,
     },
     { requireImage: typeof scene.imageId === 'number' },
   );

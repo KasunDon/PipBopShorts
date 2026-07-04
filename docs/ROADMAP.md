@@ -150,8 +150,10 @@ Consistency by reference, not just by prompt:
   grounded in bible/brief/setting + canon, one-click foldable into the storyline
   guidance. A downloadable **per-scene shot manifest** (every scene's render
   params, references, prompt, directed edits, open notes, clip status) is also
-  shipped as the reproducible production document. Still to do: camera/lighting
-  *presets* as first-class manifest fields and per-attempt seeds for exact repro.
+  shipped as the reproducible production document. **Per-scene seeds** are also
+  shipped — set a fixed render seed (passed to PixVerse, shown in the manifest)
+  for reproducible renders; every attempt already records its full params. Still
+  to do: camera/lighting *presets* as first-class manifest fields.
 - **Audio & subtitles** *(requested — not built yet)*: the current pipeline renders silent
   video only. Planned:
   - **Background music**: per-episode music bed (mood/tempo from the bible's tone marks),

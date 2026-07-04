@@ -38,6 +38,7 @@ function sceneToParams(scene: Scene, refs?: ResolvedReferences): GenerationParam
     style: scene.style,
     cameraMovement: scene.cameraMovement,
     imageId: imageId ?? undefined,
+    seed: typeof scene.seed === 'number' ? scene.seed : undefined,
   };
 }
 

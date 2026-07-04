@@ -312,6 +312,7 @@ export interface Scene {
   referenceCharacterIds?: string[];
   primaryReferenceId?: string;
   caption?: string;
+  seed?: number;
   patchHistory?: ScenePatch[];
   comments?: SceneComment[];
 }

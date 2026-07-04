@@ -120,6 +120,8 @@ export interface Scene {
   primaryReferenceId?: string;
   /** On-screen caption for this scene (sound-off), used to build the subtitle track. */
   caption?: string;
+  /** Fixed render seed for reproducibility (omit for random). */
+  seed?: number;
   /** Directed "change one thing" edits applied to this scene's prompt, newest last. */
   patchHistory?: ScenePatch[];
   /** Review notes on this scene (does not affect the render). */
