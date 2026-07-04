@@ -239,7 +239,7 @@ Rules:
 - Each scene "prompt" is a vivid, self-contained visual description (subject, action, environment, lighting, mood, camera). Do not reference other scenes by number; PixVerse renders each scene independently, so restate character/setting details each time for visual consistency.
 - Keep character appearance and setting consistent across scenes by repeating concrete descriptors from the bible.
 - "negative_prompt" lists things to avoid (artifacts, text overlays, extra limbs, watermarks).
-- Choose per-scene "camera_movement" and "motion_mode" that fit the beat.
+- Choose per-scene "camera_movement" and "motion_mode" that fit the beat. IMPORTANT: "fast" motion mode and 1080p quality are only valid at a 5-second duration — never combine either with an 8-second scene.
 - The "youtube" object is publishing metadata: a punchy title (<=100 chars), an engaging description, relevant tags, and hashtags (each starting with #, include #Shorts).
 Return only the structured object.`;
 
