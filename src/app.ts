@@ -1334,6 +1334,22 @@ export function createApp(deps: AppDeps): express.Express {
     }),
   );
 
+  // Re-submit every failed / moderation-failed clip (async into the JobRunner).
+  app.post(
+    '/api/storylines/:storylineId/retry-failed',
+    asyncHandler(async (req, res) => {
+      const project = deps.store.getProject(req.params.storylineId);
+      const failedSceneIds = Object.values(project.clips)
+        .filter((c) => c.status === 'failed' || c.status === 'moderation_failed')
+        .map((c) => c.sceneId);
+      for (const sceneId of failedSceneIds) {
+        const clip = await generateClip(deps.store, deps.pixverse, req.params.storylineId, sceneId, genOpts({ wait: false }));
+        trackClipIfPending(req.params.storylineId, clip);
+      }
+      res.json({ project: deps.store.getProject(req.params.storylineId), retried: failedSceneIds.length });
+    }),
+  );
+
   // Human sign-off on a rendered clip — the publish gate.
   app.post(
     '/api/storylines/:storylineId/scenes/:sceneId/clip/approval',

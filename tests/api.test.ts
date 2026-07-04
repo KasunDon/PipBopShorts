@@ -703,6 +703,22 @@ describe('CTA endpoint coverage', () => {
     expect(edited.body.project.clips[sceneId].status).toBe('idle');
   });
 
+  it('retries failed clips', async () => {
+    // A renderer that always reports failure.
+    const { client: failing } = makeFakePixverse({ defaultStatus: 8 });
+    const { app } = makeApp({ pixverse: failing });
+    const { storylineId, scenes } = await scaffold(app);
+    const sceneId = scenes[0].id;
+
+    const gen = await request(app).post(`/api/storylines/${storylineId}/scenes/${sceneId}/generate`).send({ wait: true }).expect(200);
+    expect(gen.body.clip.status).toBe('failed');
+
+    const retry = await request(app).post(`/api/storylines/${storylineId}/retry-failed`).send({}).expect(200);
+    expect(retry.body.retried).toBe(1);
+    // Re-submitted (async) → generating again rather than left failed.
+    expect(retry.body.project.clips[sceneId].status).toBe('generating');
+  });
+
   it('refreshes and extends a rendered scene', async () => {
     const { app } = makeApp();
     const { storylineId, scenes } = await scaffold(app);

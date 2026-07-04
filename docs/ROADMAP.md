@@ -177,8 +177,9 @@ Consistency by reference, not just by prompt:
   (bold, outlined, bottom safe-area placement via libass `force_style`) on publish.
   A **Shorts-format (9:16) safe-area check** is in the readiness checklist. Still
   to do: title/end cards (bundled ffmpeg lacks `drawtext`, so this needs a
-  text-capable ffmpeg or an image-composited card) and a per-scene retry queue
-  with cost tracking.
+  text-capable ffmpeg or an image-composited card). *Retry-failed shipped* —
+  one-click re-submits every failed/moderation-failed clip into the JobRunner
+  (each attempt is already cost-tracked in the audit ledger).
 - ~~**Series planning**: episode idea backlog~~ — **shipped**: "Suggest ideas"
   brainstorms distinct future-episode concepts (title + hook + synopsis) grounded
   in the bible, canon, tone/audience, and existing episodes (no repeats); each

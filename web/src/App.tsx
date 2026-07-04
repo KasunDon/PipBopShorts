@@ -1553,6 +1553,9 @@ function ProjectPanel({
   const readyCount = scenes.filter((s) => project.clips[s.id]?.status === 'ready').length;
   const approvedCount = scenes.filter((s) => project.clips[s.id]?.approved).length;
   const generatingCount = scenes.filter((s) => project.clips[s.id]?.status === 'generating').length;
+  const failedCount = scenes.filter(
+    (s) => project.clips[s.id]?.status === 'failed' || project.clips[s.id]?.status === 'moderation_failed',
+  ).length;
   const canRenderAll = validation !== null && validation.ok && generatingCount === 0;
   // Publishing is gated on every rendered clip being approved.
   const canPublish =
@@ -1720,6 +1723,21 @@ function ProjectPanel({
             <span className={`badge ${approvedCount === readyCount ? 'live' : 'warn'}`}>{approvedCount} approved</span>
           )}
           {generatingCount > 0 && <span className="badge busy">{generatingCount} rendering</span>}
+          {failedCount > 0 && (
+            <button
+              className="small"
+              title="Re-submit every failed clip"
+              onClick={async () => {
+                const res = await run(() => api.retryFailed(storylineId));
+                if (res) {
+                  setProject(res.project);
+                  pushToast('ok', `Retrying ${res.retried} failed clip(s).`);
+                }
+              }}
+            >
+              <IconRefresh /> Retry {failedCount} failed
+            </button>
+          )}
           {!canRenderAll && (
             <span className="gate-note">
               <IconAlert /> {validation ? 'Fix the failing scenes below, then validate again.' : 'Validate before rendering.'}

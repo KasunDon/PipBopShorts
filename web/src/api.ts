@@ -143,6 +143,8 @@ export const api = {
     req<{ clip: Clip }>('POST', `/api/storylines/${storylineId}/scenes/${sceneId}/extend`, { wait }),
   generateAll: (storylineId: string, wait = true) =>
     req<{ project: Project }>('POST', `/api/storylines/${storylineId}/generate`, { wait }),
+  retryFailed: (storylineId: string) =>
+    req<{ project: Project; retried: number }>('POST', `/api/storylines/${storylineId}/retry-failed`),
   uploadImage: (storylineId: string, sceneId: string, data: { dataBase64: string; contentType: string; filename: string }) =>
     req<{ project: Project }>('POST', `/api/storylines/${storylineId}/scenes/${sceneId}/image`, data),
 
