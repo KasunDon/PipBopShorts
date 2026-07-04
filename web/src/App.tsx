@@ -1220,6 +1220,8 @@ function ProjectPanel({
   const [globalAspect, setGlobalAspect] = useState(scenes[0]?.aspectRatio ?? config.pixverse.aspectRatios[0]);
   const [globalQuality, setGlobalQuality] = useState(scenes[0]?.quality ?? config.pixverse.qualities[0]);
   const [globalMotion, setGlobalMotion] = useState(scenes[0]?.motionMode ?? config.pixverse.motionModes[0]);
+  const [globalModel, setGlobalModel] = useState(scenes[0]?.model ?? config.pixverse.models[0]);
+  const [globalStyle, setGlobalStyle] = useState(scenes[0]?.style ?? config.pixverse.styles[0]);
   const [applyingDefaults, setApplyingDefaults] = useState(false);
 
   const readyCount = scenes.filter((s) => project.clips[s.id]?.status === 'ready').length;
@@ -1284,6 +1286,8 @@ function ProjectPanel({
           aspectRatio: globalAspect,
           quality: globalQuality,
           motionMode: globalMotion,
+          model: globalModel,
+          style: globalStyle,
         }),
       );
       if (res) {
@@ -1359,6 +1363,22 @@ function ProjectPanel({
             <select value={globalMotion} onChange={(e) => setGlobalMotion(e.target.value)}>
               {config.pixverse.motionModes.map((m) => (
                 <option key={m}>{m}</option>
+              ))}
+            </select>
+          </label>
+          <label className="global-field">
+            Model
+            <select value={globalModel} onChange={(e) => setGlobalModel(e.target.value)}>
+              {config.pixverse.models.map((m) => (
+                <option key={m}>{m}</option>
+              ))}
+            </select>
+          </label>
+          <label className="global-field">
+            Style
+            <select value={globalStyle} onChange={(e) => setGlobalStyle(e.target.value)}>
+              {config.pixverse.styles.map((s) => (
+                <option key={s}>{s}</option>
               ))}
             </select>
           </label>

@@ -356,9 +356,15 @@ export function createApp(deps: AppDeps): express.Express {
   app.delete(
     '/api/stories/:storyId',
     asyncHandler((req, res) => {
-      const before = deps.store.getStory(req.params.storyId);
+      // Snapshot the whole subtree before the cascade so it can be restored.
+      const before = deps.store.snapshotStory(req.params.storyId);
       deps.store.deleteStory(req.params.storyId);
-      recordMutation(req, { resource: 'story', action: 'delete', summary: `Deleted story "${before.title}"`, before });
+      recordMutation(req, {
+        resource: 'story',
+        action: 'delete',
+        summary: `Deleted story "${before.story.title}" (${before.episodes.length} episodes)`,
+        before,
+      });
       res.status(204).end();
     }),
   );
@@ -728,9 +734,15 @@ export function createApp(deps: AppDeps): express.Express {
   app.delete(
     '/api/episodes/:episodeId',
     asyncHandler((req, res) => {
-      const before = deps.store.getEpisode(req.params.episodeId);
+      // Snapshot the episode + its storylines before the cascade so it can be restored.
+      const before = deps.store.snapshotEpisode(req.params.episodeId);
       deps.store.deleteEpisode(req.params.episodeId);
-      recordMutation(req, { resource: 'episode', action: 'delete', summary: `Deleted episode "${before.title}"`, before });
+      recordMutation(req, {
+        resource: 'episode',
+        action: 'delete',
+        summary: `Deleted episode "${before.episode.title}" (${before.projects.length} storylines)`,
+        before,
+      });
       res.status(204).end();
     }),
   );

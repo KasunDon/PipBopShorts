@@ -664,6 +664,54 @@ describe('global scene defaults, reference readiness, and mutation audit', () =>
     expect(back.body.project.storyline.id).toBe(storylineId);
   });
 
+  it('restores a deleted story with its whole subtree (canon, characters, episodes, storylines)', async () => {
+    const eventStore = new EventStore();
+    const { client: studioClaude } = makeStudioFakeClaude();
+    const { app } = makeApp({ eventStore, claude: studioClaude });
+
+    const storyId = (
+      await request(app).post('/api/stories').send({ title: 'Doomed', bible: 'Bobo has a green scarf.' }).expect(201)
+    ).body.story.id;
+    await request(app).post(`/api/stories/${storyId}/canon/extract`).send({}).expect(201);
+    const episodeId = (await request(app).post(`/api/stories/${storyId}/episodes`).send({ title: 'E1', brief: 'b' }).expect(201))
+      .body.episode.id;
+    const storylineId = (await request(app).post(`/api/episodes/${episodeId}/storylines`).send({}).expect(201)).body
+      .project.storyline.id;
+
+    await request(app).delete(`/api/stories/${storyId}`).expect(204);
+    await request(app).get(`/api/stories/${storyId}`).expect(404);
+
+    const events = await request(app).get('/api/events?service=store').expect(200);
+    const del = events.body.events.find((e: { type: string }) => e.type === 'store.story.delete');
+    await request(app).post(`/api/audit/${del.id}/restore`).expect(200);
+
+    // Story, canon, episode, and storyline are all back.
+    const story = await request(app).get(`/api/stories/${storyId}`).expect(200);
+    expect(story.body.story.title).toBe('Doomed');
+    expect(story.body.episodes).toHaveLength(1);
+    expect((await request(app).get(`/api/stories/${storyId}/canon`).expect(200)).body.registry.currentVersion).toBe(1);
+    expect((await request(app).get(`/api/storylines/${storylineId}`).expect(200)).body.project.storyline.id).toBe(
+      storylineId,
+    );
+  });
+
+  it('restores a deleted episode with its storylines', async () => {
+    const eventStore = new EventStore();
+    const { app } = makeApp({ eventStore });
+    const { episodeId, storylineId } = await scaffold(app);
+    await request(app).delete(`/api/episodes/${episodeId}`).expect(204);
+    await request(app).get(`/api/episodes/${episodeId}`).expect(404);
+
+    const events = await request(app).get('/api/events?service=store').expect(200);
+    const del = events.body.events.find((e: { type: string }) => e.type === 'store.episode.delete');
+    const restored = await request(app).post(`/api/audit/${del.id}/restore`).expect(200);
+    expect(restored.body.restored.kind).toBe('episode');
+    await request(app).get(`/api/episodes/${episodeId}`).expect(200);
+    expect((await request(app).get(`/api/storylines/${storylineId}`).expect(200)).body.project.storyline.id).toBe(
+      storylineId,
+    );
+  });
+
   it('restores a deleted scene at its original position', async () => {
     const eventStore = new EventStore();
     const { app } = makeApp({ eventStore });

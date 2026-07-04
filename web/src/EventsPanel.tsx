@@ -7,10 +7,18 @@ import type { AuditEvent, EventService, EventStatus } from './types';
 const SERVICES: EventService[] = ['claude', 'pixverse', 'youtube', 'store'];
 const STATUSES: EventStatus[] = ['ok', 'error'];
 
-/** Delete events whose preserved old value is self-contained enough to restore. */
-const RESTORABLE = new Set(['store.storyline.delete', 'store.scene.delete']);
+/** Delete events whose preserved old value can be restored. */
+const RESTORABLE = new Set([
+  'store.story.delete',
+  'store.episode.delete',
+  'store.storyline.delete',
+  'store.scene.delete',
+]);
 function isRestorable(event: AuditEvent): boolean {
   return RESTORABLE.has(event.type);
+}
+function restorableKind(type: string): string {
+  return type.split('.')[1] ?? 'record';
 }
 
 function pathOf(url: string): string {
@@ -73,7 +81,7 @@ export function EventsPanel({ onClose }: { onClose: () => void }) {
   }, [debouncedQ, service, status]);
 
   const restore = async (event: AuditEvent) => {
-    if (!confirm(`Restore this ${event.type.includes('scene') ? 'scene' : 'storyline'} from the audit log?`)) return;
+    if (!confirm(`Restore this ${restorableKind(event.type)} from the audit log?`)) return;
     try {
       const res = await api.restoreFromAudit(event.id);
       alert(`Restored ${res.restored.kind} "${res.restored.label}".`);

@@ -364,6 +364,80 @@ export class Store {
     delete this.db.projects[storylineId];
     this.persist();
   }
+
+  // ---- Snapshot / restore (fail-safe for cascading deletes) ----
+
+  /** A lossless snapshot of an episode and everything under it. */
+  snapshotEpisode(episodeId: string): EpisodeSnapshot {
+    const episode = this.getEpisode(episodeId);
+    return {
+      episode: structuredClone(episode),
+      setting: this.getSetting(episodeId),
+      projects: this.listProjectsByEpisode(episodeId).map((p) => structuredClone(p)),
+    };
+  }
+
+  /** A lossless snapshot of a story and its whole subtree (bible, canon, characters, episodes, storylines). */
+  snapshotStory(storyId: string): StorySnapshot {
+    const story = this.getStory(storyId);
+    return {
+      story: structuredClone(story),
+      bible: this.getBible(storyId),
+      canon: this.getCanonRegistry(storyId),
+      characters: this.getCharacterRegistry(storyId),
+      episodes: this.listEpisodes(storyId).map((e) => this.snapshotEpisode(e.id)),
+    };
+  }
+
+  hasStory(id: string): boolean {
+    return Boolean(this.db.stories[id]);
+  }
+  hasEpisode(id: string): boolean {
+    return Boolean(this.db.episodes[id]);
+  }
+
+  /** Restore an episode subtree from a snapshot. Parent story must already exist. */
+  restoreEpisodeSnapshot(snap: EpisodeSnapshot, opts: { skipStoryCheck?: boolean } = {}): Episode {
+    const ep = snap.episode;
+    if (this.db.episodes[ep.id]) throw new NotFoundError(`Episode already exists: ${ep.id}`);
+    if (!opts.skipStoryCheck) this.getStory(ep.storyId);
+    this.db.episodes[ep.id] = structuredClone(ep);
+    if (snap.setting && snap.setting.trim()) {
+      const p = this.settingPath(ep.id, ep.storyId);
+      fs.mkdirSync(path.dirname(p), { recursive: true });
+      fs.writeFileSync(p, snap.setting, 'utf8');
+    }
+    for (const project of snap.projects) this.db.projects[project.storyline.id] = structuredClone(project);
+    this.persist();
+    return this.db.episodes[ep.id];
+  }
+
+  /** Restore a whole story subtree from a snapshot. */
+  restoreStorySnapshot(snap: StorySnapshot): Story {
+    const id = snap.story.id;
+    if (this.db.stories[id]) throw new NotFoundError(`Story already exists: ${id}`);
+    fs.mkdirSync(this.storyDir(id), { recursive: true });
+    this.db.stories[id] = structuredClone(snap.story);
+    fs.writeFileSync(this.biblePath(id), snap.bible ?? '', 'utf8');
+    if (snap.canon) fs.writeFileSync(this.canonPath(id), JSON.stringify(snap.canon, null, 2), 'utf8');
+    if (snap.characters) fs.writeFileSync(this.charactersPath(id), JSON.stringify(snap.characters, null, 2), 'utf8');
+    for (const epSnap of snap.episodes) this.restoreEpisodeSnapshot(epSnap, { skipStoryCheck: true });
+    this.persist();
+    return this.db.stories[id];
+  }
+}
+
+export interface EpisodeSnapshot {
+  episode: Episode;
+  setting: string;
+  projects: Project[];
+}
+export interface StorySnapshot {
+  story: Story;
+  bible: string;
+  canon: CanonRegistry | null;
+  characters: CharacterRegistry | null;
+  episodes: EpisodeSnapshot[];
 }
 
 export { makeId };

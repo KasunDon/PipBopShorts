@@ -97,14 +97,14 @@ Consistency by reference, not just by prompt:
 - **Inline tweak-then-approve in the approval gate** — each unapproved reference
   can be opened inline to edit its prompt + params, generate a preview, and
   approve that preview, all without leaving the render flow.
+- **Cascade-aware restore for story & episode deletions** — deletes now snapshot
+  the whole subtree (bible, canon, characters, episodes, settings, storylines) so
+  a deleted story or episode restores losslessly, not just storylines/scenes.
+- **All global settings exposed** — aspect ratio, quality, motion, **model, and
+  style** now have apply-to-all-scenes controls.
 
 ### Outstanding (captured — tackle next)
 
-- **Expose remaining global settings**: model + style also work through the
-  `scene-defaults` endpoint but have no UI control yet.
-- **Restore story/episode deletions**: these cascade into many records the single
-  audit event doesn't capture — needs a snapshot-the-cascade approach before it's
-  safe to offer restore for them.
 - **Dedicated audit view/filter** beyond the shared activity console (e.g. a
   data-mutation-only timeline with diff highlighting of before→after).
 - **Image-to-video aspect ratio**: img-to-video derives aspect from the source

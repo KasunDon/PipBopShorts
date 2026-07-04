@@ -1,18 +1,23 @@
 import type { AuditEvent } from '../events/eventStore';
 import { UserInputError } from '../errors';
-import type { Store } from '../store/store';
+import type { EpisodeSnapshot, Store, StorySnapshot } from '../store/store';
 import type { Project, Scene } from '../types';
 import { idleClip } from './storyline';
 
 /** Audit event types whose preserved "before" snapshot is self-contained enough to restore. */
-const RESTORABLE = new Set(['store.storyline.delete', 'store.scene.delete']);
+const RESTORABLE = new Set([
+  'store.story.delete',
+  'store.episode.delete',
+  'store.storyline.delete',
+  'store.scene.delete',
+]);
 
 export function isRestorable(event: { type: string }): boolean {
   return RESTORABLE.has(event.type);
 }
 
 export interface RestoreResult {
-  kind: 'storyline' | 'scene';
+  kind: 'story' | 'episode' | 'storyline' | 'scene';
   id: string;
   label: string;
 }
@@ -25,6 +30,27 @@ export interface RestoreResult {
  */
 export function restoreFromAudit(store: Store, event: AuditEvent): RestoreResult {
   const before = (event.request as { before?: unknown } | undefined)?.before;
+
+  if (event.type === 'store.story.delete') {
+    const snap = before as StorySnapshot | undefined;
+    if (!snap?.story?.id) throw new UserInputError('This audit event has no story snapshot to restore.');
+    if (store.hasStory(snap.story.id)) throw new UserInputError('This story already exists — nothing to restore.');
+    const story = store.restoreStorySnapshot(snap);
+    return { kind: 'story', id: story.id, label: story.title };
+  }
+
+  if (event.type === 'store.episode.delete') {
+    const snap = before as EpisodeSnapshot | undefined;
+    if (!snap?.episode?.id) throw new UserInputError('This audit event has no episode snapshot to restore.');
+    if (store.hasEpisode(snap.episode.id)) throw new UserInputError('This episode already exists — nothing to restore.');
+    try {
+      store.getStory(snap.episode.storyId);
+    } catch {
+      throw new UserInputError('Cannot restore: the parent story no longer exists.');
+    }
+    const ep = store.restoreEpisodeSnapshot(snap);
+    return { kind: 'episode', id: ep.id, label: ep.title };
+  }
 
   if (event.type === 'store.storyline.delete') {
     const project = before as Project | undefined;
