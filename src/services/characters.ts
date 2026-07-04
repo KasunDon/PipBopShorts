@@ -28,8 +28,24 @@ export const PORTRAIT_DEFAULTS = {
 
 const REFERENCE_TYPES: ReferenceAssetType[] = ['character', 'location'];
 
+/** Strip the trailing canon-version suffix so ids from different versions compare equal. */
+function entityBase(id: string): string {
+  return id.replace(/_\d+$/, '');
+}
+
+/**
+ * Find the current-canon entity for a reference id, tolerating a version drift:
+ * a re-extraction renumbers ids (`CHAR_BOBO_001` → `CHAR_BOBO_002`), so an id
+ * from an earlier version still resolves to the same-named current entity.
+ */
+function findCurrentEntity(canon: CanonVersion | null, entityId: string): CanonEntity | undefined {
+  if (!canon) return undefined;
+  const refs = canon.entities.filter((e) => (REFERENCE_TYPES as string[]).includes(e.type));
+  return refs.find((e) => e.id === entityId) ?? refs.find((e) => entityBase(e.id) === entityBase(entityId));
+}
+
 function requireCanonReferenceEntity(canon: CanonVersion | null, entityId: string): CanonEntity {
-  const entity = canon?.entities.find((e) => e.id === entityId && (REFERENCE_TYPES as string[]).includes(e.type));
+  const entity = findCurrentEntity(canon, entityId);
   if (!entity) throw new UserInputError(`No canon character or location with id ${entityId}. Extract canon first.`);
   return entity;
 }
@@ -136,30 +152,40 @@ function emptyRegistry(storyId: string): CharacterRegistry {
   return { storyId, characters: {} };
 }
 
-/** Ensure a reference asset exists for every canon character and location; returns the registry. */
+/**
+ * Reconcile the reference registry with the current canon:
+ * - every current character/location has exactly one asset;
+ * - assets from an earlier canon version are **migrated** to the current id
+ *   (base-id match), carrying their versions/approval forward — so re-extracting
+ *   canon doesn't leave stale, definition-less duplicate tiles;
+ * - orphaned assets (their entity was removed from canon) are dropped.
+ * Every asset that survives resolves to a current-canon entity, so all of them
+ * have a definition.
+ */
 export function syncCharactersFromCanon(store: Store, storyId: string): CharacterRegistry {
   const canon = currentCanonVersion(store.getCanonRegistry(storyId));
   const registry = store.getCharacterRegistry(storyId) ?? emptyRegistry(storyId);
   if (!canon) return store.saveCharacterRegistry(registry);
-  for (const entity of canon.entities.filter((e) => (REFERENCE_TYPES as string[]).includes(e.type))) {
-    if (!registry.characters[entity.id]) {
-      registry.characters[entity.id] = {
-        entityId: entity.id,
-        type: entity.type as ReferenceAssetType,
-        name: entity.name,
-        approvedVersionId: null,
-        versions: [],
-      };
-    } else {
-      registry.characters[entity.id].name = entity.name; // keep display name fresh
-      registry.characters[entity.id].type = entity.type as ReferenceAssetType;
-    }
+
+  const currentEntities = canon.entities.filter((e) => (REFERENCE_TYPES as string[]).includes(e.type));
+  const rebuilt: Record<string, CharacterAsset> = {};
+  const oldAssets = Object.values(registry.characters);
+
+  for (const entity of currentEntities) {
+    // Prefer an exact-id asset; else migrate a prior-version asset with the same base id.
+    const prior =
+      registry.characters[entity.id] ?? oldAssets.find((a) => entityBase(a.entityId) === entityBase(entity.id));
+    rebuilt[entity.id] = prior
+      ? { ...prior, entityId: entity.id, type: entity.type as ReferenceAssetType, name: entity.name }
+      : { entityId: entity.id, type: entity.type as ReferenceAssetType, name: entity.name, approvedVersionId: null, versions: [] };
   }
+
+  registry.characters = rebuilt;
   return store.saveCharacterRegistry(registry);
 }
 
 function getAsset(registry: CharacterRegistry, entityId: string): CharacterAsset {
-  const asset = registry.characters[entityId];
+  const asset = registry.characters[entityId] ?? Object.values(registry.characters).find((a) => entityBase(a.entityId) === entityBase(entityId));
   if (!asset) throw new UserInputError(`Unknown reference asset ${entityId}. Sync characters first.`);
   return asset;
 }
@@ -480,7 +506,8 @@ export function resolveSceneReferences(store: Store, storyId: string, referenceC
   const out: ResolvedReferences = { imageId: null, imageUrl: null, descriptors: [], usedCharacterIds: [] };
   if (!registry) return out;
   for (const id of referenceCharacterIds) {
-    const asset = registry.characters[id];
+    // A scene may reference an id from an earlier canon version; match by base id too.
+    const asset = registry.characters[id] ?? Object.values(registry.characters).find((a) => entityBase(a.entityId) === entityBase(id));
     if (!asset) continue;
     const approved = getApprovedVersion(asset);
     if (!approved) continue;

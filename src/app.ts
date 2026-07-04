@@ -33,7 +33,7 @@ import { checkDrift, resolveDrift } from './services/drift';
 import { UserInputError } from './errors';
 import { EventStore, type EventService, type EventStatus } from './events/eventStore';
 import { withCostContext, type CostContext } from './costs/context';
-import { buildCostReport } from './costs/report';
+import { buildCostReport, costLineItems } from './costs/report';
 import { exportFilename, exportStory, ImportError, importStory } from './services/exchange';
 import {
   extendClip,
@@ -86,9 +86,16 @@ function phaseFromPath(path: string): string | undefined {
   return undefined;
 }
 
-function scopeFromRequest(req: Request): CostContext {
+/**
+ * Build the cost context for a request, resolving the full story/episode
+ * ancestry so spend rolls up correctly. Route params only carry the deepest id
+ * (e.g. a render route knows the storylineId but not the storyId) — we walk up
+ * via the store so every penny is attributed to its story and episode, not just
+ * the storyline. Best-effort: a not-yet-created record just leaves fields unset.
+ */
+function scopeFromRequest(store: Store, req: Request): CostContext {
   const p = (req.params ?? {}) as Record<string, string | undefined>;
-  return {
+  const ctx: CostContext = {
     storyId: p.storyId,
     episodeId: p.episodeId,
     storylineId: p.storylineId,
@@ -96,20 +103,31 @@ function scopeFromRequest(req: Request): CostContext {
     entityId: p.entityId,
     phase: phaseFromPath(req.path),
   };
-}
-
-function asyncHandler(fn: Handler) {
-  return (req: Request, res: Response, next: NextFunction) => {
-    // Run within a cost context so any outbound call this handler makes is
-    // attributed to the right story/episode/scene/phase in the audit log.
-    withCostContext(scopeFromRequest(req), () => Promise.resolve(fn(req, res)).catch(next));
-  };
+  try {
+    if (ctx.storylineId && (!ctx.storyId || !ctx.episodeId)) {
+      const project = store.getProject(ctx.storylineId);
+      ctx.storyId ??= project.storyline.storyId;
+      ctx.episodeId ??= project.storyline.episodeId;
+    }
+    if (ctx.episodeId && !ctx.storyId) {
+      ctx.storyId = store.getEpisode(ctx.episodeId).storyId;
+    }
+  } catch {
+    // Ancestry resolution is best-effort — leave unresolved ids unset.
+  }
+  return ctx;
 }
 
 export function createApp(deps: AppDeps): express.Express {
   const app = express();
   app.use(express.json({ limit: '30mb' }));
   const eventStore = deps.eventStore ?? new EventStore();
+
+  const asyncHandler = (fn: Handler) => (req: Request, res: Response, next: NextFunction) => {
+    // Run within a cost context so any outbound call this handler makes is
+    // attributed to the right story/episode/scene/phase in the audit log.
+    withCostContext(scopeFromRequest(deps.store, req), () => Promise.resolve(fn(req, res)).catch(next));
+  };
 
   const genOpts = (body: Record<string, unknown>): GenerateOptions => ({
     ...deps.generateDefaults,
@@ -193,6 +211,17 @@ export function createApp(deps: AppDeps): express.Express {
       since: typeof since === 'string' ? since : undefined,
     });
     res.json({ report });
+  });
+
+  // Penny-by-penny line items behind the totals — filter by story/episode to audit spend.
+  app.get('/api/costs/events', (req, res) => {
+    const { storyId, episodeId, since } = req.query;
+    const items = costLineItems(eventStore.all(), {
+      storyId: typeof storyId === 'string' ? storyId : undefined,
+      episodeId: typeof episodeId === 'string' ? episodeId : undefined,
+      since: typeof since === 'string' ? since : undefined,
+    });
+    res.json({ items });
   });
 
   // ---- Templates ----

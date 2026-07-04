@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from './api';
 import { Field } from './App';
+import { IconExpand, IconImage, IconPlay, IconRefresh } from './Icons';
 import type { AppConfig, Clip, Project, Scene } from './types';
 
 function fileToBase64(file: File): Promise<{ dataBase64: string; contentType: string; filename: string }> {
@@ -167,7 +168,7 @@ export function SceneCard({
                 }
               }}
             >
-              {status === 'ready' ? '↻ Re-render' : '▶ Render'}
+              {status === 'ready' ? <IconRefresh /> : <IconPlay />} {status === 'ready' ? 'Re-render' : 'Render'}
             </button>
             {status === 'generating' && (
               <button
@@ -177,7 +178,7 @@ export function SceneCard({
                   setProject(p.project);
                 }}
               >
-                ⟳ Refresh
+                <IconRefresh /> Poll
               </button>
             )}
             {status === 'ready' && (
@@ -189,11 +190,11 @@ export function SceneCard({
                   setProject(p.project);
                 }}
               >
-                ⤢ Extend
+                <IconExpand /> Extend
               </button>
             )}
             <label className="upload">
-              🖼 Reference image
+              <IconImage /> Reference image
               <input
                 type="file"
                 accept="image/*"
@@ -223,7 +224,7 @@ export function SceneCard({
           </div>
           {scene.referenceCharacterIds && scene.referenceCharacterIds.length > 0 && (
             <p className="muted small">
-              🧸 Character references: {scene.referenceCharacterIds.length} — approved images/descriptors are sent to
+              Character references: {scene.referenceCharacterIds.length} — approved images/descriptors are sent to
               PixVerse for this scene.
             </p>
           )}

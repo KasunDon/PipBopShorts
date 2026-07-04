@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { api } from './api';
 import { Field } from './App';
+import { IconPlus, IconWand } from './Icons';
 import type { AppConfig, Story } from './types';
 
 type Run = <T>(fn: () => Promise<T>) => Promise<T | undefined>;
@@ -91,7 +92,7 @@ export function SeasonPanel({
   return (
     <section className="card highlight">
       <div className="card-head">
-        <h3>{story.continuity === 'linear' ? '📖 Season (linear story)' : '🎲 Episodes (random story)'}</h3>
+        <h3>{story.continuity === 'linear' ? 'Season plan (linear story)' : 'Next episode (episodic story)'}</h3>
         <select value={model} onChange={(e) => setModel(e.target.value)} title="AI model">
           {config.dissect.models.map((m) => (
             <option key={m} value={m}>
@@ -120,7 +121,7 @@ export function SeasonPanel({
               />
             </Field>
             <button className="primary" onClick={generate} disabled={pending !== null}>
-              {pending === 'episode' ? '✨ Generating…' : '✨ Generate next episode'}
+              <IconWand /> {pending === 'episode' ? 'Generating…' : 'Generate next episode'}
             </button>
           </div>
         </>
@@ -156,7 +157,7 @@ export function SeasonPanel({
                 }
               }}
             >
-              {pending === 'plan' ? '🗺 Planning season…' : '🗺 Plan the season'}
+              <IconWand /> {pending === 'plan' ? 'Planning season…' : 'Plan the season'}
             </button>
           </div>
         </>
@@ -178,7 +179,7 @@ export function SeasonPanel({
                   <td>
                     <b>{e.title}</b>
                     <div className="muted small">{e.synopsis}</div>
-                    <div className="muted small">🎯 {e.arcNote}</div>
+                    <div className="muted small">Arc: {e.arcNote}</div>
                   </td>
                   <td className="plan-status">
                     {e.episodeId ? (
@@ -200,7 +201,7 @@ export function SeasonPanel({
                   <RuntimeSelect config={config} value={runtime} onChange={setRuntime} allowDefault disabled={pending !== null} />
                 </Field>
                 <button className="primary" onClick={generate} disabled={pending !== null}>
-                  {pending === 'episode' ? '✨ Generating…' : `✨ Generate episode ${nextSlot.number}: ${nextSlot.title}`}
+                  <IconWand /> {pending === 'episode' ? 'Generating…' : `Generate episode ${nextSlot.number}: ${nextSlot.title}`}
                 </button>
               </>
             ) : (
@@ -229,7 +230,7 @@ export function SeasonPanel({
                 }
               }}
             >
-              {pending === 'extend' ? 'Extending…' : '➕ Extend season'}
+              <IconPlus /> {pending === 'extend' ? 'Extending…' : 'Extend season'}
             </button>
           </div>
           <p className="muted small">

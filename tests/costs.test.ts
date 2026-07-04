@@ -7,7 +7,7 @@ import {
   normalizeModelId,
   priceLlmFromTokens,
 } from '../src/costs/pricing';
-import { buildCostReport } from '../src/costs/report';
+import { buildCostReport, costLineItems } from '../src/costs/report';
 import type { AuditEvent } from '../src/events/eventStore';
 
 function event(partial: Partial<AuditEvent>): AuditEvent {
@@ -152,6 +152,34 @@ describe('cost report', () => {
     ];
     expect(buildCostReport(events, { storyId: 's2' }).totalUsd).toBe(2);
     expect(buildCostReport(events, { since: '2026-07-03T00:00:00Z' }).totalUsd).toBe(2);
+  });
+
+  it('splits exact (billed) vs estimated (PixVerse) USD for auditing', () => {
+    const events: AuditEvent[] = [
+      event({ id: 'a', cost: { usd: 0.1, credits: null, kind: 'llm', provider: 'claude', exact: true, breakdown: [] } }),
+      event({ id: 'b', cost: { usd: 0.6, credits: 60, kind: 'video', provider: 'pixverse', exact: false, breakdown: [] } }),
+    ];
+    const report = buildCostReport(events);
+    expect(report.exactUsd).toBeCloseTo(0.1, 5);
+    expect(report.estimatedUsd).toBeCloseTo(0.6, 5);
+    expect(report.totalUsd).toBeCloseTo(0.7, 5);
+  });
+});
+
+describe('cost line items', () => {
+  it('returns per-call line items filtered by story, newest first', () => {
+    const events: AuditEvent[] = [
+      event({ id: 'a', ts: '2026-07-01T00:00:00Z', service: 'claude', context: { storyId: 's1', phase: 'storyline' }, cost: { usd: 0.1, credits: null, kind: 'llm', provider: 'claude', model: 'claude-opus-4-8', exact: true, breakdown: ['x'] } }),
+      event({ id: 'b', ts: '2026-07-02T00:00:00Z', service: 'pixverse', context: { storyId: 's1', phase: 'clip', sceneId: 'sc1' }, cost: { usd: 0.6, credits: 60, kind: 'video', provider: 'pixverse', exact: false, breakdown: ['y'] } }),
+      event({ id: 'c', service: 'claude', context: { storyId: 's2' }, cost: { usd: 9, credits: null, kind: 'llm', provider: 'claude', exact: true, breakdown: [] } }),
+    ];
+    const items = costLineItems(events, { storyId: 's1' });
+    expect(items).toHaveLength(2);
+    expect(items[0].id).toBe('b'); // newest first
+    expect(items[0].phase).toBe('clip');
+    expect(items[0].sceneId).toBe('sc1');
+    expect(items[0].exact).toBe(false);
+    expect(items.every((i) => i.storyId === 's1')).toBe(true);
   });
 });
 

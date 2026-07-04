@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { api } from './api';
+import { IconCheck, IconClock, IconEye, IconX } from './Icons';
 import type { AppConfig, Project } from './types';
 
 type Run = <T>(fn: () => Promise<T>) => Promise<T | undefined>;
@@ -34,7 +35,7 @@ export function DriftPanel({
     <section className="card drift">
       <div className="card-head">
         <h3>
-          🧭 Consistency check
+          Consistency check
           {project.storyline.canonVersion != null && (
             <span className="muted small"> (generated against canon v{project.storyline.canonVersion})</span>
           )}
@@ -54,7 +55,7 @@ export function DriftPanel({
               if (res) refresh();
             }}
           >
-            🔍 Check against canon
+            <IconEye /> Check against canon
           </button>
         </div>
       </div>
@@ -73,7 +74,7 @@ export function DriftPanel({
             {reports.length > 1 ? ` · ${reports.length} checks total` : ''}
           </p>
           {latest.summary && <p>{latest.summary}</p>}
-          {latest.findings.length === 0 && <p className="drift-clean">✅ No drift detected — storyline matches canon.</p>}
+          {latest.findings.length === 0 && <p className="drift-clean">No drift detected — the storyline matches canon.</p>}
 
           {latest.findings.map((f) => (
             <div key={f.id} className={`finding sev-${f.severity} ${f.resolution ? 'resolved' : ''}`}>
@@ -91,14 +92,14 @@ export function DriftPanel({
                 <b>Storyline:</b> {f.observed}
               </p>
               <p className="muted small">{f.explanation}</p>
-              {f.suggestion && <p className="muted small">💡 {f.suggestion}</p>}
+              {f.suggestion && <p className="muted small">Suggestion: {f.suggestion}</p>}
 
               {f.resolution ? (
                 <p className={`small resolution res-${f.resolution.action}`}>
-                  {f.resolution.action === 'accept-now' && `✔ Accepted into canon (v${f.resolution.canonVersion})`}
+                  {f.resolution.action === 'accept-now' && `Accepted into canon (v${f.resolution.canonVersion})`}
                   {f.resolution.action === 'accept-gradually' &&
-                    `⏳ Gradual acceptance — canon v${f.resolution.canonVersion} is transitioning`}
-                  {f.resolution.action === 'reject' && '✖ Rejected — canon stands; revise the scene(s)'}
+                    `Gradual acceptance — canon v${f.resolution.canonVersion} is transitioning`}
+                  {f.resolution.action === 'reject' && 'Rejected — canon stands; revise the scene(s)'}
                   {f.resolution.note ? ` — ${f.resolution.note}` : ''}
                 </p>
               ) : (
@@ -110,7 +111,7 @@ export function DriftPanel({
                       refresh();
                     }}
                   >
-                    ✔ Accept now
+                    <IconCheck /> Accept now
                   </button>
                   <button
                     title="Mark transitions gradually; future storylines blend toward the new value"
@@ -119,7 +120,7 @@ export function DriftPanel({
                       refresh();
                     }}
                   >
-                    ⏳ Accept gradually
+                    <IconClock /> Accept gradually
                   </button>
                   <button
                     className="danger ghost"
@@ -129,7 +130,7 @@ export function DriftPanel({
                       refresh();
                     }}
                   >
-                    ✖ Reject drift
+                    <IconX /> Reject drift
                   </button>
                 </div>
               )}

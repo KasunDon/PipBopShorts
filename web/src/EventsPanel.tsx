@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from './api';
 import { fmtUsd } from './CostsPanel';
+import { IconChevronLeft, IconCopy, IconRefresh, IconTrash } from './Icons';
 import type { AuditEvent, EventService, EventStatus } from './types';
 
 const SERVICES: EventService[] = ['claude', 'pixverse', 'youtube'];
@@ -94,12 +95,12 @@ export function EventsPanel({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="panel events-panel">
-      <div className="panel-head">
-        <button className="link" onClick={onClose}>
-          ← Back
+      <div className="page-head">
+        <button className="link back" onClick={onClose}>
+          <IconChevronLeft /> Back
         </button>
-        <h2>🛰 Events — network &amp; LLM audit log</h2>
-        <p className="muted small">
+        <h2 className="page-title">Activity — network and LLM audit log</h2>
+        <p className="page-sub">
           Every outbound call to Claude, PixVerse, and YouTube — raw requests and responses, captured locally.
         </p>
       </div>
@@ -108,7 +109,7 @@ export function EventsPanel({ onClose }: { onClose: () => void }) {
         <div className="row">
           <input
             className="events-search"
-            placeholder="🔎 Search summaries, URLs, prompts, raw request/response…"
+            placeholder="Search summaries, URLs, prompts, raw request/response…"
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
@@ -130,10 +131,10 @@ export function EventsPanel({ onClose }: { onClose: () => void }) {
           </select>
           <label className="checkbox" title="Auto-append new events as they happen">
             <input type="checkbox" checked={live} onChange={(e) => setLive(e.target.checked)} />
-            🔴 Live
+            Live
           </label>
           <button onClick={() => load({ replace: true })} disabled={loading}>
-            ↻ Refresh
+            <IconRefresh /> Refresh
           </button>
           <button
             className="danger ghost"
@@ -145,12 +146,12 @@ export function EventsPanel({ onClose }: { onClose: () => void }) {
               }
             }}
           >
-            🗑 Clear
+            <IconTrash /> Clear
           </button>
         </div>
         <p className="muted small">
-          Showing {counts.total} event{counts.total === 1 ? '' : 's'} · {counts.ok} ok · {counts.err} error
-          {live && <span className="badge live"> live</span>}
+          Showing {counts.total} event{counts.total === 1 ? '' : 's'} · {counts.ok} ok · {counts.err} error{' '}
+          {live && <span className="badge live">live</span>}
         </p>
       </section>
 
@@ -224,7 +225,7 @@ function EventDetail({ event }: { event: AuditEvent }) {
           <div className="event-block-head">
             <b>Request</b>
             <button className="ghost small" onClick={() => copy(event.request)}>
-              📋 Copy
+              <IconCopy /> Copy
             </button>
           </div>
           <pre>{JSON.stringify(event.request, null, 2)}</pre>
@@ -233,7 +234,7 @@ function EventDetail({ event }: { event: AuditEvent }) {
           <div className="event-block-head">
             <b>Response</b>
             <button className="ghost small" onClick={() => copy(event.response)}>
-              📋 Copy
+              <IconCopy /> Copy
             </button>
           </div>
           <pre>{JSON.stringify(event.response, null, 2)}</pre>

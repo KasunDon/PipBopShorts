@@ -5,6 +5,7 @@ import {
   buildCharacterPortraitPrompt,
   buildLocationReferencePrompt,
   buildPortraitPrompt,
+  buildReferenceDefinition,
   detectCharactersInText,
   generatePortrait,
   getApprovedVersion,
@@ -392,5 +393,44 @@ describe('scene generation uses approved references', () => {
     const ep = store.createEpisode(storyId, { title: 'E', brief: 'x' });
     const project = await createStorylineProject(store, claude, storyId, ep.id, {});
     expect(project.storyline.scenes[0].referenceCharacterIds).toContain('CHAR_BOBO_001');
+  });
+});
+
+describe('canon re-extraction (ingestion) keeps every asset resolvable', () => {
+  it('migrates assets to new version ids instead of leaving stale, definition-less duplicates', async () => {
+    const { store, storyId } = await storyWithCanon();
+    // Generate + approve a portrait on the v1 id.
+    const { client: pixverse } = makeFakePixverse({ defaultStatus: 1 });
+    const v = await uploadPortraitStill(store, pixverse, storyId, 'CHAR_BOBO_001', new Uint8Array([1]), 'b.png');
+    approvePortrait(store, storyId, 'CHAR_BOBO_001', v.id);
+
+    // Re-extract canon → ids bump to _002.
+    const { client } = makeStudioFakeClaude();
+    await extractCanon(store, client, storyId);
+    const registry = syncCharactersFromCanon(store, storyId);
+
+    // Exactly one asset per character (no stale duplicate), keyed by the current id,
+    // and it carried the approved version forward.
+    const ids = Object.keys(registry.characters);
+    expect(ids).toContain('CHAR_BOBO_002');
+    expect(ids).not.toContain('CHAR_BOBO_001');
+    expect(registry.characters['CHAR_BOBO_002'].approvedVersionId).toBe(v.id);
+
+    // Every surviving asset resolves to a current-canon definition.
+    for (const id of ids) {
+      const def = buildReferenceDefinition(store, storyId, id);
+      expect(def.name).toBeTruthy();
+      expect(def.builtPrompt).toBeTruthy();
+    }
+  });
+
+  it('resolves a definition for a stale (prior-version) entity id', async () => {
+    const { store, storyId } = await storyWithCanon();
+    const { client } = makeStudioFakeClaude();
+    await extractCanon(store, client, storyId); // now v2 (CHAR_BOBO_002)
+    // A stale v1 id still resolves to the current-canon Bobo.
+    const def = buildReferenceDefinition(store, storyId, 'CHAR_BOBO_001');
+    expect(def.name).toBe('Bobo');
+    expect(def.marks.length).toBeGreaterThan(0);
   });
 });

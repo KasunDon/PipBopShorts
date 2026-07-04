@@ -18,6 +18,10 @@ export interface ScopeBucket extends CostBucket {
 export interface CostReport {
   generatedAt: string;
   totalUsd: number;
+  /** Sum of costs the provider reported exactly (Claude gateway) — real billed pennies. */
+  exactUsd: number;
+  /** Sum of estimated costs (PixVerse credit table) — reconcile against your invoice. */
+  estimatedUsd: number;
   totalCredits: number;
   /** Total captured events considered (after filtering). */
   eventCount: number;
@@ -57,6 +61,8 @@ export function buildCostReport(events: AuditEvent[], filter: CostReportFilter =
   const report: CostReport = {
     generatedAt: new Date().toISOString(),
     totalUsd: 0,
+    exactUsd: 0,
+    estimatedUsd: 0,
     totalCredits: 0,
     eventCount: 0,
     billableCount: 0,
@@ -87,7 +93,11 @@ export function buildCostReport(events: AuditEvent[], filter: CostReportFilter =
     const credits = cost.credits || 0;
     report.totalUsd += usd;
     report.totalCredits += credits;
-    if (!cost.exact) report.hasEstimates = true;
+    if (cost.exact) report.exactUsd += usd;
+    else {
+      report.estimatedUsd += usd;
+      report.hasEstimates = true;
+    }
 
     add(report.byProvider, cost.provider, usd, credits);
     add(report.byKind, cost.kind, usd, credits);
@@ -124,4 +134,56 @@ export function buildCostReport(events: AuditEvent[], filter: CostReportFilter =
   report.byStory = Object.values(stories).sort((a, b) => b.usd - a.usd);
   report.byEpisode = Object.values(episodes).sort((a, b) => b.usd - a.usd);
   return report;
+}
+
+/** A single priced call — the audit line item behind the aggregate totals. */
+export interface CostLineItem {
+  id: string;
+  ts: string;
+  service: string;
+  provider: string;
+  kind: string;
+  model?: string;
+  phase?: string;
+  storyId?: string;
+  episodeId?: string;
+  storylineId?: string;
+  sceneId?: string;
+  usd: number;
+  credits: number | null;
+  exact: boolean;
+  summary: string;
+  breakdown: string[];
+}
+
+/** Every billable event (newest first) matching the filter — the penny-by-penny ledger. */
+export function costLineItems(events: AuditEvent[], filter: CostReportFilter = {}): CostLineItem[] {
+  const items: CostLineItem[] = [];
+  for (const event of events) {
+    if (filter.since && event.ts < filter.since) continue;
+    const ctx = event.context ?? {};
+    if (filter.storyId && ctx.storyId !== filter.storyId) continue;
+    if (filter.episodeId && ctx.episodeId !== filter.episodeId) continue;
+    const cost = event.cost;
+    if (!cost) continue;
+    items.push({
+      id: event.id,
+      ts: event.ts,
+      service: event.service,
+      provider: cost.provider,
+      kind: cost.kind,
+      model: cost.model,
+      phase: ctx.phase,
+      storyId: ctx.storyId,
+      episodeId: ctx.episodeId,
+      storylineId: ctx.storylineId,
+      sceneId: ctx.sceneId,
+      usd: cost.usd,
+      credits: cost.credits,
+      exact: cost.exact,
+      summary: event.summary,
+      breakdown: cost.breakdown,
+    });
+  }
+  return items.reverse();
 }

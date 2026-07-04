@@ -1,6 +1,7 @@
-# 🎬 PipBopShorts
+# Backlot
 
-A full-fledged platform for **creating, reviewing, and publishing AI short videos** with
+Backlot (formerly *PipBopShorts*) is an **AI film production studio** — develop stories, keep canon
+consistent, and create, review, and publish AI short videos with
 [PixVerse](https://docs.platform.pixverse.ai/) and [Claude](https://www.anthropic.com/).
 
 Manage multiple stories, ask Claude to write a shot-by-shot storyline (you pick the model

@@ -1,9 +1,9 @@
 {
-  "name": "pipbopshorts",
+  "name": "backlot",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Create, review, and publish AI short videos with PixVerse and Claude.",
+  "description": "Backlot — AI film production studio: develop stories, keep canon consistent, render with PixVerse, publish shorts.",
   "engines": {
     "node": ">=20"
   },

@@ -57,7 +57,7 @@ function main(): void {
   const app = createApp({ store, claude, pixverse, youtube, eventStore, webDir: defaultWebDir() });
 
   app.listen(config.port, () => {
-    console.log(`PipBopShorts server listening on http://localhost:${config.port}`);
+    console.log(`Backlot server listening on http://localhost:${config.port}`);
     console.log(`  data dir: ${config.dataDir}`);
     console.log(`  claude:   via gateway ${config.claudeGateway.baseUrl}`);
     console.log(`  youtube:  ${config.youtube.dryRun ? 'dry-run (no real uploads)' : 'live'}`);

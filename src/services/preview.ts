@@ -101,6 +101,8 @@ export interface RenderValidation {
   totalCredits: number;
   totalUsd: number;
   estUsdLabel: string;
+  /** Sum of scene durations = the stitched short's total length (PixVerse renders 5s/8s clips). */
+  totalDurationSec: number;
   /** No scene has blocking validation issues. */
   ok: boolean;
   invalidCount: number;
@@ -120,6 +122,7 @@ export function validateStorylineForRender(
   const scenes = [...project.storyline.scenes].sort((a, b) => a.order - b.order);
   let totalCredits = 0;
   let totalUsd = 0;
+  let totalDurationSec = 0;
   let invalidCount = 0;
 
   const results: SceneValidation[] = scenes.map((scene) => {
@@ -148,6 +151,7 @@ export function validateStorylineForRender(
     });
     totalCredits += cost.credits ?? 0;
     totalUsd += cost.usd;
+    totalDurationSec += Number(scene.duration) || 0;
     return { sceneId: scene.id, heading: scene.heading, issues, estCredits: cost.credits ?? 0, estUsd: cost.usd };
   });
 
@@ -156,6 +160,7 @@ export function validateStorylineForRender(
     totalCredits,
     totalUsd,
     estUsdLabel: formatUsd(totalUsd),
+    totalDurationSec,
     ok: invalidCount === 0,
     invalidCount,
   };

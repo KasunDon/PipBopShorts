@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from './api';
+import { IconCheck, IconEye, IconImage, IconPaperclip, IconRefresh, IconWand, IconX, IconZoom } from './Icons';
 import { Lightbox, type LightboxMedia } from './Lightbox';
 import type { CharacterAsset, CharacterRegistry, PortraitVersion, ReferenceAssetType, ReferenceDefinition, Story } from './types';
 import { formatElapsed, useAsyncAction } from './useAsyncAction';
@@ -16,23 +17,24 @@ function fileToBase64(file: File): Promise<{ dataBase64: string; contentType: st
   });
 }
 
-function PortraitVideo({ v, onPreview }: { v: PortraitVersion; onPreview: OpenPreview }) {
+function PortraitVideo({ v, onPreview, caption }: { v: PortraitVersion; onPreview: OpenPreview; caption?: string }) {
+  const cap = [caption, v.prompt].filter(Boolean).join(' — ');
   if (v.status !== 'ready') {
     return <div className={`portrait placeholder ${v.status}`}>{v.status === 'generating' ? 'Rendering…' : v.status}</div>;
   }
   if (v.videoId != null && v.previewUrl) {
     return (
-      <button className="portrait-btn" title="Preview" onClick={() => onPreview({ url: v.previewUrl!, kind: 'video', caption: v.prompt })}>
+      <button className="portrait-btn" title="Click to enlarge" onClick={() => onPreview({ url: v.previewUrl!, kind: 'video', caption: cap })}>
         <video className="portrait" src={v.previewUrl} muted loop playsInline />
-        <span className="portrait-zoom">🔍</span>
+        <span className="portrait-zoom"><IconZoom /> Enlarge</span>
       </button>
     );
   }
   if (v.previewUrl) {
     return (
-      <button className="portrait-btn" title="Preview" onClick={() => onPreview({ url: v.previewUrl!, kind: 'image', caption: v.prompt })}>
+      <button className="portrait-btn" title="Click to enlarge" onClick={() => onPreview({ url: v.previewUrl!, kind: 'image', caption: cap })}>
         <img className="portrait" src={v.previewUrl} alt="reference" />
-        <span className="portrait-zoom">🔍</span>
+        <span className="portrait-zoom"><IconZoom /> Enlarge</span>
       </button>
     );
   }
@@ -40,12 +42,12 @@ function PortraitVideo({ v, onPreview }: { v: PortraitVersion; onPreview: OpenPr
 }
 
 /** The still image PixVerse can consume as an image-to-video source — opens in the in-app lightbox. */
-function StillThumb({ v, onPreview }: { v: PortraitVersion; onPreview: OpenPreview }) {
+function StillThumb({ v, onPreview, caption }: { v: PortraitVersion; onPreview: OpenPreview; caption?: string }) {
   if (v.imageUrl) {
     return (
-      <button className="still-thumb" onClick={() => onPreview({ url: v.imageUrl!, kind: 'image', caption: 'Captured still' })} title="Preview the still image">
+      <button className="still-thumb" onClick={() => onPreview({ url: v.imageUrl!, kind: 'image', caption: [caption, 'captured still'].filter(Boolean).join(' — ') })} title="Preview the still image">
         <img src={v.imageUrl} alt="captured still" />
-        <span className="muted small">🖼 still</span>
+        <span className="muted small">Still image</span>
       </button>
     );
   }
@@ -53,7 +55,7 @@ function StillThumb({ v, onPreview }: { v: PortraitVersion; onPreview: OpenPrevi
   if (v.status === 'ready' && v.imageError) {
     return (
       <div className="still-thumb missing" title={v.imageError}>
-        <span className="muted small">🖼 no still — {v.imageError}</span>
+        <span className="muted small">No still — {v.imageError}</span>
       </div>
     );
   }
@@ -64,7 +66,7 @@ function SeedThumb({ url, onPreview }: { url: string; onPreview: OpenPreview }) 
   return (
     <button className="still-thumb seed" onClick={() => onPreview({ url, kind: 'image', caption: 'Seed image' })} title="Preview the seed image">
       <img src={url} alt="seed" />
-      <span className="muted small">📎 seed</span>
+      <span className="muted small">Seed image</span>
     </button>
   );
 }
@@ -115,15 +117,15 @@ export function CharactersPanel({ story, run }: { story: Story; run: Run }) {
     <section className="card">
       {lightbox && <Lightbox media={lightbox} onClose={() => setLightbox(null)} />}
       <div className="card-head">
-        <h3>🧸🏞 Reference images</h3>
+        <h3>Reference images</h3>
         <div className="row">
           {missing.length > 0 && (
             <button className="primary" disabled={bulk !== null} onClick={renderAllMissing} title="Generate references for everything not yet approved">
-              {bulk ? `Rendering ${bulk.done}/${bulk.total}…` : `✨ Render all missing (${missing.length})`}
+              <IconWand /> {bulk ? `Rendering ${bulk.done}/${bulk.total}…` : `Render all missing (${missing.length})`}
             </button>
           )}
           <button className="ghost" onClick={reload}>
-            ↻ Sync from canon
+            <IconRefresh /> Sync from canon
           </button>
         </div>
       </div>
@@ -135,7 +137,7 @@ export function CharactersPanel({ story, run }: { story: Story; run: Run }) {
         </p>
       ) : (
         <>
-          <h4 className="reference-group-head">🧸 Characters</h4>
+          <h4 className="reference-group-head">Characters</h4>
           {characters.length === 0 ? (
             <p className="muted small">No characters in canon yet.</p>
           ) : (
@@ -146,7 +148,7 @@ export function CharactersPanel({ story, run }: { story: Story; run: Run }) {
             </div>
           )}
 
-          <h4 className="reference-group-head">🏞 Locations &amp; settings</h4>
+          <h4 className="reference-group-head">Locations and settings</h4>
           {locations.length === 0 ? (
             <p className="muted small">No recurring locations in canon yet.</p>
           ) : (
@@ -163,7 +165,7 @@ export function CharactersPanel({ story, run }: { story: Story; run: Run }) {
 }
 
 function tweakPlaceholder(type: ReferenceAssetType): string {
-  return type === 'location' ? '✨ Tweak (e.g. add string lights at dusk)…' : '✨ Tweak (e.g. add a tiny explorer hat)…';
+  return type === 'location' ? 'Tweak, e.g. "add string lights at dusk"' : 'Tweak, e.g. "add a tiny explorer hat"';
 }
 
 function CharacterCard({
@@ -232,9 +234,13 @@ function CharacterCard({
         <span className="muted small">{asset.entityId}</span>
       </div>
 
-      {showcase ? <PortraitVideo v={showcase} onPreview={onPreview} /> : <div className="portrait placeholder">No render yet</div>}
+      {showcase ? (
+        <PortraitVideo v={showcase} onPreview={onPreview} caption={asset.name} />
+      ) : (
+        <div className="portrait placeholder">No render yet</div>
+      )}
       <div className="thumb-row">
-        {showcase && <StillThumb v={showcase} onPreview={onPreview} />}
+        {showcase && <StillThumb v={showcase} onPreview={onPreview} caption={asset.name} />}
         {showcase?.sourceImageUrl && <SeedThumb url={showcase.sourceImageUrl} onPreview={onPreview} />}
       </div>
 
@@ -244,23 +250,23 @@ function CharacterCard({
           disabled={anyBusy}
           onClick={() => generate({}, `Render a reference image for ${asset.name} with PixVerse? This uses credits.`)}
         >
-          {asset.versions.length === 0 ? '✨ Generate' : '↻ Refresh'}
+          {asset.versions.length === 0 ? <IconWand /> : <IconRefresh />} {asset.versions.length === 0 ? 'Generate' : 'Refresh'}
         </button>
         <button className="ghost" disabled={anyBusy} onClick={toggleDefinition} title="See the canon definition and edit the render prompt">
-          {def ? 'Hide definition' : '🔍 Definition'}
+          <IconEye /> {def ? 'Hide definition' : 'Definition'}
         </button>
         {showcase && showcase.status === 'ready' && showcase.id !== asset.approvedVersionId && (
           <button disabled={anyBusy} onClick={() => act(() => api.approvePortrait(story.id, asset.entityId, showcase.id))}>
-            ✓ Approve
+            <IconCheck /> Approve
           </button>
         )}
         {showcase && showcase.status === 'generating' && (
           <button disabled={anyBusy} onClick={() => act(() => api.refreshPortrait(story.id, asset.entityId, showcase.id))}>
-            ⟳ Poll
+            <IconRefresh /> Poll
           </button>
         )}
         <label className="upload">
-          🖼 Upload still
+          <IconImage /> Upload still
           <input
             type="file"
             accept="image/*"
@@ -292,7 +298,7 @@ function CharacterCard({
           </label>
           <div className="row">
             <button className="ghost small" disabled={anyBusy} onClick={() => setEditPrompt(def.builtPrompt)} title="Reset to the canon-built prompt">
-              ↺ Reset to canon prompt
+              Reset to canon prompt
             </button>
             <button
               className="primary"
@@ -304,7 +310,7 @@ function CharacterCard({
                 )
               }
             >
-              ✨ Generate from this prompt
+              <IconWand /> Generate from this prompt
             </button>
           </div>
         </div>
@@ -312,9 +318,9 @@ function CharacterCard({
 
       {gen.pending && (
         <div className="row idea-progress">
-          <span className="muted small">✨ Rendering… {formatElapsed(gen.elapsedSec)} elapsed</span>
+          <span className="muted small">Rendering… {formatElapsed(gen.elapsedSec)} elapsed</span>
           <button className="ghost small" onClick={gen.cancel}>
-            ✕ Cancel
+            <IconX /> Cancel
           </button>
         </div>
       )}
@@ -335,7 +341,7 @@ function CharacterCard({
         />
         <div className="tweak-attach">
           <label className="upload small" title="Attach an image to guide the render (image-to-video)">
-            📎 {tweakImage ? 'Change image' : 'Attach image'}
+            <IconPaperclip /> {tweakImage ? 'Change image' : 'Attach image'}
             <input
               type="file"
               accept="image/*"
@@ -352,7 +358,7 @@ function CharacterCard({
             <span className="muted small tweak-attach-name">
               {tweakImage.filename}
               <button className="linkish" onClick={() => setTweakImage(null)} title="Remove attached image">
-                ✕
+                <IconX />
               </button>
             </span>
           )}
@@ -394,8 +400,8 @@ function CharacterCard({
         <div className="version-strip">
           {[...asset.versions].reverse().map((v) => (
             <div key={v.id} className={`version-thumb ${v.id === asset.approvedVersionId ? 'approved' : ''}`}>
-              <PortraitVideo v={v} onPreview={onPreview} />
-              <StillThumb v={v} onPreview={onPreview} />
+              <PortraitVideo v={v} onPreview={onPreview} caption={`${asset.name} v${v.version}`} />
+              <StillThumb v={v} onPreview={onPreview} caption={`${asset.name} v${v.version}`} />
               <div className="muted small">
                 v{v.version} · {v.source}
               </div>

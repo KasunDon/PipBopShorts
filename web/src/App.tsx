@@ -1,28 +1,49 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from './api';
 import { CanonSection, StoryMetaEditor } from './CanonPanel';
 import { CharactersPanel } from './CharactersPanel';
 import { CostsPanel } from './CostsPanel';
 import { DriftPanel } from './DriftPanel';
 import { EventsPanel } from './EventsPanel';
+import {
+  IconActivity,
+  IconAlert,
+  IconCheck,
+  IconChevronLeft,
+  IconDoc,
+  IconDollar,
+  IconDownload,
+  IconEye,
+  IconHome,
+  IconPlay,
+  IconPlus,
+  IconRefresh,
+  IconSend,
+  IconUpload,
+  IconWand,
+  IconX,
+} from './Icons';
+import { Markdown, MarkdownViewer } from './Markdown';
 import { SceneCard } from './SceneCard';
 import { formatRuntime, RuntimeSelect, SeasonPanel } from './SeasonPanel';
-import type { AppConfig, Episode, Project, ProjectSummary, Story } from './types';
+import type { AppConfig, Episode, Project, ProjectSummary, RenderValidation, Story, StorylinePreview } from './types';
 import { formatElapsed, useAsyncAction } from './useAsyncAction';
+
+type Overlay = 'costs' | 'events' | null;
 
 export function App() {
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [stories, setStories] = useState<Story[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [showEvents, setShowEvents] = useState(false);
-  const [showCosts, setShowCosts] = useState(false);
+  const [overlay, setOverlay] = useState<Overlay>(null);
 
   const [storyId, setStoryId] = useState<string | null>(null);
   const [story, setStory] = useState<{ story: Story; bible: string; episodes: Episode[] } | null>(null);
 
   const [episodeId, setEpisodeId] = useState<string | null>(null);
   const [episode, setEpisode] = useState<{ episode: Episode; setting: string; projects: ProjectSummary[] } | null>(null);
+  const [autoCompileId, setAutoCompileId] = useState<string | null>(null);
 
   const [storylineId, setStorylineId] = useState<string | null>(null);
   const [project, setProject] = useState<Project | null>(null);
@@ -50,8 +71,19 @@ export function App() {
     refreshStories();
   }, [refreshStories]);
 
+  const goHome = useCallback(() => {
+    setOverlay(null);
+    setStoryId(null);
+    setStory(null);
+    setEpisodeId(null);
+    setEpisode(null);
+    setStorylineId(null);
+    setProject(null);
+  }, []);
+
   const openStory = useCallback(
     async (id: string) => {
+      setOverlay(null);
       setStoryId(id);
       setEpisodeId(null);
       setEpisode(null);
@@ -64,10 +96,12 @@ export function App() {
   );
 
   const openEpisode = useCallback(
-    async (id: string) => {
+    async (id: string, opts: { compile?: boolean } = {}) => {
+      setOverlay(null);
       setEpisodeId(id);
       setStorylineId(null);
       setProject(null);
+      setAutoCompileId(opts.compile ? id : null);
       const res = await run(() => api.getEpisode(id));
       if (res) setEpisode(res);
     },
@@ -76,6 +110,7 @@ export function App() {
 
   const openProject = useCallback(
     async (id: string) => {
+      setOverlay(null);
       setStorylineId(id);
       const res = await run(() => api.getProject(id));
       if (res) setProject(res.project);
@@ -83,12 +118,17 @@ export function App() {
     [run],
   );
 
+  const showBrowse = overlay === null;
+
   return (
     <div className="app">
       <Sidebar
         stories={stories}
-        activeStoryId={storyId}
+        activeStoryId={showBrowse ? storyId : null}
+        overlay={overlay}
+        onHome={goHome}
         onSelect={openStory}
+        onOverlay={(o) => setOverlay((cur) => (cur === o ? null : o))}
         onCreate={async (title, settingMode) => {
           const res = await run(() => api.createStory({ title, settingMode }));
           if (res) {
@@ -102,75 +142,53 @@ export function App() {
             await refreshStories();
             openStory(res.story.id);
             alert(
-              `Imported "${res.story.title}" — ${res.episodeCount} episode(s), ${res.storylineCount} storyline(s), ${res.canonVersions} canon version(s).`,
+              `Imported "${res.story.title}": ${res.episodeCount} episode(s), ${res.storylineCount} storyline(s), ${res.canonVersions} canon version(s).`,
             );
           }
-        }}
-        onNewFromIdea={() => {
-          setStoryId(null);
-          setStory(null);
-          setEpisodeId(null);
-          setEpisode(null);
-          setStorylineId(null);
-          setProject(null);
         }}
       />
       <main className="main">
         <header className="topbar">
-          <h1>🎬 PipBopShorts</h1>
           <div className="crumbs">
-            {story && (
+            {overlay === 'costs' && <span className="crumb current">Costs</span>}
+            {overlay === 'events' && <span className="crumb current">Activity</span>}
+            {showBrowse && !story && <span className="crumb current">Home</span>}
+            {showBrowse && story && (
               <button className="crumb" onClick={() => openStory(story.story.id)}>
                 {story.story.title}
               </button>
             )}
-            {episode && <span className="sep">/</span>}
-            {episode && (
+            {showBrowse && episode && <span className="sep">/</span>}
+            {showBrowse && episode && (
               <button className="crumb" onClick={() => openEpisode(episode.episode.id)}>
                 {episode.episode.title}
               </button>
             )}
-            {project && <span className="sep">/</span>}
-            {project && <span className="crumb current">{project.storyline.title}</span>}
+            {showBrowse && project && storylineId && <span className="sep">/</span>}
+            {showBrowse && project && storylineId && <span className="crumb current">{project.storyline.title}</span>}
           </div>
-          <button
-            className={`events-toggle ${showCosts ? 'active' : ''}`}
-            onClick={() => {
-              setShowCosts((v) => !v);
-              setShowEvents(false);
-            }}
-          >
-            💰 Costs
-          </button>
-          <button
-            className={`events-toggle ${showEvents ? 'active' : ''}`}
-            onClick={() => {
-              setShowEvents((v) => !v);
-              setShowCosts(false);
-            }}
-          >
-            🛰 Events
-          </button>
           {config && (
             <span className={`badge ${config.youtubeDryRun ? 'warn' : 'live'}`}>
-              YouTube: {config.youtubeDryRun ? 'dry-run' : 'live'}
+              YouTube {config.youtubeDryRun ? 'dry-run' : 'live'}
             </span>
           )}
         </header>
 
         {error && (
           <div className="error" role="alert">
-            {error}
-            <button onClick={() => setError(null)}>×</button>
+            <span>{error}</span>
+            <button onClick={() => setError(null)} aria-label="Dismiss">
+              <IconX />
+            </button>
           </div>
         )}
         {busy && <div className="busybar" />}
 
         <div className="content">
-          {showEvents && <EventsPanel onClose={() => setShowEvents(false)} />}
-          {showCosts && <CostsPanel onClose={() => setShowCosts(false)} />}
+          {overlay === 'events' && <EventsPanel onClose={() => setOverlay(null)} />}
+          {overlay === 'costs' && <CostsPanel onClose={() => setOverlay(null)} />}
 
-          {!showEvents && !showCosts && !storyId && (
+          {showBrowse && !storyId && (
             <Welcome
               config={config}
               onLaunch={async (idea, model, withCanon, signal) => {
@@ -181,7 +199,7 @@ export function App() {
             />
           )}
 
-          {!showEvents && !showCosts && storyId && story && !episodeId && config && (
+          {showBrowse && storyId && story && !episodeId && config && (
             <StoryPanel
               data={story}
               config={config}
@@ -189,25 +207,26 @@ export function App() {
               onStoriesChanged={refreshStories}
               onOpenEpisode={openEpisode}
               onDeleted={() => {
-                setStoryId(null);
-                setStory(null);
+                goHome();
                 refreshStories();
               }}
               run={run}
             />
           )}
 
-          {!showEvents && !showCosts && episodeId && episode && !storylineId && config && (
+          {showBrowse && episodeId && episode && !storylineId && config && (
             <EpisodePanel
               data={episode}
               config={config}
+              autoCompile={autoCompileId === episodeId}
+              onAutoCompileDone={() => setAutoCompileId(null)}
               onOpenProject={openProject}
               onChanged={() => openEpisode(episode.episode.id)}
               run={run}
             />
           )}
 
-          {!showEvents && !showCosts && storylineId && project && config && (
+          {showBrowse && storylineId && project && config && (
             <ProjectPanel
               project={project}
               config={config}
@@ -228,6 +247,105 @@ export function App() {
 
 type Run = <T>(fn: () => Promise<T>) => Promise<T | undefined>;
 
+/* ---------------------------------------------------------------------------
+   Sidebar
+--------------------------------------------------------------------------- */
+
+function Sidebar({
+  stories,
+  activeStoryId,
+  overlay,
+  onHome,
+  onSelect,
+  onOverlay,
+  onCreate,
+  onImport,
+}: {
+  stories: Story[];
+  activeStoryId: string | null;
+  overlay: Overlay;
+  onHome: () => void;
+  onSelect: (id: string) => void;
+  onOverlay: (o: Exclude<Overlay, null>) => void;
+  onCreate: (title: string, settingMode: string) => void;
+  onImport: (markdown: string) => void;
+}) {
+  const [title, setTitle] = useState('');
+  const [mode, setMode] = useState('shared');
+  return (
+    <aside className="sidebar">
+      <div className="brand">
+        <div className="brand-name">Backlot</div>
+        <div className="brand-sub">AI film production studio</div>
+      </div>
+
+      <nav className="nav">
+        <button className={`nav-item ${overlay === null && !activeStoryId ? 'active' : ''}`} onClick={onHome}>
+          <IconHome /> Home
+        </button>
+        <button className={`nav-item ${overlay === 'costs' ? 'active' : ''}`} onClick={() => onOverlay('costs')}>
+          <IconDollar /> Costs
+        </button>
+        <button className={`nav-item ${overlay === 'events' ? 'active' : ''}`} onClick={() => onOverlay('events')}>
+          <IconActivity /> Activity
+        </button>
+        <div className="nav-label">Stories</div>
+      </nav>
+
+      <ul className="story-list">
+        {stories.map((s) => (
+          <li key={s.id}>
+            <button className={s.id === activeStoryId ? 'active' : ''} onClick={() => onSelect(s.id)}>
+              <span className="story-title">{s.title}</span>
+              <span className="story-mode">{s.settingMode === 'per-episode' ? 'per-episode' : 'shared'}</span>
+            </button>
+          </li>
+        ))}
+        {stories.length === 0 && <li className="empty">No stories yet — start from an idea on Home.</li>}
+      </ul>
+
+      <div className="sidebar-foot">
+        <form
+          className="new-story"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (title.trim()) {
+              onCreate(title.trim(), mode);
+              setTitle('');
+            }
+          }}
+        >
+          <input placeholder="New story title" value={title} onChange={(e) => setTitle(e.target.value)} />
+          <select value={mode} onChange={(e) => setMode(e.target.value)} title="Setting mode">
+            <option value="shared">Shared setting</option>
+            <option value="per-episode">Per-episode setting</option>
+          </select>
+          <button type="submit">
+            <IconPlus /> Create story
+          </button>
+          <label className="upload import-story" title="Import a .story.md package exported from any Backlot instance">
+            <IconUpload /> Import .story.md
+            <input
+              type="file"
+              accept=".md,text/markdown"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                onImport(await file.text());
+                e.target.value = '';
+              }}
+            />
+          </label>
+        </form>
+      </div>
+    </aside>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   Home — idea launcher
+--------------------------------------------------------------------------- */
+
 function Welcome({
   config,
   onLaunch,
@@ -244,17 +362,18 @@ function Welcome({
 
   return (
     <div className="welcome">
-      <h2>🎬 Start with an idea</h2>
+      <span className="welcome-kicker">Backlot</span>
+      <h2>Start with an idea</h2>
       <p className="muted">
-        Describe your series in a sentence or two — the AI drafts the title, audience, genres, tone, and a complete
-        production bible with character visual signatures. You review and edit everything afterwards.
+        Describe your series in a sentence or two. The AI drafts the title, audience, genres, tone, and a complete
+        production bible with character visual signatures — you review and edit everything before anything is rendered.
       </p>
       <div className="idea-box">
         <textarea
           value={idea}
           onChange={(e) => setIdea(e.target.value)}
           rows={3}
-          placeholder='e.g. "Five cute animal friends in a magical grove have tiny, funny adventures — for kids 4–7"'
+          placeholder='e.g. "Five animal friends in a magical grove have tiny, funny adventures — for kids 4-7"'
           disabled={pending}
         />
         <div className="row idea-controls">
@@ -278,31 +397,33 @@ function Welcome({
             disabled={pending || !idea.trim()}
             onClick={() => execute((signal) => onLaunch(idea.trim(), effectiveModel, withCanon, signal))}
           >
-            {pending ? '✨ Developing your series…' : '✨ Create my series'}
+            <IconWand /> {pending ? 'Developing your series…' : 'Create series'}
           </button>
         </div>
         {pending && (
           <div className="row idea-progress">
             <p className="muted small">
               Writing the bible{withCanon ? ' and extracting canon' : ''} — {formatElapsed(elapsedSec)} elapsed. This can
-              take a few minutes, especially with canon extraction on. Everything will be editable when it lands.
+              take a few minutes. Everything will be editable when it lands.
             </p>
             <button className="ghost small" onClick={cancel}>
-              ✕ Cancel
+              <IconX /> Cancel
             </button>
           </div>
         )}
         {error && (
           <div className="error inline" role="alert">
-            {error}
+            <span>{error}</span>
             <div className="row">
               <button
                 className="ghost small"
                 onClick={() => execute((signal) => onLaunch(idea.trim(), effectiveModel, withCanon, signal))}
               >
-                ↻ Retry
+                <IconRefresh /> Retry
               </button>
-              <button onClick={dismissError}>×</button>
+              <button onClick={dismissError} aria-label="Dismiss">
+                <IconX />
+              </button>
             </div>
           </div>
         )}
@@ -311,22 +432,21 @@ function Welcome({
       <details className="how-it-works">
         <summary>How the studio works</summary>
         <ol>
-          <li>A <b>story</b> holds a `.md` bible (characters, setting, style) + production metadata.</li>
+          <li>A <b>story</b> holds a markdown bible (characters, setting, style) plus production metadata.</li>
           <li><b>Canon</b> turns the bible into version-controlled consistency marks.</li>
-          <li>Add an <b>episode</b> with a short brief (AI can draft it from an idea).</li>
-          <li><b>Claude</b> writes a shot-by-shot storyline — you pick the model and effort.</li>
-          <li>Render each scene with <b>PixVerse</b>, preview, tweak, and check for canon drift.</li>
-          <li>Publish the finished short to <b>YouTube Shorts</b>.</li>
+          <li>Add an <b>episode</b> with a short brief — or let the AI draft it.</li>
+          <li><b>Compile the script</b> and review exactly what the AI will receive, then generate the storyline.</li>
+          <li>Validate, then render each scene with PixVerse; preview, tweak, and check for canon drift.</li>
+          <li>Publish the finished short to YouTube Shorts.</li>
         </ol>
         <p className="muted small">Prefer manual setup? Create an empty story from the sidebar.</p>
         <p className="muted small">
           Templates:{' '}
           <a className="md-link" href="/api/templates/story-bible.md" download>
-            ⬇ story-bible-template.md
+            <IconDownload /> story-bible-template.md
           </a>{' '}
-          ·{' '}
           <a className="md-link" href="/api/templates/episode-setting.md" download>
-            ⬇ episode-setting-template.md
+            <IconDownload /> episode-setting-template.md
           </a>
         </p>
       </details>
@@ -334,75 +454,20 @@ function Welcome({
   );
 }
 
-function Sidebar({
-  stories,
-  activeStoryId,
-  onSelect,
-  onCreate,
-  onImport,
-  onNewFromIdea,
-}: {
-  stories: Story[];
-  activeStoryId: string | null;
-  onSelect: (id: string) => void;
-  onCreate: (title: string, settingMode: string) => void;
-  onImport: (markdown: string) => void;
-  onNewFromIdea: () => void;
-}) {
-  const [title, setTitle] = useState('');
-  const [mode, setMode] = useState('shared');
-  return (
-    <aside className="sidebar">
-      <div className="sidebar-head">Stories</div>
-      <div className="sidebar-idea">
-        <button className="primary" onClick={onNewFromIdea} title="Describe an idea and let the AI draft the whole series">
-          ✨ New from idea
-        </button>
-      </div>
-      <ul className="story-list">
-        {stories.map((s) => (
-          <li key={s.id}>
-            <button className={s.id === activeStoryId ? 'active' : ''} onClick={() => onSelect(s.id)}>
-              <span className="story-title">{s.title}</span>
-              <span className="story-mode">{s.settingMode === 'per-episode' ? 'per-episode' : 'shared'}</span>
-            </button>
-          </li>
-        ))}
-        {stories.length === 0 && <li className="muted small">No stories yet.</li>}
-      </ul>
-      <form
-        className="new-story"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (title.trim()) {
-            onCreate(title.trim(), mode);
-            setTitle('');
-          }
-        }}
-      >
-        <input placeholder="New story title" value={title} onChange={(e) => setTitle(e.target.value)} />
-        <select value={mode} onChange={(e) => setMode(e.target.value)} title="Setting mode">
-          <option value="shared">Shared setting</option>
-          <option value="per-episode">Per-episode setting</option>
-        </select>
-        <button type="submit">+ Create story</button>
-        <label className="upload import-story" title="Import a .story.md package exported from any PipBopShorts instance">
-          📥 Import story (.story.md)
-          <input
-            type="file"
-            accept=".md,text/markdown"
-            onChange={async (e) => {
-              const file = e.target.files?.[0];
-              if (!file) return;
-              onImport(await file.text());
-              e.target.value = '';
-            }}
-          />
-        </label>
-      </form>
-    </aside>
-  );
-}
+/* ---------------------------------------------------------------------------
+   Story page (tabbed)
+--------------------------------------------------------------------------- */
+
+type StoryTab = 'episodes' | 'bible' | 'canon' | 'references' | 'season' | 'settings';
+
+const STORY_TABS: Array<{ id: StoryTab; label: string }> = [
+  { id: 'episodes', label: 'Episodes' },
+  { id: 'bible', label: 'Bible' },
+  { id: 'canon', label: 'Canon' },
+  { id: 'references', label: 'References' },
+  { id: 'season', label: 'Season' },
+  { id: 'settings', label: 'Settings' },
+];
 
 function StoryPanel({
   data,
@@ -417,150 +482,114 @@ function StoryPanel({
   config: AppConfig;
   onChanged: () => void;
   onStoriesChanged: () => void;
-  onOpenEpisode: (id: string) => void;
+  onOpenEpisode: (id: string, opts?: { compile?: boolean }) => void;
   onDeleted: () => void;
   run: Run;
 }) {
-  const [bible, setBible] = useState(data.bible);
-  const [mode, setMode] = useState(data.story.settingMode);
+  const [tab, setTab] = useState<StoryTab>('episodes');
+
+  return (
+    <div className="panel">
+      <div className="page-head">
+        <h2 className="page-title">{data.story.title}</h2>
+        <p className="page-sub">
+          {data.story.continuity === 'linear' ? 'Serialized season arc' : 'Episodic series'} ·{' '}
+          {data.story.settingMode === 'per-episode' ? 'per-episode settings' : 'shared setting'} · {data.episodes.length}{' '}
+          episode{data.episodes.length === 1 ? '' : 's'}
+        </p>
+      </div>
+
+      <div className="tabs" role="tablist">
+        {STORY_TABS.map((t) => (
+          <button
+            key={t.id}
+            role="tab"
+            aria-selected={tab === t.id}
+            className={`tab ${tab === t.id ? 'active' : ''}`}
+            onClick={() => setTab(t.id)}
+          >
+            {t.label}
+            {t.id === 'episodes' && <span className="count">{data.episodes.length}</span>}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'episodes' && (
+        <EpisodesTab data={data} config={config} onChanged={onChanged} onOpenEpisode={onOpenEpisode} run={run} />
+      )}
+      {tab === 'bible' && <BibleTab data={data} onStoriesChanged={onStoriesChanged} run={run} />}
+      {tab === 'canon' && <CanonSection story={data.story} config={config} run={run} />}
+      {tab === 'references' && <CharactersPanel story={data.story} run={run} />}
+      {tab === 'season' && <SeasonPanel story={data.story} config={config} run={run} onChanged={onChanged} />}
+      {tab === 'settings' && (
+        <SettingsTab data={data} config={config} onChanged={onChanged} onStoriesChanged={onStoriesChanged} onDeleted={onDeleted} run={run} />
+      )}
+    </div>
+  );
+}
+
+function EpisodesTab({
+  data,
+  config,
+  onChanged,
+  onOpenEpisode,
+  run,
+}: {
+  data: { story: Story; episodes: Episode[] };
+  config: AppConfig;
+  onChanged: () => void;
+  onOpenEpisode: (id: string, opts?: { compile?: boolean }) => void;
+  run: Run;
+}) {
   const [epTitle, setEpTitle] = useState('');
   const [epBrief, setEpBrief] = useState('');
   const [epSetting, setEpSetting] = useState('');
   const [epIdea, setEpIdea] = useState('');
   const [epRuntime, setEpRuntime] = useState<number | null>(null);
   const [drafting, setDrafting] = useState(false);
-
-  useEffect(() => {
-    setBible(data.bible);
-    setMode(data.story.settingMode);
-  }, [data]);
+  const perEpisode = data.story.settingMode === 'per-episode';
 
   return (
-    <div className="panel">
-      <div className="panel-head">
-        <h2>{data.story.title}</h2>
-        <div className="row">
-          <select
-            value={mode}
-            onChange={async (e) => {
-              setMode(e.target.value as Story['settingMode']);
-              await run(() => api.updateStory(data.story.id, { settingMode: e.target.value }));
-              onStoriesChanged();
-            }}
-          >
-            <option value="shared">Shared setting across episodes</option>
-            <option value="per-episode">Each episode has its own setting</option>
-          </select>
-          <select
-            value={data.story.continuity}
-            title="Random: standalone episodes forever. Linear: a planned season arc with continuity between episodes."
-            onChange={async (e) => {
-              await run(() => api.updateStory(data.story.id, { continuity: e.target.value }));
-              onChanged();
-            }}
-          >
-            <option value="random">🎲 Random (episodic, endless)</option>
-            <option value="linear">📖 Linear (serialized season arc)</option>
-          </select>
-          <button
-            title="Download this story as a portable .story.md package (bible, episodes, canon, storylines)"
-            onClick={async () => {
-              const res = await run(() => api.exportStory(data.story.id));
-              if (res) {
-                const blob = new Blob([res.markdown], { type: 'text/markdown' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = res.filename;
-                a.click();
-                URL.revokeObjectURL(url);
-              }
-            }}
-          >
-            📤 Export .md
-          </button>
-          <button
-            className="danger"
-            onClick={async () => {
-              if (confirm(`Delete story "${data.story.title}"? This removes all episodes and storylines.`)) {
-                await run(() => api.deleteStory(data.story.id));
-                onDeleted();
-              }
-            }}
-          >
-            Delete story
-          </button>
-        </div>
-      </div>
-
-      <StoryMetaEditor story={data.story} config={config} run={run} onSaved={onStoriesChanged} />
-
+    <>
       <section className="card">
         <div className="card-head">
-          <h3>Story bible (.md)</h3>
-          <div className="row">
-            <a className="md-link" href={`/api/stories/${data.story.id}/bible.md`} download title="Download the bible as a .md file">
-              ⬇ bible.md
-            </a>
-            <button
-              className="ghost"
-              title="Insert the canonical story-bible template"
-              onClick={async () => {
-                if (bible.trim() && !confirm('Replace the current bible with the template?')) return;
-                const res = await run(() => api.storyBibleTemplate(data.story.title));
-                if (res) setBible(res.markdown);
-              }}
-            >
-              📋 Insert template
-            </button>
-            <button
-              onClick={async () => {
-                await run(() => api.setBible(data.story.id, bible));
-                onStoriesChanged();
-              }}
-            >
-              Save bible
-            </button>
-          </div>
+          <h3>Episodes</h3>
         </div>
-        <textarea className="bible" value={bible} onChange={(e) => setBible(e.target.value)} rows={16} />
-        <p className="muted small">
-          Follow the template sections — premise, audience &amp; tone, world rules, character visual signatures with
-          "never change" lists — so canon extraction captures every vital detail for the video AI.
+        <p className="card-sub">
+          Open an episode to compile and review its script before generating a storyline. Nothing is sent to the video
+          renderer without a reviewed script and a validated storyline.
         </p>
-      </section>
-
-      <CanonSection story={data.story} config={config} run={run} />
-
-      <CharactersPanel story={data.story} run={run} />
-
-      <SeasonPanel story={data.story} config={config} run={run} onChanged={onChanged} />
-
-      <section className="card">
-        <h3>Episodes</h3>
         <ul className="episode-list">
           {data.episodes.map((ep) => (
-            <li key={ep.id}>
-              <button onClick={() => onOpenEpisode(ep.id)}>
-                {ep.plannedNumber != null && <span className="badge">#{ep.plannedNumber}</span>}
-                <b>{ep.title}</b>
-                {ep.runtimeSec != null && <span className="badge">{formatRuntime(ep.runtimeSec)}</span>}
-                {ep.brief && <span className="muted"> — {ep.brief.slice(0, 80)}</span>}
+            <li key={ep.id} className="episode-row">
+              <button className="ep-main" onClick={() => onOpenEpisode(ep.id)}>
+                {ep.plannedNumber != null && <span className="badge plain">#{ep.plannedNumber}</span>}
+                <span className="ep-title">{ep.title}</span>
+                {ep.runtimeSec != null && <span className="badge plain">{formatRuntime(ep.runtimeSec)}</span>}
+                {ep.brief && <span className="ep-brief">{ep.brief}</span>}
+              </button>
+              <button
+                className="small"
+                title="Compile the episode script (bible + setting + brief + canon) and review it before generating"
+                onClick={() => onOpenEpisode(ep.id, { compile: true })}
+              >
+                <IconDoc /> Compile script
               </button>
             </li>
           ))}
-          {data.episodes.length === 0 && <li className="muted small">No episodes yet.</li>}
+          {data.episodes.length === 0 && <li className="muted small">No episodes yet — add one below or use the Season tab.</li>}
         </ul>
+
         <div className="row episode-idea">
           <input
-            placeholder='✨ Episode idea, e.g. "the friends chase a runaway picnic basket"'
+            placeholder='Episode idea, e.g. "the friends chase a runaway picnic basket"'
             value={epIdea}
             onChange={(e) => setEpIdea(e.target.value)}
             disabled={drafting}
           />
           <button
             disabled={drafting || !epIdea.trim()}
-            title="AI drafts the title, brief, and setting below — review before adding"
+            title="The AI drafts the title, brief, and setting below — review before adding"
             onClick={async () => {
               setDrafting(true);
               try {
@@ -575,7 +604,7 @@ function StoryPanel({
               }
             }}
           >
-            {drafting ? 'Drafting…' : '✨ Draft with AI'}
+            <IconWand /> {drafting ? 'Drafting…' : 'Draft with AI'}
           </button>
         </div>
         <form
@@ -588,7 +617,7 @@ function StoryPanel({
               brief: epBrief,
             };
             if (epRuntime != null) payload.runtimeSec = epRuntime;
-            if (mode === 'per-episode' && epSetting.trim()) payload.setting = epSetting;
+            if (perEpisode && epSetting.trim()) payload.setting = epSetting;
             await run(() => api.createEpisode(data.story.id, payload));
             setEpTitle('');
             setEpBrief('');
@@ -604,9 +633,9 @@ function StoryPanel({
             onChange={(e) => setEpBrief(e.target.value)}
             rows={2}
           />
-          {mode === 'per-episode' && (
+          {perEpisode && (
             <textarea
-              placeholder="Episode-specific setting (.md) — overrides the bible for this episode"
+              placeholder="Episode-specific setting (markdown) — overrides the bible for this episode"
               value={epSetting}
               onChange={(e) => setEpSetting(e.target.value)}
               rows={3}
@@ -616,23 +645,188 @@ function StoryPanel({
             <Field label="Runtime">
               <RuntimeSelect config={config} value={epRuntime} onChange={setEpRuntime} allowDefault />
             </Field>
-            <button type="submit">+ Add episode</button>
+            <button type="submit">
+              <IconPlus /> Add episode
+            </button>
           </div>
         </form>
       </section>
-    </div>
+    </>
   );
 }
+
+function BibleTab({
+  data,
+  onStoriesChanged,
+  run,
+}: {
+  data: { story: Story; bible: string };
+  onStoriesChanged: () => void;
+  run: Run;
+}) {
+  const [bible, setBible] = useState(data.bible);
+  const [previewing, setPreviewing] = useState(false);
+  useEffect(() => setBible(data.bible), [data.bible]);
+
+  return (
+    <section className="card">
+      <div className="card-head">
+        <h3>Story bible</h3>
+        <div className="row">
+          <div className="seg">
+            <button type="button" className={!previewing ? 'seg-on' : ''} onClick={() => setPreviewing(false)}>
+              Edit
+            </button>
+            <button type="button" className={previewing ? 'seg-on' : ''} onClick={() => setPreviewing(true)}>
+              Preview
+            </button>
+          </div>
+          <a className="md-link" href={`/api/stories/${data.story.id}/bible.md`} download title="Download the bible as a .md file">
+            <IconDownload /> bible.md
+          </a>
+          <button
+            className="ghost"
+            title="Insert the canonical story-bible template"
+            onClick={async () => {
+              if (bible.trim() && !confirm('Replace the current bible with the template?')) return;
+              const res = await run(() => api.storyBibleTemplate(data.story.title));
+              if (res) setBible(res.markdown);
+            }}
+          >
+            Insert template
+          </button>
+          <button
+            className="primary"
+            onClick={async () => {
+              await run(() => api.setBible(data.story.id, bible));
+              onStoriesChanged();
+            }}
+          >
+            Save bible
+          </button>
+        </div>
+      </div>
+      {previewing ? (
+        <div className="md-viewer">
+          <div className="md-viewer-body" style={{ maxHeight: 620 }}>
+            <Markdown source={bible} />
+          </div>
+        </div>
+      ) : (
+        <textarea className="bible" value={bible} onChange={(e) => setBible(e.target.value)} rows={22} />
+      )}
+      <p className="muted small">
+        Follow the template sections — premise, audience and tone, world rules, character visual signatures with
+        "never change" lists — so canon extraction captures every detail the video AI needs.
+      </p>
+    </section>
+  );
+}
+
+function SettingsTab({
+  data,
+  config,
+  onChanged,
+  onStoriesChanged,
+  onDeleted,
+  run,
+}: {
+  data: { story: Story };
+  config: AppConfig;
+  onChanged: () => void;
+  onStoriesChanged: () => void;
+  onDeleted: () => void;
+  run: Run;
+}) {
+  return (
+    <>
+      <section className="card">
+        <h3>Story structure</h3>
+        <div className="grid">
+          <Field label="Setting mode">
+            <select
+              value={data.story.settingMode}
+              onChange={async (e) => {
+                await run(() => api.updateStory(data.story.id, { settingMode: e.target.value }));
+                onChanged();
+                onStoriesChanged();
+              }}
+            >
+              <option value="shared">Shared setting across episodes</option>
+              <option value="per-episode">Each episode has its own setting</option>
+            </select>
+          </Field>
+          <Field label="Continuity">
+            <select
+              value={data.story.continuity}
+              onChange={async (e) => {
+                await run(() => api.updateStory(data.story.id, { continuity: e.target.value }));
+                onChanged();
+              }}
+            >
+              <option value="random">Episodic — standalone episodes, endless</option>
+              <option value="linear">Linear — planned season arc</option>
+            </select>
+          </Field>
+        </div>
+      </section>
+
+      <StoryMetaEditor story={data.story} config={config} run={run} onSaved={onStoriesChanged} />
+
+      <section className="card">
+        <h3>Export and danger zone</h3>
+        <div className="row">
+          <button
+            title="Download this story as a portable .story.md package (bible, episodes, canon, storylines)"
+            onClick={async () => {
+              const res = await run(() => api.exportStory(data.story.id));
+              if (res) {
+                const blob = new Blob([res.markdown], { type: 'text/markdown' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = res.filename;
+                a.click();
+                URL.revokeObjectURL(url);
+              }
+            }}
+          >
+            <IconDownload /> Export .story.md
+          </button>
+          <button
+            className="danger"
+            onClick={async () => {
+              if (confirm(`Delete story "${data.story.title}"? This removes all episodes and storylines.`)) {
+                await run(() => api.deleteStory(data.story.id));
+                onDeleted();
+              }
+            }}
+          >
+            Delete story
+          </button>
+        </div>
+      </section>
+    </>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   Episode page — compile-first pipeline
+--------------------------------------------------------------------------- */
 
 function EpisodePanel({
   data,
   config,
+  autoCompile,
+  onAutoCompileDone,
   onOpenProject,
   onChanged,
   run,
 }: {
   data: { episode: Episode; setting: string; projects: ProjectSummary[] };
   config: AppConfig;
+  autoCompile: boolean;
+  onAutoCompileDone: () => void;
   onOpenProject: (id: string) => void;
   onChanged: () => void;
   run: Run;
@@ -646,7 +840,9 @@ function EpisodePanel({
   const [aspectRatio, setAspectRatio] = useState('9:16');
   const [quality, setQuality] = useState('540p');
   const [pixModel, setPixModel] = useState('v5');
-  const [preview, setPreview] = useState<import('./types').StorylinePreview | null>(null);
+  const [preview, setPreview] = useState<StorylinePreview | null>(null);
+  const [compiling, setCompiling] = useState(false);
+  const compiledFor = useRef<string | null>(null);
 
   useEffect(() => {
     setBrief(data.episode.brief);
@@ -654,20 +850,45 @@ function EpisodePanel({
     setPreview(null);
   }, [data]);
 
+  const compile = useCallback(async () => {
+    setCompiling(true);
+    try {
+      const res = await run(() => api.storylinePreview(data.episode.id));
+      if (res) setPreview(res.preview);
+    } finally {
+      setCompiling(false);
+    }
+  }, [run, data.episode.id]);
+
+  // "Compile script" from the episodes list lands here with compile intent.
+  useEffect(() => {
+    if (autoCompile && compiledFor.current !== data.episode.id) {
+      compiledFor.current = data.episode.id;
+      compile().then(onAutoCompileDone);
+    }
+  }, [autoCompile, compile, data.episode.id, onAutoCompileDone]);
+
   const modelInfo = config.claudeModels.find((m) => m.id === model);
+  const reviewed = preview !== null;
+  const canGenerate = reviewed && preview.ok;
 
   return (
     <div className="panel">
-      <div className="panel-head">
-        <h2>{data.episode.title}</h2>
+      <div className="page-head">
+        <h2 className="page-title">{data.episode.title}</h2>
+        <p className="page-sub">
+          {data.episode.plannedNumber != null ? `Episode #${data.episode.plannedNumber} in season · ` : ''}
+          Compile and review the script, generate the storyline, then move to production.
+        </p>
       </div>
 
-      <section className="card">
+      {/* Step 1 — script */}
+      <section className={`card step ${reviewed ? 'step-done' : 'step-active'}`}>
         <div className="card-head">
-          <h3>
-            Episode brief
-            {data.episode.plannedNumber != null && <span className="badge"> #{data.episode.plannedNumber} in season</span>}
-          </h3>
+          <div className="step-title">
+            <span className="step-num">{reviewed ? <IconCheck /> : '1'}</span>
+            <h3>Script — compile and review</h3>
+          </div>
           <div className="row">
             <Field label="Runtime">
               <RuntimeSelect
@@ -688,51 +909,82 @@ function EpisodePanel({
             >
               Save brief
             </button>
+            <button className="primary" onClick={compile} disabled={compiling}>
+              <IconDoc /> {compiling ? 'Compiling…' : reviewed ? 'Recompile script' : 'Compile script'}
+            </button>
           </div>
         </div>
-        <textarea value={brief} onChange={(e) => setBrief(e.target.value)} rows={3} />
-      </section>
+        <Field label="Brief — what happens in this episode">
+          <textarea value={brief} onChange={(e) => setBrief(e.target.value)} rows={3} />
+        </Field>
 
-      {data.episode.hasSettingOverride || data.setting ? (
-        <section className="card">
-          <div className="card-head">
-            <h3>Episode setting (.md)</h3>
-            <div className="row">
-              <a
-                className="md-link"
-                href={`/api/episodes/${data.episode.id}/setting.md`}
-                download
-                title="Download this episode's setting as a .md file"
-              >
-                ⬇ setting.md
-              </a>
-              <button
-                className="ghost"
-                onClick={async () => {
-                  if (setting.trim() && !confirm('Replace the current setting with the template?')) return;
-                  const res = await run(() => api.episodeSettingTemplate(data.episode.title));
-                  if (res) setSetting(res.markdown);
-                }}
-              >
-                📋 Insert template
-              </button>
-              <button
-                onClick={async () => {
-                  await run(() => api.setSetting(data.episode.id, setting));
-                  onChanged();
-                }}
-              >
-                Save setting
+        {(data.episode.hasSettingOverride || data.setting) && (
+          <>
+            <div className="card-head" style={{ marginTop: 14 }}>
+              <h4>Episode setting (overrides the bible)</h4>
+              <div className="row">
+                <a className="md-link" href={`/api/episodes/${data.episode.id}/setting.md`} download>
+                  <IconDownload /> setting.md
+                </a>
+                <button
+                  className="ghost small"
+                  onClick={async () => {
+                    if (setting.trim() && !confirm('Replace the current setting with the template?')) return;
+                    const res = await run(() => api.episodeSettingTemplate(data.episode.title));
+                    if (res) setSetting(res.markdown);
+                  }}
+                >
+                  Insert template
+                </button>
+                <button
+                  className="small"
+                  onClick={async () => {
+                    await run(() => api.setSetting(data.episode.id, setting));
+                    onChanged();
+                  }}
+                >
+                  Save setting
+                </button>
+              </div>
+            </div>
+            <textarea value={setting} onChange={(e) => setSetting(e.target.value)} rows={6} />
+          </>
+        )}
+
+        {preview && (
+          <div className="preview-box">
+            <div className="card-head">
+              <h4>Compiled script — exactly what the AI will receive</h4>
+              <button className="ghost small" onClick={() => setPreview(null)}>
+                <IconX /> Close
               </button>
             </div>
+            <ul className="check-list">
+              {preview.checks.map((c, i) => (
+                <li key={i} className={`check check-${c.level === 'ok' ? 'ok' : c.level === 'warn' ? 'warn' : 'error'}`}>
+                  <span className="check-text">{c.message}</span>
+                </li>
+              ))}
+            </ul>
+            {!preview.ok && (
+              <p className="gate-note">
+                <IconAlert /> Fix the blocking issue above, then recompile — generation stays disabled until the script
+                passes.
+              </p>
+            )}
+            <MarkdownViewer source={preview.markdown} maxHeight={440} />
           </div>
-          <textarea value={setting} onChange={(e) => setSetting(e.target.value)} rows={6} />
-          <p className="muted small">This overrides the story bible's setting for this episode.</p>
-        </section>
-      ) : null}
+        )}
+      </section>
 
-      <section className="card highlight">
-        <h3>Generate a storyline with Claude</h3>
+      {/* Step 2 — storyline */}
+      <section className={`card step ${canGenerate ? 'step-active' : ''}`}>
+        <div className="card-head">
+          <div className="step-title">
+            <span className="step-num">2</span>
+            <h3>Storyline — generate the shot list</h3>
+          </div>
+        </div>
         <div className="grid">
           <Field label="Model">
             <select value={model} onChange={(e) => setModel(e.target.value)}>
@@ -769,7 +1021,7 @@ function EpisodePanel({
               ))}
             </select>
           </Field>
-          <Field label="Default PixVerse model">
+          <Field label="Video model">
             <select value={pixModel} onChange={(e) => setPixModel(e.target.value)}>
               {config.pixverse.models.map((m) => (
                 <option key={m}>{m}</option>
@@ -780,19 +1032,11 @@ function EpisodePanel({
         <Field label="Extra guidance (optional)">
           <textarea value={guidance} onChange={(e) => setGuidance(e.target.value)} rows={2} placeholder="Tone, references, must-have beats…" />
         </Field>
-        <div className="row">
-          <button
-            className="ghost"
-            title="Preview exactly what the AI will receive, and check inputs, before spending an LLM call"
-            onClick={async () => {
-              const res = await run(() => api.storylinePreview(data.episode.id));
-              if (res) setPreview(res.preview);
-            }}
-          >
-            👁 Preview AI context
-          </button>
+        <div className="row" style={{ marginTop: 12 }}>
           <button
             className="primary"
+            disabled={!canGenerate}
+            title={canGenerate ? 'Generate the storyline with the AI' : 'Compile and review the script first'}
             onClick={async () => {
               const res = await run(() =>
                 api.createStoryline(data.episode.id, {
@@ -808,37 +1052,28 @@ function EpisodePanel({
               if (res) onOpenProject(res.project.storyline.id);
             }}
           >
-            ✨ Generate storyline
+            <IconWand /> Generate storyline
           </button>
+          {!canGenerate && (
+            <span className="gate-note">
+              <IconAlert />
+              {reviewed ? 'The compiled script has a blocking issue.' : 'Compile and review the script first (step 1).'}
+            </span>
+          )}
         </div>
-        {preview && (
-          <div className="preview-box">
-            <div className="card-head">
-              <h4>Preview — what the AI will receive</h4>
-              <button className="ghost small" onClick={() => setPreview(null)}>
-                ✕ Close
-              </button>
-            </div>
-            <ul className="check-list">
-              {preview.checks.map((c, i) => (
-                <li key={i} className={`check check-${c.level}`}>
-                  {c.level === 'ok' ? '✅' : c.level === 'warn' ? '⚠️' : '⛔'} {c.message}
-                </li>
-              ))}
-            </ul>
-            {!preview.ok && <p className="muted small">Fix the ⛔ issue before generating.</p>}
-            <pre className="preview-md">{preview.markdown}</pre>
-          </div>
-        )}
       </section>
 
+      {/* Existing storylines */}
       <section className="card">
         <h3>Storylines</h3>
         <ul className="project-list">
           {data.projects.map((p) => (
             <li key={p.storylineId}>
               <button onClick={() => onOpenProject(p.storylineId)}>
-                <b>{p.title}</b> <span className="muted">— {p.sceneCount} scenes · {p.model}</span>
+                <b>{p.title}</b>
+                <span className="muted small">
+                  {p.sceneCount} scenes · {p.model}
+                </span>
                 {p.publish?.status === 'published' && <span className="badge live">published</span>}
               </button>
             </li>
@@ -849,6 +1084,10 @@ function EpisodePanel({
     </div>
   );
 }
+
+/* ---------------------------------------------------------------------------
+   Production page (storyline)
+--------------------------------------------------------------------------- */
 
 function ProjectPanel({
   project,
@@ -867,35 +1106,38 @@ function ProjectPanel({
   const scenes = useMemo(() => [...project.storyline.scenes].sort((a, b) => a.order - b.order), [project]);
   const [privacy, setPrivacy] = useState('private');
   const [stitch, setStitch] = useState(true);
-  const [validation, setValidation] = useState<import('./types').RenderValidation | null>(null);
+  const [validation, setValidation] = useState<RenderValidation | null>(null);
 
   const readyCount = scenes.filter((s) => project.clips[s.id]?.status === 'ready').length;
+  const canRenderAll = validation !== null && validation.ok;
 
   return (
     <div className="panel">
-      <div className="panel-head">
-        <button className="link" onClick={onBack}>
-          ← Back to episode
+      <div className="page-head">
+        <button className="link back" onClick={onBack}>
+          <IconChevronLeft /> Back to episode
         </button>
-        <h2>{project.storyline.title}</h2>
-        <p className="muted">{project.storyline.logline}</p>
+        <h2 className="page-title">{project.storyline.title}</h2>
+        <p className="page-sub">{project.storyline.logline}</p>
         <div className="row">
           <button
-            className="ghost"
-            title="Validate every scene against PixVerse rules and estimate the render cost before spending credits"
+            title="Validate every scene against the video renderer's rules and estimate the cost before spending credits"
             onClick={async () => {
               const res = await run(() => api.validateStoryline(storylineId));
               if (res) setValidation(res.validation);
             }}
           >
-            🧮 Validate &amp; estimate cost
+            <IconEye /> Validate and estimate cost
           </button>
           <button
             className="primary"
+            disabled={!canRenderAll}
+            title={canRenderAll ? 'Render every scene' : 'Run validation first — rendering unlocks once every scene passes'}
             onClick={async () => {
+              if (!validation) return;
               if (
                 !confirm(
-                  `Render all ${scenes.length} scenes with PixVerse? This uses credits for every scene. Tip: run “Validate & estimate cost” first.`,
+                  `Render all ${scenes.length} scenes?\n\nEstimated cost: ${validation.estUsdLabel} (${validation.totalCredits} credits, ${validation.totalDurationSec}s total). This spends PixVerse credits.`,
                 )
               )
                 return;
@@ -903,39 +1145,53 @@ function ProjectPanel({
               if (res) setProject(res.project);
             }}
           >
-            ▶ Render all scenes
+            <IconPlay /> Render all scenes
           </button>
-          <span className="muted small">
-            {readyCount}/{scenes.length} scenes ready
+          <span className="badge plain">
+            {readyCount}/{scenes.length} ready
           </span>
+          {!canRenderAll && (
+            <span className="gate-note">
+              <IconAlert /> {validation ? 'Fix the failing scenes below, then validate again.' : 'Validate before rendering.'}
+            </span>
+          )}
         </div>
         {validation && (
           <div className={`validation-box ${validation.ok ? 'ok' : 'bad'}`}>
             <div className="card-head">
-              <b>
-                Estimated render cost: {validation.estUsdLabel} · {validation.totalCredits} PixVerse credits
-              </b>
-              <button className="ghost small" onClick={() => setValidation(null)}>
-                ✕
+              <span className="validation-headline">
+                Estimated render cost {validation.estUsdLabel} · {validation.totalCredits} credits ·{' '}
+                {validation.totalDurationSec}s total across {validation.scenes.length} clips
+              </span>
+              <button className="ghost small" onClick={() => setValidation(null)} aria-label="Dismiss">
+                <IconX />
               </button>
             </div>
             {validation.ok ? (
-              <p className="check check-ok">✅ All {validation.scenes.length} scenes pass PixVerse validation.</p>
+              <p className="check check-ok">
+                <span className="check-text">All {validation.scenes.length} scenes pass validation.</span>
+              </p>
             ) : (
               <>
-                <p className="check check-error">⛔ {validation.invalidCount} scene(s) have parameter issues:</p>
+                <p className="check check-error">
+                  <span className="check-text">{validation.invalidCount} scene(s) have parameter issues:</span>
+                </p>
                 <ul className="check-list">
                   {validation.scenes
                     .filter((s) => s.issues.length > 0)
                     .map((s) => (
                       <li key={s.sceneId} className="check check-error">
-                        <b>{s.heading}:</b> {s.issues.join(' ')}
+                        <span className="check-text">
+                          <b>{s.heading}:</b> {s.issues.join(' ')}
+                        </span>
                       </li>
                     ))}
                 </ul>
               </>
             )}
-            <p className="muted small">Cost is an estimate — tune the credit rate in the Costs panel notes.</p>
+            <p className="muted small">
+              Video costs are estimates (the provider bills in credits) — reconcile against your invoice in Costs.
+            </p>
           </div>
         )}
       </div>
@@ -961,7 +1217,7 @@ function ProjectPanel({
             if (res) setProject(res.project);
           }}
         >
-          + Add scene
+          <IconPlus /> Add scene
         </button>
       </div>
 
@@ -994,12 +1250,12 @@ function ProjectPanel({
                 alert(
                   res.publish.dryRun
                     ? `Dry-run publish OK (id ${res.publish.videoId}). Configure YouTube credentials for real uploads.`
-                    : `Published! ${res.publish.url}`,
+                    : `Published: ${res.publish.url}`,
                 );
               }
             }}
           >
-            🚀 Publish
+            <IconSend /> Publish
           </button>
         </div>
         <PublishHistory project={project} />
@@ -1018,7 +1274,7 @@ function PublishHistory({ project }: { project: Project }) {
       <h4 className="reference-group-head">Publish history</h4>
       <ul className="publish-list">
         {history.map((r, i) => (
-          <li key={i} className={`publish-row publish-${r.status}`}>
+          <li key={i} className="publish-row">
             <span className={`badge ${r.status === 'published' ? 'live' : r.status === 'failed' ? 'bad' : 'warn'}`}>{r.status}</span>
             {r.dryRun && <span className="badge warn">dry-run</span>}
             <span className="muted small">{r.publishedAt ? new Date(r.publishedAt).toLocaleString() : '—'}</span>
@@ -1077,21 +1333,23 @@ function YoutubeEditor({
           <input value={hashtags} onChange={(e) => setHashtags(e.target.value)} />
         </Field>
       </div>
-      <button
-        onClick={async () => {
-          const res = await run(() =>
-            api.updateYoutube(storylineId, {
-              title,
-              description,
-              tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
-              hashtags: hashtags.split(/\s+/).map((t) => t.trim()).filter(Boolean),
-            }),
-          );
-          if (res) setProject(res.project);
-        }}
-      >
-        Save metadata
-      </button>
+      <div>
+        <button
+          onClick={async () => {
+            const res = await run(() =>
+              api.updateYoutube(storylineId, {
+                title,
+                description,
+                tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
+                hashtags: hashtags.split(/\s+/).map((t) => t.trim()).filter(Boolean),
+              }),
+            );
+            if (res) setProject(res.project);
+          }}
+        >
+          Save metadata
+        </button>
+      </div>
     </div>
   );
 }

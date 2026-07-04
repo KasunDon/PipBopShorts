@@ -1,19 +1,20 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from './api';
 import { Field } from './App';
+import { IconCheck, IconEdit, IconWand } from './Icons';
 import { RuntimeSelect } from './SeasonPanel';
 import type { AppConfig, CanonRegistry, CanonVersion, Story, StoryMeta } from './types';
 
 type Run = <T>(fn: () => Promise<T>) => Promise<T | undefined>;
 
-const TYPE_ICONS: Record<string, string> = {
-  character: '🧸',
-  location: '🗺',
-  prop: '🎈',
-  relationship: '🤝',
-  world_rule: '🌍',
-  visual_style: '🎨',
-  audience_tone: '👶',
+const TYPE_LABELS: Record<string, string> = {
+  character: 'Character',
+  location: 'Location',
+  prop: 'Prop',
+  relationship: 'Relationship',
+  world_rule: 'World rule',
+  visual_style: 'Visual style',
+  audience_tone: 'Audience',
 };
 
 export function StoryMetaEditor({
@@ -134,7 +135,7 @@ export function CanonSection({
   return (
     <section className="card canon">
       <div className="card-head">
-        <h3>🔒 Canon registry {registry ? `— v${registry.currentVersion}` : ''}</h3>
+        <h3>Canon registry{registry ? ` — v${registry.currentVersion}` : ''}</h3>
         <div className="row">
           <select value={model} onChange={(e) => setModel(e.target.value)} title="Dissection model">
             {config.dissect.models.map((m) => (
@@ -153,7 +154,7 @@ export function CanonSection({
               }
             }}
           >
-            {registry ? '↻ Re-extract from bible' : '✨ Extract canon from bible'}
+            <IconWand /> {registry ? 'Re-extract from bible' : 'Extract canon from bible'}
           </button>
         </div>
       </div>
@@ -204,7 +205,7 @@ export function CanonSection({
             {version.entities.map((entity) => (
               <details key={entity.id} className="canon-entity" open={entity.type === 'character'}>
                 <summary>
-                  <span className="canon-icon">{TYPE_ICONS[entity.type] ?? '•'}</span>
+                  <span className="entity-type">{TYPE_LABELS[entity.type] ?? entity.type}</span>
                   <b>{entity.name}</b>
                   <span className="muted small"> {entity.id}</span>
                   <span className="muted small canon-count">{entity.marks.length} marks</span>
@@ -239,7 +240,7 @@ export function CanonSection({
                                   reload();
                                 }}
                               >
-                                ✓ Complete
+                                <IconCheck /> Complete
                               </button>
                             ) : (
                               <button
@@ -253,7 +254,7 @@ export function CanonSection({
                                   }
                                 }}
                               >
-                                ✎
+                                <IconEdit />
                               </button>
                             )}
                           </td>

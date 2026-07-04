@@ -5,6 +5,7 @@ import type {
   CharacterAsset,
   CharacterRegistry,
   Clip,
+  CostLineItem,
   CostReport,
   DriftFinding,
   DriftReport,
@@ -210,6 +211,14 @@ export const api = {
     if (opts.since) params.set('since', opts.since);
     const qs = params.toString();
     return req<{ report: CostReport }>('GET', `/api/costs/report${qs ? `?${qs}` : ''}`);
+  },
+  costEvents: (opts: { storyId?: string; episodeId?: string; since?: string } = {}) => {
+    const params = new URLSearchParams();
+    if (opts.storyId) params.set('storyId', opts.storyId);
+    if (opts.episodeId) params.set('episodeId', opts.episodeId);
+    if (opts.since) params.set('since', opts.since);
+    const qs = params.toString();
+    return req<{ items: CostLineItem[] }>('GET', `/api/costs/events${qs ? `?${qs}` : ''}`);
   },
   storylinePreview: (episodeId: string) =>
     req<{ preview: StorylinePreview }>('GET', `/api/episodes/${episodeId}/storyline-preview`),

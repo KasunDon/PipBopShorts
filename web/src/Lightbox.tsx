@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { IconExternal, IconX } from './Icons';
 
 export interface LightboxMedia {
   url: string;
@@ -7,8 +8,8 @@ export interface LightboxMedia {
 }
 
 /**
- * Full-screen preview overlay for an image or video — replaces "open in a new
- * tab" so previews stay in-app. Closes on backdrop click or Escape.
+ * Full-screen preview overlay for an image or video — keeps previews in-app.
+ * Closes on backdrop click or Escape.
  */
 export function Lightbox({ media, onClose }: { media: LightboxMedia; onClose: () => void }) {
   useEffect(() => {
@@ -23,7 +24,7 @@ export function Lightbox({ media, onClose }: { media: LightboxMedia; onClose: ()
     <div className="lightbox-backdrop" onClick={onClose} role="dialog" aria-modal="true">
       <div className="lightbox-body" onClick={(e) => e.stopPropagation()}>
         <button className="lightbox-close" onClick={onClose} aria-label="Close preview">
-          ✕
+          <IconX />
         </button>
         {media.kind === 'video' ? (
           <video className="lightbox-media" src={media.url} controls autoPlay loop playsInline />
@@ -32,7 +33,7 @@ export function Lightbox({ media, onClose }: { media: LightboxMedia; onClose: ()
         )}
         {media.caption && <div className="lightbox-caption">{media.caption}</div>}
         <a className="lightbox-open" href={media.url} target="_blank" rel="noreferrer">
-          Open original ↗
+          Open original <IconExternal />
         </a>
       </div>
     </div>

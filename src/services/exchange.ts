@@ -91,7 +91,7 @@ export function exportStory(store: Store, storyId: string): string {
   out.push(`# ${story.title} — Story Package`);
   out.push('');
   out.push(
-    '> Portable export from PipBopShorts. Import it on any instance via **Import story**. ' +
+    '> Portable export from Backlot. Import it on any instance via **Import story**. ' +
       'Markdown sections are editable by hand; JSON blocks are machine-read on import.',
   );
   out.push('');
@@ -232,7 +232,7 @@ export interface ImportResult {
  */
 export function importStory(store: Store, markdown: string): ImportResult {
   if (!markdown.includes('pipbopshorts-story-export')) {
-    throw new ImportError('Not a PipBopShorts story package (missing export header).');
+    throw new ImportError('Not a Backlot story package (missing export header).');
   }
   const blocks = parseBlocks(markdown);
   const storyBlock = blocks.find((b) => b.kind === 'story');

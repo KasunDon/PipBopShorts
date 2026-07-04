@@ -322,9 +322,30 @@ export interface ModelBucket extends CostBucket {
 export interface ScopeBucket extends CostBucket {
   id: string;
 }
+export interface CostLineItem {
+  id: string;
+  ts: string;
+  service: string;
+  provider: string;
+  kind: string;
+  model?: string;
+  phase?: string;
+  storyId?: string;
+  episodeId?: string;
+  storylineId?: string;
+  sceneId?: string;
+  usd: number;
+  credits: number | null;
+  exact: boolean;
+  summary: string;
+  breakdown: string[];
+}
+
 export interface CostReport {
   generatedAt: string;
   totalUsd: number;
+  exactUsd: number;
+  estimatedUsd: number;
   totalCredits: number;
   eventCount: number;
   billableCount: number;
@@ -361,6 +382,7 @@ export interface RenderValidation {
   totalCredits: number;
   totalUsd: number;
   estUsdLabel: string;
+  totalDurationSec: number;
   ok: boolean;
   invalidCount: number;
 }
