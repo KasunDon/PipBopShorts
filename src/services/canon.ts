@@ -368,6 +368,39 @@ export function diffCanonVersions(from: CanonVersion, to: CanonVersion): CanonDi
   };
 }
 
+export interface SeasonCanonMark {
+  entityName: string;
+  entityType: string;
+  key: string;
+  value: string;
+  severity: string;
+}
+export interface SeasonCanonSummary {
+  /** Marks that must NEVER change across the season (the immutable spine). */
+  locked: SeasonCanonMark[];
+  /** Marks that MAY evolve (strong = with care, flexible = freely). */
+  evolvable: SeasonCanonMark[];
+}
+
+/** Split the current canon into what is locked-forever vs what may evolve across a season. */
+export function seasonCanonSummary(version: CanonVersion): SeasonCanonSummary {
+  const locked: SeasonCanonMark[] = [];
+  const evolvable: SeasonCanonMark[] = [];
+  for (const entity of version.entities) {
+    for (const mark of entity.marks) {
+      const row: SeasonCanonMark = {
+        entityName: entity.name,
+        entityType: entity.type,
+        key: mark.key,
+        value: mark.value,
+        severity: mark.severity,
+      };
+      (mark.severity === 'locked' ? locked : evolvable).push(row);
+    }
+  }
+  return { locked, evolvable };
+}
+
 export interface CanonChangelogEntry {
   version: number;
   source: string;

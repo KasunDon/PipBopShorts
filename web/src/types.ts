@@ -259,6 +259,18 @@ export interface CanonChangelogEntry {
   diff: CanonDiff;
 }
 
+export interface SeasonCanonMark {
+  entityName: string;
+  entityType: string;
+  key: string;
+  value: string;
+  severity: string;
+}
+export interface SeasonCanonSummary {
+  locked: SeasonCanonMark[];
+  evolvable: SeasonCanonMark[];
+}
+
 export interface DriftReport {
   id: string;
   storylineId: string;

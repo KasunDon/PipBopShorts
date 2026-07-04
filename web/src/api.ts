@@ -33,6 +33,7 @@ import type {
   SceneDefaultsResult,
   SceneDialogue,
   ScenePatch,
+  SeasonCanonSummary,
   SoundPlan,
   Story,
   StoryAnalytics,
@@ -154,6 +155,8 @@ export const api = {
   getCanon: (storyId: string) => req<{ registry: CanonRegistry | null }>('GET', `/api/stories/${storyId}/canon`),
   canonChangelog: (storyId: string) =>
     req<{ changelog: CanonChangelogEntry[] }>('GET', `/api/stories/${storyId}/canon/changelog`),
+  seasonCanon: (storyId: string) =>
+    req<{ summary: SeasonCanonSummary }>('GET', `/api/stories/${storyId}/canon/season-summary`),
   canonDiff: (storyId: string, opts: { from?: number; to?: number } = {}) => {
     const params = new URLSearchParams();
     if (opts.from !== undefined) params.set('from', String(opts.from));

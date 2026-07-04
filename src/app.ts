@@ -27,6 +27,7 @@ import {
   diffCanonByVersion,
   extractCanon,
   patchMark,
+  seasonCanonSummary,
 } from './services/canon';
 import {
   approvePortrait,
@@ -613,6 +614,16 @@ export function createApp(deps: AppDeps): express.Express {
     asyncHandler((req, res) => {
       const registry = deps.store.getCanonRegistry(req.params.storyId);
       res.json({ registry });
+    }),
+  );
+
+  // Season-level canon: what must never change vs what may evolve.
+  app.get(
+    '/api/stories/:storyId/canon/season-summary',
+    asyncHandler((req, res) => {
+      const canon = currentCanonVersion(deps.store.getCanonRegistry(req.params.storyId));
+      if (!canon) throw new HttpError(400, 'No canon registry for this story.');
+      res.json({ summary: seasonCanonSummary(canon) });
     }),
   );
 

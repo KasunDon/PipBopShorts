@@ -186,9 +186,11 @@ Consistency by reference, not just by prompt:
   Structure picker on storyline generation injects a compact three-act arc
   directive (setup → escalation/turn → climax/resolution). Still to do: parallel
   threads (friendship/comedy runner) and per-act drift checks.
-- **Season arcs**: season-level canon (what may evolve across a season vs. never).
-  *Scheduled production runs shipped* — queue a full storyline render for a future
-  time; the server-side scheduler fires it into the JobRunner (survives restart).
+- **Season arcs**: *season-level canon shipped* — a "Season canon" view splits the
+  canon into what must **never change** (the locked spine) vs what **may evolve**
+  (strong/flexible). *Scheduled production runs shipped* — queue a full storyline
+  render for a future time; the server-side scheduler fires it into the JobRunner
+  (survives restart).
 - **Team workflow**: review/approve roles, ~~comments on scenes~~ (**shipped** —
   per-scene review notes with resolve/delete, never touching the render), audit
   log of canon changes (**shipped** — canon edits are versioned + `store`-audited).

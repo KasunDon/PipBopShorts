@@ -3,7 +3,16 @@ import { api } from './api';
 import { Field } from './App';
 import { IconCheck, IconEdit, IconWand } from './Icons';
 import { RuntimeSelect } from './SeasonPanel';
-import type { AppConfig, CanonChangelogEntry, CanonDiff, CanonRegistry, CanonVersion, Story, StoryMeta } from './types';
+import type {
+  AppConfig,
+  CanonChangelogEntry,
+  CanonDiff,
+  CanonRegistry,
+  CanonVersion,
+  SeasonCanonSummary,
+  Story,
+  StoryMeta,
+} from './types';
 
 type Run = <T>(fn: () => Promise<T>) => Promise<T | undefined>;
 
@@ -117,6 +126,7 @@ export function CanonSection({
   const [showHistory, setShowHistory] = useState(false);
   const [diff, setDiff] = useState<CanonDiff | null>(null);
   const [changelog, setChangelog] = useState<CanonChangelogEntry[] | null>(null);
+  const [season, setSeason] = useState<SeasonCanonSummary | null>(null);
 
   const reload = useCallback(async () => {
     const res = await run(() => api.getCanon(story.id));
@@ -203,6 +213,20 @@ export function CanonSection({
                 {changelog ? 'Hide changelog' : 'Full changelog'}
               </button>
             )}
+            <button
+              className="ghost"
+              title="What must never change vs what may evolve across the season"
+              onClick={async () => {
+                if (season) {
+                  setSeason(null);
+                  return;
+                }
+                const res = await run(() => api.seasonCanon(story.id));
+                if (res) setSeason(res.summary);
+              }}
+            >
+              {season ? 'Hide season canon' : 'Season canon'}
+            </button>
             {version.version > 1 && (
               <button
                 className="ghost"
@@ -220,6 +244,31 @@ export function CanonSection({
               </button>
             )}
           </div>
+
+          {season && (
+            <div className="canon-diff">
+              <p className="muted small">
+                <b>Never changes</b> — the immutable spine ({season.locked.length} locked marks)
+              </p>
+              <ul className="season-list">
+                {season.locked.map((m, i) => (
+                  <li key={`l-${i}`}>
+                    <span className="badge sev-locked">locked</span> <b>{m.entityName}</b> · {m.key}: {m.value}
+                  </li>
+                ))}
+              </ul>
+              <p className="muted small" style={{ marginTop: 8 }}>
+                <b>May evolve</b> across the season ({season.evolvable.length} marks)
+              </p>
+              <ul className="season-list">
+                {season.evolvable.map((m, i) => (
+                  <li key={`e-${i}`}>
+                    <span className={`badge sev-${m.severity}`}>{m.severity}</span> <b>{m.entityName}</b> · {m.key}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {changelog && (
             <div className="canon-diff">

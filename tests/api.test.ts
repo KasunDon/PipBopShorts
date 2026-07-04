@@ -338,6 +338,19 @@ describe('canon + drift over HTTP', () => {
     expect(res.body.qc.warnings + res.body.qc.failures + res.body.qc.passed).toBe(res.body.qc.checks.length);
   });
 
+  it('serves a season-level canon summary (locked vs evolvable)', async () => {
+    const { client: studioClaude } = makeStudioFakeClaude();
+    const { app } = makeApp({ claude: studioClaude });
+    const storyId = (
+      await request(app).post('/api/stories').send({ title: 'Season', bible: 'Bobo has a green scarf.' }).expect(201)
+    ).body.story.id;
+    await request(app).post(`/api/stories/${storyId}/canon/extract`).send({}).expect(201);
+    const res = await request(app).get(`/api/stories/${storyId}/canon/season-summary`).expect(200);
+    expect(res.body.summary.locked.length).toBeGreaterThan(0);
+    expect(res.body.summary.locked.every((m: { severity: string }) => m.severity === 'locked')).toBe(true);
+    expect(Array.isArray(res.body.summary.evolvable)).toBe(true);
+  });
+
   it('serves a season-wide canon changelog', async () => {
     const { client: studioClaude } = makeStudioFakeClaude();
     const { app } = makeApp({ claude: studioClaude });
