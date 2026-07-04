@@ -692,6 +692,7 @@ function StudioDashboard({ onOpenStory }: { onOpenStory: (id: string) => void })
 
 function InsightsTab({ storyId, run }: { storyId: string; run: Run }) {
   const [a, setA] = useState<StoryAnalytics | null>(null);
+  const [spendUsd, setSpendUsd] = useState<number | null>(null);
   const [insights, setInsights] = useState<PerformanceInsights | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
 
@@ -700,6 +701,9 @@ function InsightsTab({ storyId, run }: { storyId: string; run: Run }) {
     run(() => api.storyAnalytics(storyId)).then((res) => {
       if (live && res) setA(res.analytics);
     });
+    api.costReport({ storyId }).then((res) => {
+      if (live) setSpendUsd(res.report.totalUsd);
+    }).catch(() => {});
     return () => {
       live = false;
     };
@@ -778,6 +782,7 @@ function InsightsTab({ storyId, run }: { storyId: string; run: Run }) {
         {tile('Clips ready', `${a.clips.ready}/${a.clips.total}`, `${a.clips.approved} approved`)}
         {tile('Published', a.publishes)}
         {tile('Views', a.views.toLocaleString())}
+        {spendUsd != null && tile('Spend', `$${spendUsd.toFixed(2)}`, 'LLM + render (see Costs)')}
         {tile('Canon', `v${a.canon.versions}`, `${a.canon.entities} entities · ${a.canon.marks} marks (${a.canon.lockedMarks} locked)`)}
         {tile('Open drifts', a.drift.open, `${a.drift.resolved} resolved · ${a.drift.safety} safety`)}
         {tile('Drift rate', a.drift.driftRate, 'open findings ÷ scenes')}
