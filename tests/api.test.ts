@@ -168,6 +168,23 @@ describe('preview, validation, and cost endpoints', () => {
     expect(studio.body.analytics.views).toBe(12000);
   });
 
+  it('analyzes recorded performance into story-formula insights', async () => {
+    const { client: studioClaude } = makeStudioFakeClaude();
+    const { app } = makeApp({ claude: studioClaude });
+    const storyId = (await request(app).post('/api/stories').send({ title: 'Feedback', bible: '# Bible\nHero.' }).expect(201)).body.story.id;
+    const episodeId = (await request(app).post(`/api/stories/${storyId}/episodes`).send({ title: 'E', brief: 'x' }).expect(201)).body.episode.id;
+    const storylineId = (await request(app).post(`/api/episodes/${episodeId}/storylines`).send({}).expect(201)).body.project.storyline.id;
+
+    // No performance yet → 400.
+    await request(app).post(`/api/stories/${storyId}/performance-insights`).send({}).expect(400);
+
+    await request(app).patch(`/api/storylines/${storylineId}/performance`).send({ views: 5000, retentionPct: 55 }).expect(200);
+    const res = await request(app).post(`/api/stories/${storyId}/performance-insights`).send({}).expect(200);
+    expect(res.body.insights.findings.length).toBeGreaterThan(0);
+    expect(res.body.insights).toHaveProperty('recommendation');
+    expect(res.body.insights.sampleSize).toBe(1);
+  });
+
   it('serves per-story analytics', async () => {
     const { app } = makeApp();
     const storyId = (await request(app).post('/api/stories').send({ title: 'Metrics' }).expect(201)).body.story.id;

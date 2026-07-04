@@ -273,6 +273,7 @@ export function makeStudioFakeClaude(overrides?: {
   soundJson?: string;
   qcJson?: string;
   thumbsJson?: string;
+  insightsJson?: string;
 }): { client: AnthropicLike; calls: FakeClaudeCall[] } {
   return makeFakeClaude((params) => {
     const system = String(params.system ?? '');
@@ -313,6 +314,14 @@ export function makeStudioFakeClaude(overrides?: {
       text =
         overrides?.localizeJson ??
         JSON.stringify({ title: 'Título localizado', description: 'Descripción', tags: ['etiqueta'], hashtags: ['#Shorts'] });
+    } else if (system.includes('growth analyst reviewing')) {
+      text =
+        overrides?.insightsJson ??
+        JSON.stringify({
+          findings: ['Shorter, question-style titles pulled more views in this small sample.'],
+          recommendation: 'Lead episode titles with a curiosity hook.',
+          confidence: 'low',
+        });
     } else if (system.includes('thumbnail director')) {
       text =
         overrides?.thumbsJson ??

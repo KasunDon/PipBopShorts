@@ -41,6 +41,7 @@ import type {
   ReferenceReadiness,
   ReferenceReadinessItem,
   RenderPreset,
+  PerformanceInsights,
   RenderValidation,
   SceneDialogue,
   SoundPlan,
@@ -689,6 +690,8 @@ function StudioDashboard({ onOpenStory }: { onOpenStory: (id: string) => void })
 
 function InsightsTab({ storyId, run }: { storyId: string; run: Run }) {
   const [a, setA] = useState<StoryAnalytics | null>(null);
+  const [insights, setInsights] = useState<PerformanceInsights | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
 
   useEffect(() => {
     let live = true;
@@ -714,7 +717,40 @@ function InsightsTab({ storyId, run }: { storyId: string; run: Run }) {
     <section className="card">
       <div className="card-head">
         <h3>Production insights</h3>
+        <button
+          className="small"
+          disabled={analyzing}
+          title="Analyse recorded performance for what's working (feeds the story formula)"
+          onClick={async () => {
+            setAnalyzing(true);
+            try {
+              const res = await run(() => api.performanceInsights(storyId));
+              if (res) setInsights(res.insights);
+            } finally {
+              setAnalyzing(false);
+            }
+          }}
+        >
+          {analyzing ? 'Analysing…' : 'What’s working?'}
+        </button>
       </div>
+      {insights && (
+        <div className="perf-insights">
+          <p className="muted small">
+            Based on {insights.sampleSize} short(s) · confidence: {insights.confidence}
+          </p>
+          <ul className="check-list">
+            {insights.findings.map((f, i) => (
+              <li key={i} className="muted small">
+                {f}
+              </li>
+            ))}
+          </ul>
+          <p>
+            <b>Recommendation:</b> {insights.recommendation}
+          </p>
+        </div>
+      )}
       <div className="stat-grid">
         {tile('Episodes', a.episodes)}
         {tile('Storylines', a.storylines)}

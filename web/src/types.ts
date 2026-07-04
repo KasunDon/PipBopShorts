@@ -440,6 +440,13 @@ export interface PerformanceMetrics {
   recordedAt: string;
 }
 
+export interface PerformanceInsights {
+  findings: string[];
+  recommendation: string;
+  confidence: 'low' | 'medium' | 'high';
+  sampleSize: number;
+}
+
 export interface Project {
   storyline: Storyline;
   clips: Record<string, Clip>;

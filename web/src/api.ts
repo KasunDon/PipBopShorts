@@ -16,6 +16,7 @@ import type {
   EventStatus,
   PortraitVersion,
   Project,
+  PerformanceInsights,
   PerformanceMetrics,
   ProjectSummary,
   PublishSchedule,
@@ -72,6 +73,8 @@ export const api = {
     req<{ story: Story }>('POST', '/api/stories', data),
   getStory: (id: string) => req<{ story: Story; bible: string; episodes: Episode[] }>('GET', `/api/stories/${id}`),
   storyAnalytics: (id: string) => req<{ analytics: StoryAnalytics }>('GET', `/api/stories/${id}/analytics`),
+  performanceInsights: (id: string, opts: { model?: string } = {}) =>
+    req<{ insights: PerformanceInsights }>('POST', `/api/stories/${id}/performance-insights`, opts),
   updateStory: (id: string, patch: { title?: string; settingMode?: string; continuity?: string; meta?: Partial<StoryMeta> }) =>
     req<{ story: Story }>('PATCH', `/api/stories/${id}`, patch),
   deleteStory: (id: string) => req<void>('DELETE', `/api/stories/${id}`),

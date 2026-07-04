@@ -51,6 +51,7 @@ import { planStorylineSound } from './services/soundcues';
 import { suggestTitleVariants } from './services/titles';
 import { suggestThumbnailConcepts } from './services/thumbnails';
 import { suggestEpisodeIdeas } from './services/ideas';
+import { analyzePerformance } from './services/insights';
 import { patchScene } from './services/patch';
 import { checkDrift, resolveDrift } from './services/drift';
 import { JobRunner } from './services/jobs';
@@ -438,6 +439,16 @@ export function createApp(deps: AppDeps): express.Express {
     '/api/stories/:storyId/bible',
     asyncHandler((req, res) => {
       res.json({ markdown: deps.store.getBible(req.params.storyId) });
+    }),
+  );
+
+  // Feed recorded performance back into the story formula (LLM analysis).
+  app.post(
+    '/api/stories/:storyId/performance-insights',
+    asyncHandler(async (req, res) => {
+      const { model, effort } = req.body ?? {};
+      const insights = await analyzePerformance(deps.store, deps.claude, req.params.storyId, { model, effort });
+      res.json({ insights });
     }),
   );
 
