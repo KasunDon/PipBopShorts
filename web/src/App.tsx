@@ -43,6 +43,7 @@ import type {
   RenderPreset,
   RenderValidation,
   SceneDialogue,
+  SoundPlan,
   Story,
   TitleVariant,
   StoryAnalytics,
@@ -1428,6 +1429,8 @@ function ProjectPanel({
   const [autofix, setAutofix] = useState<AutofixResult | null>(null);
   const [dialogue, setDialogue] = useState<SceneDialogue[] | null>(null);
   const [planningDialogue, setPlanningDialogue] = useState(false);
+  const [sound, setSound] = useState<SoundPlan | null>(null);
+  const [planningSound, setPlanningSound] = useState(false);
   const [readiness, setReadiness] = useState<ReferenceReadiness | null>(null);
   const [gateOpen, setGateOpen] = useState(false);
   const [globalAspect, setGlobalAspect] = useState(scenes[0]?.aspectRatio ?? config.pixverse.aspectRatios[0]);
@@ -1590,6 +1593,21 @@ function ProjectPanel({
             }}
           >
             <IconDoc /> {planningDialogue ? 'Writing…' : 'Dialogue & captions'}
+          </button>
+          <button
+            disabled={planningSound}
+            title="Draft an overall music direction and per-scene sound-effect cues"
+            onClick={async () => {
+              setPlanningSound(true);
+              try {
+                const res = await run(() => api.planSound(storylineId));
+                if (res) setSound(res.plan);
+              } finally {
+                setPlanningSound(false);
+              }
+            }}
+          >
+            <IconDoc /> {planningSound ? 'Scoring…' : 'Music & SFX'}
           </button>
           <button
             className="primary"
@@ -1793,6 +1811,27 @@ function ProjectPanel({
                       {l.speaker}: {l.text}
                     </span>
                   ))}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {sound && (
+          <div className="dialogue-plan">
+            <div className="card-head">
+              <span className="muted small">Music & sound design</span>
+              <button className="ghost small" onClick={() => setSound(null)} aria-label="Dismiss">
+                <IconX />
+              </button>
+            </div>
+            <p className="dialogue-caption">Music: {sound.music}</p>
+            <ul className="dialogue-list">
+              {sound.scenes.map((s) => (
+                <li key={s.sceneId}>
+                  <b>Scene {s.sceneNumber}</b>
+                  {s.sfx.length > 0 && <span className="muted small">SFX: {s.sfx.join(', ')}</span>}
+                  {s.motif && <span className="muted small dialogue-line">Motif: {s.motif}</span>}
                 </li>
               ))}
             </ul>

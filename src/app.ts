@@ -44,6 +44,7 @@ import { buildShotManifest } from './services/manifest';
 import { addSceneComment, deleteSceneComment, setSceneCommentResolved } from './services/comments';
 import { planStorylineDialogue } from './services/dialogue';
 import { localizeYoutubeMeta } from './services/localize';
+import { planStorylineSound } from './services/soundcues';
 import { suggestTitleVariants } from './services/titles';
 import { suggestEpisodeIdeas } from './services/ideas';
 import { patchScene } from './services/patch';
@@ -920,6 +921,16 @@ export function createApp(deps: AppDeps): express.Express {
     asyncHandler(async (req, res) => {
       const { model, effort } = req.body ?? {};
       const plan = await planStorylineDialogue(deps.store, deps.claude, req.params.storylineId, { model, effort });
+      res.json({ plan });
+    }),
+  );
+
+  // Per-scene SFX cues + overall music direction (planning aid).
+  app.post(
+    '/api/storylines/:storylineId/sound-plan',
+    asyncHandler(async (req, res) => {
+      const { model, effort } = req.body ?? {};
+      const plan = await planStorylineSound(deps.store, deps.claude, req.params.storylineId, { model, effort });
       res.json({ plan });
     }),
   );

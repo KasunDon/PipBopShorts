@@ -53,6 +53,18 @@ export interface SceneDialogue {
   lines: Array<{ speaker: string; text: string }>;
 }
 
+export interface SceneSound {
+  sceneId: string;
+  sceneNumber: number;
+  heading: string;
+  sfx: string[];
+  motif: string;
+}
+export interface SoundPlan {
+  music: string;
+  scenes: SceneSound[];
+}
+
 export interface StoryAnalytics {
   storyId: string;
   episodes: number;

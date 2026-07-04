@@ -673,6 +673,16 @@ describe('CTA endpoint coverage', () => {
     expect(res.body.plan[0]).toHaveProperty('sceneId');
   });
 
+  it('plans music direction and per-scene SFX cues', async () => {
+    const { client: studioClaude } = makeStudioFakeClaude();
+    const { app } = makeApp({ claude: studioClaude });
+    const { storylineId } = await scaffold(app);
+    const res = await request(app).post(`/api/storylines/${storylineId}/sound-plan`).send({}).expect(200);
+    expect(res.body.plan.music).toBeTruthy();
+    expect(res.body.plan.scenes.length).toBeGreaterThan(0);
+    expect(Array.isArray(res.body.plan.scenes[0].sfx)).toBe(true);
+  });
+
   it('downloads a shot manifest for a storyline', async () => {
     const { app } = makeApp();
     const { storylineId, scenes } = await scaffold(app);

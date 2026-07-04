@@ -270,6 +270,7 @@ export function makeStudioFakeClaude(overrides?: {
   dialogueJson?: string;
   localizeJson?: string;
   titlesJson?: string;
+  soundJson?: string;
 }): { client: AnthropicLike; calls: FakeClaudeCall[] } {
   return makeFakeClaude((params) => {
     const system = String(params.system ?? '');
@@ -288,6 +289,16 @@ export function makeStudioFakeClaude(overrides?: {
       text = overrides?.beatSheetJson ?? sampleBeatSheetJson();
     } else if (system.includes('dialogue and caption writer')) {
       text = overrides?.dialogueJson ?? sampleDialogueJson();
+    } else if (system.includes('sound designer planning music')) {
+      text =
+        overrides?.soundJson ??
+        JSON.stringify({
+          music: 'Bouncy ukulele, bright and playful, ~110bpm',
+          scenes: [
+            { scene_number: 1, sfx: ['leaf rustle', 'soft boing'], motif: 'Bobo: cheerful whistle' },
+            { scene_number: 2, sfx: ['whoosh'], motif: '' },
+          ],
+        });
     } else if (system.includes('localize a YouTube')) {
       text =
         overrides?.localizeJson ??
