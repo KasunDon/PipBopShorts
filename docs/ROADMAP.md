@@ -179,8 +179,10 @@ Consistency by reference, not just by prompt:
   (safety findings / open drifts) first with jump-to links. **Shared cross-IP
   style presets** are also shipped — save a named set of render defaults once and
   load/apply it to any storyline's scenes. Still to do: trend charts over time.
-- **Longer formats**: 3-act structure support (primary thread + friendship thread + comedy
-  runner), scene-count scaling, per-act drift checks.
+- **Longer formats**: *three-act structure + scene-count scaling shipped* — a
+  Structure picker on storyline generation injects a compact three-act arc
+  directive (setup → escalation/turn → climax/resolution). Still to do: parallel
+  threads (friendship/comedy runner) and per-act drift checks.
 - **Season arcs**: season-level canon (what may evolve across a season vs. never),
   scheduled production runs.
 - **Team workflow**: review/approve roles, ~~comments on scenes~~ (**shipped** —

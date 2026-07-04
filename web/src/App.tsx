@@ -1082,6 +1082,7 @@ function EpisodePanel({
   const [model, setModel] = useState('claude-opus-4-8');
   const [effort, setEffort] = useState('high');
   const [sceneCount, setSceneCount] = useState(5);
+  const [structure, setStructure] = useState<'single' | 'three-act'>('single');
   const [guidance, setGuidance] = useState('');
   const [beats, setBeats] = useState<Beat[] | null>(null);
   const [beating, setBeating] = useState(false);
@@ -1258,6 +1259,12 @@ function EpisodePanel({
           <Field label="Scenes (target)">
             <input type="number" min={2} max={12} value={sceneCount} onChange={(e) => setSceneCount(Number(e.target.value))} />
           </Field>
+          <Field label="Structure">
+            <select value={structure} onChange={(e) => setStructure(e.target.value as 'single' | 'three-act')}>
+              <option value="single">Single thread</option>
+              <option value="three-act">Three-act arc</option>
+            </select>
+          </Field>
           <Field label="Aspect ratio">
             <select value={aspectRatio} onChange={(e) => setAspectRatio(e.target.value)}>
               {config.pixverse.aspectRatios.map((a) => (
@@ -1337,6 +1344,7 @@ function EpisodePanel({
                   model,
                   effort: modelInfo?.supportsEffort ? effort : undefined,
                   sceneCount,
+                  structure,
                   guidance,
                   aspectRatio,
                   quality,

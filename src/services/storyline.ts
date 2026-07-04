@@ -20,6 +20,7 @@ export interface CreateStorylineOptions {
   quality?: StorylineInput['quality'];
   duration?: StorylineInput['duration'];
   motionMode?: StorylineInput['motionMode'];
+  structure?: StorylineInput['structure'];
 }
 
 function idleClip(sceneId: string): Clip {
@@ -99,6 +100,7 @@ export async function createStorylineProject(
     effort: options.effort,
     sceneCount: options.sceneCount,
     guidance: options.guidance,
+    structure: options.structure,
     aspectRatio: options.aspectRatio ?? SHORT_DEFAULTS.aspectRatio,
     pixverseModel: options.pixverseModel,
     quality: options.quality,

@@ -162,6 +162,8 @@ export interface StorylineInput {
   motionMode?: PixverseMotionMode;
   /** Additional free-form guidance from the user. */
   guidance?: string;
+  /** Narrative structure to shape the shot list; 'three-act' for longer formats. */
+  structure?: 'single' | 'three-act';
 }
 
 export interface GeneratedStoryline {
@@ -306,6 +308,12 @@ function buildUserPrompt(input: StorylineInput): string {
   parts.push(`- Default per-scene duration (seconds): ${input.duration ?? SHORT_DEFAULTS.duration}`);
   parts.push(`- Default motion mode: ${input.motionMode ?? SHORT_DEFAULTS.motionMode}`);
   if (input.sceneCount) parts.push(`- Target scene count: about ${input.sceneCount}`);
+  if (input.structure === 'three-act') {
+    parts.push('\n# Narrative structure');
+    parts.push(
+      '- Shape the shot list as a compact THREE-ACT arc: Act 1 establishes the world, character, and goal; Act 2 escalates complications to a clear midpoint turn; Act 3 delivers the climax and a satisfying resolution. Keep it tight for short-form and make the act transitions legible in the scene beats.',
+    );
+  }
   if (input.guidance && input.guidance.trim()) {
     parts.push('\n# Extra guidance');
     parts.push(input.guidance.trim());
