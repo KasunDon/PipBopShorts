@@ -174,9 +174,11 @@ Consistency by reference, not just by prompt:
   subtitles above.)
 - **Assembly**: *stitch + crossfade transitions + burned captions shipped* —
   server-side concat with optional xfade crossfades and burned-in `.srt` captions
-  on publish. Still to do: title/end cards (bundled ffmpeg lacks `drawtext`, so
-  this needs a text-capable ffmpeg or an image-composited card), safe-area checks,
-  and a per-scene retry queue with cost tracking.
+  (bold, outlined, bottom safe-area placement via libass `force_style`) on publish.
+  A **Shorts-format (9:16) safe-area check** is in the readiness checklist. Still
+  to do: title/end cards (bundled ffmpeg lacks `drawtext`, so this needs a
+  text-capable ffmpeg or an image-composited card) and a per-scene retry queue
+  with cost tracking.
 - ~~**Series planning**: episode idea backlog~~ — **shipped**: "Suggest ideas"
   brainstorms distinct future-episode concepts (title + hook + synopsis) grounded
   in the bible, canon, tone/audience, and existing episodes (no repeats); each

@@ -76,7 +76,20 @@ export function productionReadiness(store: Store, storylineId: string): Producti
     detail: hasTitle ? 'Title set.' : 'No YouTube title yet.',
   });
 
-  // 6. Editorial review sign-off.
+  // 6. Shorts format — vertical aspect keeps captions/subjects in the safe area.
+  const vertical = scenes.filter((s) => s.aspectRatio === '9:16').length;
+  checks.push({
+    label: 'Shorts format (9:16)',
+    status: scenes.length === 0 ? 'warn' : vertical === scenes.length ? 'ok' : 'warn',
+    detail:
+      scenes.length === 0
+        ? 'No scenes.'
+        : vertical === scenes.length
+          ? 'All scenes are vertical.'
+          : `${scenes.length - vertical} scene(s) not 9:16 — may crop on Shorts.`,
+  });
+
+  // 7. Editorial review sign-off.
   const review = project.storyline.reviewStatus ?? 'draft';
   checks.push({
     label: 'Editorial review',

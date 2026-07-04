@@ -104,9 +104,11 @@ export async function stitchClips(
     const srtPath = path.join(dir, 'subs.srt');
     writeFileSync(srtPath, srt, 'utf8');
     const outPath = path.join(dir, 'out.mp4');
+    // Bold, outlined, bottom-centred within the safe area — readable with sound off.
+    const style = 'FontSize=18\\,Outline=2\\,Shadow=0\\,Alignment=2\\,MarginV=40';
     const burn = spawnSync(
       FFMPEG_BIN,
-      ['-y', '-i', concatPath, '-vf', `subtitles=${srtPath}`, '-c:a', 'copy', outPath],
+      ['-y', '-i', concatPath, '-vf', `subtitles=${srtPath}:force_style=${style}`, '-c:a', 'copy', outPath],
       { stdio: 'ignore' },
     );
     // If burning fails, fall back to the un-captioned concat rather than failing.
