@@ -22,6 +22,7 @@ import { bootstrapStory, draftEpisode } from './services/bootstrap';
 import {
   DEFAULT_DISSECT_MODEL,
   DISSECT_MODELS,
+  canonChangelog,
   currentCanonVersion,
   diffCanonByVersion,
   extractCanon,
@@ -612,6 +613,16 @@ export function createApp(deps: AppDeps): express.Express {
     asyncHandler((req, res) => {
       const registry = deps.store.getCanonRegistry(req.params.storyId);
       res.json({ registry });
+    }),
+  );
+
+  // Season-wide canon changelog (every version's diff from the prior one).
+  app.get(
+    '/api/stories/:storyId/canon/changelog',
+    asyncHandler((req, res) => {
+      const registry = deps.store.getCanonRegistry(req.params.storyId);
+      if (!registry) throw new HttpError(400, 'No canon registry for this story.');
+      res.json({ changelog: canonChangelog(registry) });
     }),
   );
 

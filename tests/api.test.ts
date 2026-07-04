@@ -338,6 +338,27 @@ describe('canon + drift over HTTP', () => {
     expect(res.body.qc.warnings + res.body.qc.failures + res.body.qc.passed).toBe(res.body.qc.checks.length);
   });
 
+  it('serves a season-wide canon changelog', async () => {
+    const { client: studioClaude } = makeStudioFakeClaude();
+    const { app } = makeApp({ claude: studioClaude });
+    const storyId = (
+      await request(app).post('/api/stories').send({ title: 'Log', bible: 'Bobo has a green scarf.' }).expect(201)
+    ).body.story.id;
+    await request(app).post(`/api/stories/${storyId}/canon/extract`).send({}).expect(201);
+    const boboId = (await request(app).get(`/api/stories/${storyId}/canon`).expect(200)).body.registry.versions[0].entities.find(
+      (e: { name: string }) => e.name === 'Bobo',
+    ).id;
+    await request(app)
+      .patch(`/api/stories/${storyId}/canon/entities/${boboId}/marks/scarf`)
+      .send({ value: 'red scarf' })
+      .expect(200);
+
+    const res = await request(app).get(`/api/stories/${storyId}/canon/changelog`).expect(200);
+    expect(res.body.changelog).toHaveLength(1); // v1 → v2
+    expect(res.body.changelog[0].version).toBe(2);
+    expect(res.body.changelog[0].diff.changes.find((c: { markKey: string }) => c.markKey === 'scarf')).toBeTruthy();
+  });
+
   it('rejects an invalid drift resolution action', async () => {
     const { client: studioClaude } = makeStudioFakeClaude();
     const { app } = makeApp({ claude: studioClaude });

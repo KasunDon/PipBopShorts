@@ -203,7 +203,9 @@ Consistency by reference, not just by prompt:
   restart). **A/B thumbnail concepts** are also shipped — overlay text + framing +
   which scene to freeze, per concept. **Performance recording** is also shipped —
   log real views/retention/likes per short; views roll up into the per-story and
-  studio analytics. Still open: automatic analytics sync + feeding performance
+  studio analytics. A **season-wide canon changelog** (every version's diff from
+  the prior one) gives the audit-log-of-canon-changes view. Still open: automatic
+  analytics sync + feeding performance
   back into the story formula, rendering the actual thumbnail images, and
   dubbed/translated video variants with canon-consistent visuals.
 

@@ -251,6 +251,14 @@ export interface CanonDiff {
   identical: boolean;
 }
 
+export interface CanonChangelogEntry {
+  version: number;
+  source: string;
+  note: string;
+  createdAt: string;
+  diff: CanonDiff;
+}
+
 export interface DriftReport {
   id: string;
   storylineId: string;

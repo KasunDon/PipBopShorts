@@ -3,7 +3,7 @@ import { api } from './api';
 import { Field } from './App';
 import { IconCheck, IconEdit, IconWand } from './Icons';
 import { RuntimeSelect } from './SeasonPanel';
-import type { AppConfig, CanonDiff, CanonRegistry, CanonVersion, Story, StoryMeta } from './types';
+import type { AppConfig, CanonChangelogEntry, CanonDiff, CanonRegistry, CanonVersion, Story, StoryMeta } from './types';
 
 type Run = <T>(fn: () => Promise<T>) => Promise<T | undefined>;
 
@@ -116,6 +116,7 @@ export function CanonSection({
   const [viewVersion, setViewVersion] = useState<number | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [diff, setDiff] = useState<CanonDiff | null>(null);
+  const [changelog, setChangelog] = useState<CanonChangelogEntry[] | null>(null);
 
   const reload = useCallback(async () => {
     const res = await run(() => api.getCanon(story.id));
@@ -187,6 +188,21 @@ export function CanonSection({
             <button className="ghost" onClick={() => setShowHistory((s) => !s)}>
               {showHistory ? 'Hide history' : `History (${registry.versions.length})`}
             </button>
+            {registry.versions.length > 1 && (
+              <button
+                className="ghost"
+                onClick={async () => {
+                  if (changelog) {
+                    setChangelog(null);
+                    return;
+                  }
+                  const res = await run(() => api.canonChangelog(story.id));
+                  if (res) setChangelog(res.changelog);
+                }}
+              >
+                {changelog ? 'Hide changelog' : 'Full changelog'}
+              </button>
+            )}
             {version.version > 1 && (
               <button
                 className="ghost"
@@ -204,6 +220,42 @@ export function CanonSection({
               </button>
             )}
           </div>
+
+          {changelog && (
+            <div className="canon-diff">
+              <p className="muted small">Season-wide canon changelog ({changelog.length} versions)</p>
+              {changelog.map((entry) => (
+                <div key={entry.version} className="changelog-entry">
+                  <p className="small">
+                    <b>v{entry.version}</b> <span className={`badge src-${entry.source}`}>{entry.source}</span> {entry.note}
+                  </p>
+                  {entry.diff.entitiesAdded.map((e) => (
+                    <div key={`a-${e.id}`} className="diff-row diff-added">
+                      <span className="diff-tag">added entity</span>
+                      <b>{e.name}</b>
+                    </div>
+                  ))}
+                  {entry.diff.entitiesRemoved.map((e) => (
+                    <div key={`r-${e.id}`} className="diff-row diff-removed">
+                      <span className="diff-tag">removed entity</span>
+                      <b>{e.name}</b>
+                    </div>
+                  ))}
+                  {entry.diff.changes.map((c, i) => (
+                    <div key={i} className={`diff-row diff-${c.kind}`}>
+                      <span className="diff-tag">{c.kind}</span>
+                      <b>{c.entityName}</b> · {c.markKey}
+                      {c.before && c.after && (
+                        <span className="diff-val">
+                          <span className="diff-strike">{c.before}</span> → {c.after}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
 
           {diff && diff.to === version.version && (
             <div className="canon-diff">

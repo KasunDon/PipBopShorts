@@ -368,6 +368,32 @@ export function diffCanonVersions(from: CanonVersion, to: CanonVersion): CanonDi
   };
 }
 
+export interface CanonChangelogEntry {
+  version: number;
+  source: string;
+  note: string;
+  createdAt: string;
+  diff: CanonDiff;
+}
+
+/** A season-wide changelog: the diff from each version to the next, newest first. */
+export function canonChangelog(registry: CanonRegistry): CanonChangelogEntry[] {
+  const versions = [...registry.versions].sort((a, b) => a.version - b.version);
+  const entries: CanonChangelogEntry[] = [];
+  for (let i = 1; i < versions.length; i += 1) {
+    const prev = versions[i - 1];
+    const cur = versions[i];
+    entries.push({
+      version: cur.version,
+      source: cur.source,
+      note: cur.note,
+      createdAt: cur.createdAt,
+      diff: diffCanonVersions(prev, cur),
+    });
+  }
+  return entries.reverse();
+}
+
 /** Diff two versions of a story's canon by version number. */
 export function diffCanonByVersion(registry: CanonRegistry, from: number, to: number): CanonDiff {
   const a = registry.versions.find((v) => v.version === from);

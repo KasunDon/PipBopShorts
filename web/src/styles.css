@@ -1472,6 +1472,11 @@ textarea:disabled {
   text-decoration: line-through;
   color: var(--text-3);
 }
+.changelog-entry {
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed var(--border);
+}
 
 /* Rendered markdown --------------------------------------------------------------------- */
 
