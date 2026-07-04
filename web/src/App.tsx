@@ -364,6 +364,10 @@ function Sidebar({
 }) {
   const [title, setTitle] = useState('');
   const [mode, setMode] = useState('shared');
+  const [query, setQuery] = useState('');
+  const filtered = query.trim()
+    ? stories.filter((s) => s.title.toLowerCase().includes(query.trim().toLowerCase()))
+    : stories;
   return (
     <aside className="sidebar">
       <div className="brand">
@@ -384,8 +388,17 @@ function Sidebar({
         <div className="nav-label">Stories</div>
       </nav>
 
+      {stories.length > 6 && (
+        <input
+          className="story-search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Filter stories…"
+          aria-label="Filter stories"
+        />
+      )}
       <ul className="story-list">
-        {stories.map((s) => (
+        {filtered.map((s) => (
           <li key={s.id}>
             <button className={s.id === activeStoryId ? 'active' : ''} onClick={() => onSelect(s.id)}>
               <span className="story-title">{s.title}</span>
@@ -394,6 +407,7 @@ function Sidebar({
           </li>
         ))}
         {stories.length === 0 && <li className="empty">No stories yet — start from an idea on Home.</li>}
+        {stories.length > 0 && filtered.length === 0 && <li className="empty">No stories match “{query}”.</li>}
       </ul>
 
       <div className="sidebar-foot">
