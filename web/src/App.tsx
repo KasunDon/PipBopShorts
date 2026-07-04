@@ -2173,6 +2173,8 @@ function YoutubeEditor({
   const [description, setDescription] = useState(yt.description);
   const [tags, setTags] = useState(yt.tags.join(', '));
   const [hashtags, setHashtags] = useState(yt.hashtags.join(' '));
+  const [language, setLanguage] = useState('Spanish');
+  const [localizing, setLocalizing] = useState(false);
 
   useEffect(() => {
     setTitle(yt.title);
@@ -2212,6 +2214,35 @@ function YoutubeEditor({
           }}
         >
           Save metadata
+        </button>
+        <span className="global-sep" />
+        <input
+          className="lang-input"
+          value={language}
+          onChange={(e) => setLanguage(e.target.value)}
+          placeholder="Language"
+          title="Target language for localization"
+        />
+        <button
+          className="ghost"
+          disabled={localizing || !language.trim()}
+          title="Translate the title, description, tags and hashtags into this language (preview into the fields)"
+          onClick={async () => {
+            setLocalizing(true);
+            try {
+              const res = await run(() => api.localizeYoutube(storylineId, language.trim()));
+              if (res) {
+                setTitle(res.youtube.title);
+                setDescription(res.youtube.description);
+                setTags(res.youtube.tags.join(', '));
+                setHashtags(res.youtube.hashtags.join(' '));
+              }
+            } finally {
+              setLocalizing(false);
+            }
+          }}
+        >
+          {localizing ? 'Localizing…' : 'Localize'}
         </button>
       </div>
     </div>

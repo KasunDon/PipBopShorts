@@ -631,6 +631,25 @@ describe('CTA endpoint coverage', () => {
     expect(extended.body.clip.status).toBe('ready');
   });
 
+  it('localizes YouTube metadata into another language', async () => {
+    const { client: studioClaude } = makeStudioFakeClaude();
+    const { app } = makeApp({ claude: studioClaude });
+    const { storylineId } = await scaffold(app);
+    const res = await request(app)
+      .post(`/api/storylines/${storylineId}/youtube/localize`)
+      .send({ language: 'Spanish' })
+      .expect(200);
+    expect(res.body.youtube.title).toBe('Título localizado');
+    expect(Array.isArray(res.body.youtube.tags)).toBe(true);
+  });
+
+  it('400s localization without a language', async () => {
+    const { client: studioClaude } = makeStudioFakeClaude();
+    const { app } = makeApp({ claude: studioClaude });
+    const { storylineId } = await scaffold(app);
+    await request(app).post(`/api/storylines/${storylineId}/youtube/localize`).send({}).expect(400);
+  });
+
   it('plans dialogue and captions for a storyline', async () => {
     const { client: studioClaude } = makeStudioFakeClaude();
     const { app } = makeApp({ claude: studioClaude });

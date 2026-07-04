@@ -188,8 +188,11 @@ Consistency by reference, not just by prompt:
 
 ## Phase 5 — Distribution intelligence
 
-- Publish scheduling, A/B titles/thumbnails, retention analytics fed back into the story
-  formula, localization (dubbed/translated variants with canon-consistent visuals).
+- *Localization (metadata) shipped* — one-click translate a Short's title,
+  description, tags and hashtags into any target language (preview into the
+  editor before saving). Still open: publish scheduling, A/B titles/thumbnails,
+  retention analytics fed back into the story formula, and dubbed/translated
+  video variants with canon-consistent visuals.
 
 ---
 

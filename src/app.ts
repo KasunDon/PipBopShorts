@@ -43,6 +43,7 @@ import { generateBeatSheet } from './services/beatsheet';
 import { buildShotManifest } from './services/manifest';
 import { addSceneComment, deleteSceneComment, setSceneCommentResolved } from './services/comments';
 import { planStorylineDialogue } from './services/dialogue';
+import { localizeYoutubeMeta } from './services/localize';
 import { suggestEpisodeIdeas } from './services/ideas';
 import { patchScene } from './services/patch';
 import { checkDrift, resolveDrift } from './services/drift';
@@ -1112,6 +1113,22 @@ export function createApp(deps: AppDeps): express.Express {
         after: project.storyline.scenes.map((s) => s.id),
       });
       res.json({ project });
+    }),
+  );
+
+  // Localize the YouTube metadata into another language (returns a preview; not persisted).
+  app.post(
+    '/api/storylines/:storylineId/youtube/localize',
+    asyncHandler(async (req, res) => {
+      const { language, model, effort } = req.body ?? {};
+      const youtube = await localizeYoutubeMeta(
+        deps.store,
+        deps.claude,
+        req.params.storylineId,
+        typeof language === 'string' ? language : '',
+        { model, effort },
+      );
+      res.json({ youtube });
     }),
   );
 

@@ -268,6 +268,7 @@ export function makeStudioFakeClaude(overrides?: {
   ideasJson?: string;
   beatSheetJson?: string;
   dialogueJson?: string;
+  localizeJson?: string;
 }): { client: AnthropicLike; calls: FakeClaudeCall[] } {
   return makeFakeClaude((params) => {
     const system = String(params.system ?? '');
@@ -286,6 +287,10 @@ export function makeStudioFakeClaude(overrides?: {
       text = overrides?.beatSheetJson ?? sampleBeatSheetJson();
     } else if (system.includes('dialogue and caption writer')) {
       text = overrides?.dialogueJson ?? sampleDialogueJson();
+    } else if (system.includes('localize a YouTube')) {
+      text =
+        overrides?.localizeJson ??
+        JSON.stringify({ title: 'Título localizado', description: 'Descripción', tags: ['etiqueta'], hashtags: ['#Shorts'] });
     } else if (system.includes('head of story development')) {
       text = overrides?.bootstrapJson ?? sampleBootstrapJson();
     } else if (system.includes('season architect')) {

@@ -107,6 +107,8 @@ export const api = {
     req<{ project: Project }>('POST', `/api/storylines/${storylineId}/reorder`, { orderedIds }),
   updateYoutube: (storylineId: string, patch: Partial<YoutubeMeta>) =>
     req<{ project: Project }>('PATCH', `/api/storylines/${storylineId}/youtube`, patch),
+  localizeYoutube: (storylineId: string, language: string, opts: { model?: string } = {}) =>
+    req<{ youtube: YoutubeMeta }>('POST', `/api/storylines/${storylineId}/youtube/localize`, { language, ...opts }),
 
   generateScene: (storylineId: string, sceneId: string, wait = true) =>
     req<{ clip: Clip }>('POST', `/api/storylines/${storylineId}/scenes/${sceneId}/generate`, { wait }),

@@ -1201,6 +1201,10 @@ textarea:disabled {
   background: var(--surface-3);
 }
 
+.lang-input {
+  width: 120px;
+}
+
 /* Dialogue & caption plan */
 .dialogue-plan {
   margin-top: 12px;
