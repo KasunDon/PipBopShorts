@@ -37,6 +37,7 @@ export function SceneCard({
   setProject,
   run,
   onMove,
+  costEstimate = null,
   references = [],
 }: {
   index: number;
@@ -48,6 +49,7 @@ export function SceneCard({
   setProject: (p: Project) => void;
   run: Run;
   onMove?: (dir: -1 | 1) => void;
+  costEstimate?: { estUsd: number; estCredits: number } | null;
   references?: ReferenceReadinessItem[];
 }) {
   const [draft, setDraft] = useState<Scene>(scene);
@@ -135,6 +137,11 @@ export function SceneCard({
           </div>
         )}
         <input className="scene-heading" value={draft.heading} onChange={(e) => update('heading', e.target.value)} />
+        {costEstimate && (
+          <span className="scene-cost muted small" title="Estimated render cost for this scene">
+            ~${costEstimate.estUsd.toFixed(2)} · {costEstimate.estCredits} cr
+          </span>
+        )}
         <span className={`status status-${status}`}>{STATUS_LABELS[status]}</span>
       </div>
 

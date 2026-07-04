@@ -2091,6 +2091,7 @@ function ProjectPanel({
             storylineId={storylineId}
             setProject={setProject}
             run={run}
+            costEstimate={validation?.scenes.find((s) => s.sceneId === scene.id) ?? null}
             onMove={async (dir) => {
               const ids = scenes.map((s) => s.id);
               const from = i;
