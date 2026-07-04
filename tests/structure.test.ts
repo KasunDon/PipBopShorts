@@ -23,6 +23,18 @@ describe('storyline narrative structure', () => {
     expect(userMsg).toContain('THREE-ACT');
   });
 
+  it('injects a parallel-threads directive when requested', async () => {
+    const { store, cleanup } = makeStore();
+    cleanups.push(cleanup);
+    const story = store.createStory({ title: 'Weave', bible: '# Bible\nHero and a friend.' });
+    const episode = store.createEpisode(story.id, { title: 'E1', brief: 'x' });
+    const { client, calls } = makeFakeClaude();
+    await createStorylineProject(store, client, story.id, episode.id, { structure: 'parallel' });
+    const gen = calls.find((c) => Array.isArray(c.params.messages));
+    const userMsg = String((gen!.params.messages as Array<{ content: string }>)[0].content);
+    expect(userMsg).toContain('PARALLEL THREADS');
+  });
+
   it('omits the directive for a single-thread storyline', async () => {
     const { store, cleanup } = makeStore();
     cleanups.push(cleanup);

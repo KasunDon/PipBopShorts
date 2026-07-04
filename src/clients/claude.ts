@@ -162,8 +162,8 @@ export interface StorylineInput {
   motionMode?: PixverseMotionMode;
   /** Additional free-form guidance from the user. */
   guidance?: string;
-  /** Narrative structure to shape the shot list; 'three-act' for longer formats. */
-  structure?: 'single' | 'three-act';
+  /** Narrative structure to shape the shot list; 'three-act'/'parallel' for longer formats. */
+  structure?: 'single' | 'three-act' | 'parallel';
 }
 
 export interface GeneratedStoryline {
@@ -312,6 +312,11 @@ function buildUserPrompt(input: StorylineInput): string {
     parts.push('\n# Narrative structure');
     parts.push(
       '- Shape the shot list as a compact THREE-ACT arc: Act 1 establishes the world, character, and goal; Act 2 escalates complications to a clear midpoint turn; Act 3 delivers the climax and a satisfying resolution. Keep it tight for short-form and make the act transitions legible in the scene beats.',
+    );
+  } else if (input.structure === 'parallel') {
+    parts.push('\n# Narrative structure');
+    parts.push(
+      '- Weave TWO PARALLEL THREADS that converge: a primary goal thread and a lighter friendship/comedy runner. Alternate or interleave their beats so both pay off together at the end. Keep each beat clear despite the intercutting, and stay tight for short-form.',
     );
   }
   if (input.guidance && input.guidance.trim()) {

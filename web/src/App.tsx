@@ -1082,7 +1082,7 @@ function EpisodePanel({
   const [model, setModel] = useState('claude-opus-4-8');
   const [effort, setEffort] = useState('high');
   const [sceneCount, setSceneCount] = useState(5);
-  const [structure, setStructure] = useState<'single' | 'three-act'>('single');
+  const [structure, setStructure] = useState<'single' | 'three-act' | 'parallel'>('single');
   const [guidance, setGuidance] = useState('');
   const [beats, setBeats] = useState<Beat[] | null>(null);
   const [beating, setBeating] = useState(false);
@@ -1260,9 +1260,10 @@ function EpisodePanel({
             <input type="number" min={2} max={12} value={sceneCount} onChange={(e) => setSceneCount(Number(e.target.value))} />
           </Field>
           <Field label="Structure">
-            <select value={structure} onChange={(e) => setStructure(e.target.value as 'single' | 'three-act')}>
+            <select value={structure} onChange={(e) => setStructure(e.target.value as 'single' | 'three-act' | 'parallel')}>
               <option value="single">Single thread</option>
               <option value="three-act">Three-act arc</option>
+              <option value="parallel">Parallel threads</option>
             </select>
           </Field>
           <Field label="Aspect ratio">
