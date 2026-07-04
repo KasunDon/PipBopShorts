@@ -185,22 +185,8 @@ describe('preview, validation, and cost endpoints', () => {
     expect(res.body.insights.sampleSize).toBe(1);
   });
 
-  it('serves per-story analytics', async () => {
-    const { app } = makeApp();
-    const storyId = (await request(app).post('/api/stories').send({ title: 'Metrics' }).expect(201)).body.story.id;
-    const res = await request(app).get(`/api/stories/${storyId}/analytics`).expect(200);
-    expect(res.body.analytics).toMatchObject({ episodes: 0, storylines: 0, scenes: 0 });
-    expect(res.body.analytics.canon).toHaveProperty('versions');
-    expect(res.body.analytics.drift).toHaveProperty('driftRate');
-  });
-
-  it('serves a cost report with the expected shape', async () => {
-    const { app } = makeApp();
-    const res = await request(app).get('/api/costs/report').expect(200);
-    expect(res.body.report).toHaveProperty('totalUsd');
-    expect(res.body.report).toHaveProperty('byProvider');
-    expect(res.body.report).toHaveProperty('tokens');
-  });
+  // Behaviour of analytics and cost aggregation is covered by analytics.test.ts
+  // and costs.test.ts; the routes themselves are exercised by the workflow tests.
 });
 
 describe('reference definition + publish history over HTTP', () => {
@@ -993,21 +979,8 @@ describe('CTA endpoint coverage', () => {
     expect(del.body.project.storyline.scenes.find((s: { id: string }) => s.id === sceneId).comments).toHaveLength(0);
   });
 
-  it('400s an empty scene comment', async () => {
-    const { app } = makeApp();
-    const { storylineId, scenes } = await scaffold(app);
-    await request(app).post(`/api/storylines/${storylineId}/scenes/${scenes[0].id}/comments`).send({ text: '  ' }).expect(400);
-  });
-
-  it('400s a scene patch with no change request', async () => {
-    const { client: studioClaude } = makeStudioFakeClaude();
-    const { app } = makeApp({ claude: studioClaude });
-    const { storylineId, scenes } = await scaffold(app);
-    await request(app)
-      .post(`/api/storylines/${storylineId}/scenes/${scenes[0].id}/patch`)
-      .send({ request: '   ' })
-      .expect(400);
-  });
+  // Empty-input rejection for comments and patches is covered at the service level
+  // (comments.test.ts, patch.test.ts).
 
   it('auto-fixes invalid render parameters via the autofix CTA', async () => {
     const { client: studioClaude } = makeStudioFakeClaude();
@@ -1151,14 +1124,7 @@ describe('global scene defaults, reference readiness, and mutation audit', () =>
     await request(app).post(`/api/storylines/${storylineId}/scene-defaults`).send({}).expect(400);
   });
 
-  it('reports reference readiness for a storyline', async () => {
-    const { app } = makeApp();
-    const { storylineId } = await scaffold(app);
-    const res = await request(app).get(`/api/storylines/${storylineId}/reference-readiness`).expect(200);
-    expect(res.body.readiness).toHaveProperty('items');
-    expect(res.body.readiness).toHaveProperty('unapproved');
-    expect(res.body.readiness).toHaveProperty('ready');
-  });
+  // reference-readiness behaviour (approved vs unapproved, per-scene) lives in references.test.ts.
 
   it('records a mutation audit event (old value preserved) when a storyline is deleted', async () => {
     const eventStore = new EventStore();
