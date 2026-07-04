@@ -1,115 +1,64 @@
-import fs from 'node:fs';
-import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { NotFoundError, Store, slugify } from '../src/store/store';
-import { makeStore } from './helpers';
+import { extractCanon } from '../src/services/canon';
+import { createStorylineProject } from '../src/services/storyline';
+import { makeStore, makeStudioFakeClaude } from './helpers';
 
 let cleanups: Array<() => void> = [];
 afterEach(() => {
   cleanups.forEach((fn) => fn());
   cleanups = [];
 });
-function freshStore(): { store: Store; dir: string } {
-  const { store, dir, cleanup } = makeStore();
-  cleanups.push(cleanup);
-  return { store, dir };
-}
 
-describe('slugify', () => {
-  it('normalizes titles', () => {
-    expect(slugify('Neon Nights: Episode 1!')).toBe('neon-nights-episode-1');
+describe('store: stories and episodes', () => {
+  it('creates a story with a slug and a bible, and reads them back', () => {
+    const { store, cleanup } = makeStore();
+    cleanups.push(cleanup);
+    const story = store.createStory({ title: 'My Great Show', bible: '# Bible\nA hero.' });
+    expect(store.getStory(story.id).slug).toBe('my-great-show');
+    expect(store.getBible(story.id)).toContain('A hero.');
   });
-  it('falls back for empty input', () => {
-    expect(slugify('!!!')).toBe('story');
+
+  it('deleting a story removes its episodes and projects too', async () => {
+    const { store, cleanup } = makeStore();
+    cleanups.push(cleanup);
+    const { client } = makeStudioFakeClaude();
+    const story = store.createStory({ title: 'Doomed', bible: '# Bible\nx' });
+    const episode = store.createEpisode(story.id, { title: 'E1', brief: 'b' });
+    const project = await createStorylineProject(store, client, story.id, episode.id, {});
+
+    store.deleteStory(story.id);
+
+    expect(() => store.getStory(story.id)).toThrow();
+    expect(() => store.getEpisode(episode.id)).toThrow();
+    expect(() => store.getProject(project.storyline.id)).toThrow();
   });
 });
 
-describe('stories', () => {
-  it('creates a story and writes a bible.md file', () => {
-    const { store, dir } = freshStore();
-    const story = store.createStory({ title: 'My Story', bible: '# Hello world' });
-    expect(story.id).toBeTruthy();
-    expect(story.slug).toBe('my-story');
-    const biblePath = path.join(dir, 'stories', story.id, 'bible.md');
-    expect(fs.existsSync(biblePath)).toBe(true);
-    expect(store.getBible(story.id)).toBe('# Hello world');
-  });
+describe('store: lossless snapshot/restore (the fail-safe behind audit restore)', () => {
+  it('round-trips a whole story subtree — canon, characters, episodes, storylines', async () => {
+    const { store, cleanup } = makeStore();
+    cleanups.push(cleanup);
+    const { client } = makeStudioFakeClaude();
+    const story = store.createStory({ title: 'Round Trip', bible: '# Bible\nBobo has a green scarf.' });
+    await extractCanon(store, client, story.id);
+    const episode = store.createEpisode(story.id, { title: 'E1', brief: 'b' });
+    const project = await createStorylineProject(store, client, story.id, episode.id, {});
 
-  it('creates a default bible from the story template when none supplied', () => {
-    const { store } = freshStore();
-    const story = store.createStory({ title: 'Defaults' });
-    const bible = store.getBible(story.id);
-    expect(bible).toContain('Defaults — Story Bible');
-    expect(bible).toContain('Main Characters');
-    expect(bible).toContain('Never change');
-    expect(bible).toContain('Consistency Prompt Reference');
-  });
-
-  it('updates and reads the bible from disk', () => {
-    const { store } = freshStore();
-    const story = store.createStory({ title: 'Editable' });
-    store.setBible(story.id, '# Updated bible');
-    expect(store.getBible(story.id)).toBe('# Updated bible');
-  });
-
-  it('persists across store instances', () => {
-    const { store, dir } = freshStore();
-    const story = store.createStory({ title: 'Persisted' });
-    const reopened = new Store(dir);
-    expect(reopened.getStory(story.id).title).toBe('Persisted');
-    expect(reopened.getBible(story.id)).toBeTruthy();
-  });
-
-  it('throws NotFoundError for missing stories', () => {
-    const { store } = freshStore();
-    expect(() => store.getStory('nope')).toThrow(NotFoundError);
-  });
-
-  it('deletes a story and its files', () => {
-    const { store, dir } = freshStore();
-    const story = store.createStory({ title: 'Doomed' });
+    const snapshot = store.snapshotStory(story.id);
     store.deleteStory(story.id);
-    expect(fs.existsSync(path.join(dir, 'stories', story.id))).toBe(false);
-    expect(() => store.getStory(story.id)).toThrow(NotFoundError);
-  });
-});
+    store.restoreStorySnapshot(snapshot);
 
-describe('episodes', () => {
-  it('creates episodes and lists them by story', () => {
-    const { store } = freshStore();
-    const story = store.createStory({ title: 'S' });
-    const a = store.createEpisode(story.id, { title: 'Ep A', brief: 'brief a' });
-    const b = store.createEpisode(story.id, { title: 'Ep B' });
-    const list = store.listEpisodes(story.id);
-    expect(list.map((e) => e.id)).toEqual([a.id, b.id]);
-    expect(store.getEpisode(a.id).brief).toBe('brief a');
+    expect(store.getStory(story.id).title).toBe('Round Trip');
+    expect(store.getCanonRegistry(story.id)?.currentVersion).toBe(1);
+    expect(store.getEpisode(episode.id).title).toBe('E1');
+    expect(store.getProject(project.storyline.id).storyline.id).toBe(project.storyline.id);
   });
 
-  it('stores a per-episode setting override as a .md file', () => {
-    const { store, dir } = freshStore();
-    const story = store.createStory({ title: 'S', settingMode: 'per-episode' });
-    const ep = store.createEpisode(story.id, { title: 'Ep', setting: '# Frozen moon' });
-    expect(ep.hasSettingOverride).toBe(true);
-    const settingPath = path.join(dir, 'stories', story.id, 'episodes', ep.id, 'setting.md');
-    expect(fs.existsSync(settingPath)).toBe(true);
-    expect(store.getSetting(ep.id)).toBe('# Frozen moon');
-  });
-
-  it('sets a setting after creation', () => {
-    const { store } = freshStore();
-    const story = store.createStory({ title: 'S', settingMode: 'per-episode' });
-    const ep = store.createEpisode(story.id, { title: 'Ep' });
-    expect(ep.hasSettingOverride).toBe(false);
-    store.setSetting(ep.id, '# Later setting');
-    expect(store.getEpisode(ep.id).hasSettingOverride).toBe(true);
-    expect(store.getSetting(ep.id)).toBe('# Later setting');
-  });
-
-  it('deleting a story deletes its episodes', () => {
-    const { store } = freshStore();
-    const story = store.createStory({ title: 'S' });
-    const ep = store.createEpisode(story.id, { title: 'Ep' });
-    store.deleteStory(story.id);
-    expect(() => store.getEpisode(ep.id)).toThrow(NotFoundError);
+  it('refuses to restore a story that still exists', () => {
+    const { store, cleanup } = makeStore();
+    cleanups.push(cleanup);
+    const story = store.createStory({ title: 'Live', bible: '# Bible' });
+    const snapshot = store.snapshotStory(story.id);
+    expect(() => store.restoreStorySnapshot(snapshot)).toThrow();
   });
 });

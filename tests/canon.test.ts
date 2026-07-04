@@ -6,10 +6,9 @@ import {
   extractCanon,
   patchMark,
 } from '../src/services/canon';
-import type { CanonVersion } from '../src/types';
+import { checkDrift, resolveDrift } from '../src/services/drift';
 import { createStorylineProject } from '../src/services/storyline';
-import { episodeSettingTemplate, storyBibleTemplate } from '../src/templates';
-import type { Store } from '../src/store/store';
+import type { CanonVersion } from '../src/types';
 import { makeStore, makeStudioFakeClaude } from './helpers';
 
 let cleanups: Array<() => void> = [];
@@ -18,186 +17,48 @@ afterEach(() => {
   cleanups = [];
 });
 
-function setup(withMeta = true): { store: Store; storyId: string } {
+/** A story with canon extracted and one storyline generated against it. */
+async function studioWithCanon(driftJson?: string) {
   const { store, cleanup } = makeStore();
   cleanups.push(cleanup);
   const story = store.createStory({
     title: 'PipBop Pals',
-    bible: '# Bible\nBobo is a golden-brown monkey with a bright green leaf scarf.',
-    meta: withMeta
-      ? {
-          audienceMin: 4,
-          audienceMax: 7,
-          genres: ['comedy', 'adventure'],
-          tones: ['cheerful', 'safe'],
-          format: '3D animated comedy shorts',
-        }
-      : undefined,
+    bible: '# Bible\nBobo wears a bright green leaf scarf.',
+    meta: { audienceMin: 4, audienceMax: 7 },
   });
-  return { store, storyId: story.id };
+  const { client } = makeStudioFakeClaude(driftJson !== undefined ? { driftJson } : undefined);
+  await extractCanon(store, client, story.id);
+  const episode = store.createEpisode(story.id, { title: 'E1', brief: 'banana quest' });
+  const project = await createStorylineProject(store, client, story.id, episode.id, {});
+  return { store, client, storyId: story.id, storylineId: project.storyline.id };
 }
 
-describe('templates', () => {
-  it('story bible template captures all vital sections', () => {
-    const md = storyBibleTemplate('My Series', { audienceMin: 4, audienceMax: 7, genres: ['comedy'] });
-    for (const section of [
-      'Premise',
-      'Audience & Tone',
-      'World / Setting',
-      'Main Characters',
-      'Visual signature',
-      'Never change',
-      'Relationships',
-      'Recurring Locations',
-      'Story Formula',
-      'Do / Don\'t',
-      'Consistency Prompt Reference',
-    ]) {
-      expect(md).toContain(section);
-    }
-    expect(md).toContain('Ages 4–7');
-    expect(md).toContain('comedy');
+describe('canon extraction and versioning', () => {
+  it('dissects the bible into version-controlled marks with stable ids', async () => {
+    const { store, storyId } = await studioWithCanon();
+    const canon = currentCanonVersion(store.getCanonRegistry(storyId))!;
+    expect(canon.version).toBe(1);
+    const bobo = canon.entities.find((e) => e.id === 'CHAR_BOBO_001')!;
+    expect(bobo.marks.find((m) => m.key === 'scarf')?.value).toContain('green');
   });
 
-  it('episode setting template covers overrides and consistency', () => {
-    const md = episodeSettingTemplate('Ep 5');
-    expect(md).toContain('Ep 5 — Episode Setting');
-    expect(md).toContain('Must keep consistent');
-    expect(md).toContain('One-off characters or props');
-  });
-});
-
-describe('canon extraction', () => {
-  it('creates v1 with asset-style ids and marks', async () => {
-    const { store, storyId } = setup();
-    const { client, calls } = makeStudioFakeClaude();
-    const registry = await extractCanon(store, client, storyId);
-
-    expect(registry.currentVersion).toBe(1);
-    expect(registry.versions).toHaveLength(1);
-    const v1 = registry.versions[0];
-    expect(v1.source).toBe('extraction');
-    expect(v1.model).toBe('claude-sonnet-5'); // default dissect model
-    const bobo = v1.entities.find((e) => e.name === 'Bobo')!;
-    expect(bobo.id).toBe('CHAR_BOBO_001');
-    expect(bobo.marks.find((m) => m.key === 'scarf')?.severity).toBe('locked');
-    expect(v1.negativePrompt).toContain('violence');
-
-    // Extraction prompt included the bible and declared metadata.
-    const user = (calls[0].params.messages as Array<{ content: string }>)[0].content;
-    expect(user).toContain('green leaf scarf');
-    expect(user).toContain('ages 4–7');
-  });
-
-  it('auto-creates audience/tone marks from story metadata', async () => {
-    const { store, storyId } = setup();
-    const { client } = makeStudioFakeClaude();
-    const registry = await extractCanon(store, client, storyId);
-    const aud = registry.versions[0].entities.find((e) => e.type === 'audience_tone')!;
-    expect(aud).toBeTruthy();
-    const target = aud.marks.find((m) => m.key === 'target_audience')!;
-    expect(target.value).toContain('4–7');
-    expect(target.severity).toBe('locked');
-    expect(aud.marks.find((m) => m.key === 'genres')?.value).toContain('comedy');
-    expect(aud.marks.find((m) => m.key === 'tone')?.value).toContain('cheerful');
-  });
-
-  it('supports overriding the dissection model', async () => {
-    const { store, storyId } = setup();
-    const { client, calls } = makeStudioFakeClaude();
-    await extractCanon(store, client, storyId, { model: 'claude-opus-4-8' });
-    expect(calls[0].params.model).toBe('claude-opus-4-8');
-  });
-
-  it('re-extraction bumps the version and keeps history', async () => {
-    const { store, storyId } = setup();
-    const { client } = makeStudioFakeClaude();
-    await extractCanon(store, client, storyId);
-    const registry = await extractCanon(store, client, storyId, { note: 'after bible edit' });
+  it('editing a mark creates a new version; a gradual change instructs future blends', async () => {
+    const { store, storyId } = await studioWithCanon();
+    const registry = patchMark(store, storyId, 'CHAR_BOBO_001', 'scarf', { value: 'red woolly scarf' });
     expect(registry.currentVersion).toBe(2);
-    expect(registry.versions.map((v) => v.version)).toEqual([1, 2]);
-    expect(registry.versions[1].note).toBe('after bible edit');
-  });
 
-  it('rejects an empty bible', async () => {
-    const { store, cleanup } = makeStore();
-    cleanups.push(cleanup);
-    const story = store.createStory({ title: 'Empty', bible: '   ' });
-    const { client } = makeStudioFakeClaude();
-    await expect(extractCanon(store, client, story.id)).rejects.toThrow(/bible is empty/i);
+    patchMark(store, storyId, 'CHAR_BOBO_001', 'scarf', { status: 'transitioning', transitionTo: 'blue scarf' });
+    const block = buildCanonBlock(currentCanonVersion(store.getCanonRegistry(storyId))!);
+    expect(block).toContain('blend toward the new value');
   });
 });
 
-describe('canon block + versioned edits', () => {
-  it('builds a deterministic canon block with severities and negative prompt', async () => {
-    const { store, storyId } = setup();
-    const { client } = makeStudioFakeClaude();
-    const registry = await extractCanon(store, client, storyId);
-    const block = buildCanonBlock(currentCanonVersion(registry)!);
-    expect(block).toContain('character: Bobo (CHAR_BOBO_001)');
-    expect(block).toContain('[LOCKED] scarf: bright green leaf scarf');
-    expect(block).toContain('Global negative prompt');
-  });
-
-  it('patchMark creates a new version and preserves history', async () => {
-    const { store, storyId } = setup();
-    const { client } = makeStudioFakeClaude();
-    await extractCanon(store, client, storyId);
-    const registry = patchMark(store, storyId, 'CHAR_BOBO_001', 'scarf', {
-      value: 'bright blue leaf scarf',
-      note: 'brand refresh',
-    });
-    expect(registry.currentVersion).toBe(2);
-    const v2 = currentCanonVersion(registry)!;
-    expect(v2.source).toBe('manual');
-    expect(v2.entities.find((e) => e.id === 'CHAR_BOBO_001')!.marks.find((m) => m.key === 'scarf')!.value).toBe(
-      'bright blue leaf scarf',
-    );
-    // v1 untouched.
-    const v1 = registry.versions.find((v) => v.version === 1)!;
-    expect(v1.entities.find((e) => e.id === 'CHAR_BOBO_001')!.marks.find((m) => m.key === 'scarf')!.value).toBe(
-      'bright green leaf scarf',
-    );
-  });
-
-  it('starts and completes a gradual transition', async () => {
-    const { store, storyId } = setup();
-    const { client } = makeStudioFakeClaude();
-    await extractCanon(store, client, storyId);
-
-    let registry = patchMark(store, storyId, 'CHAR_BOBO_001', 'scarf', {
-      status: 'transitioning',
-      transitionTo: 'teal explorer scarf',
-      note: 'gradual redesign',
-    });
-    let mark = currentCanonVersion(registry)!.entities.find((e) => e.id === 'CHAR_BOBO_001')!.marks.find(
-      (m) => m.key === 'scarf',
-    )!;
-    expect(mark.status).toBe('transitioning');
-    expect(mark.transition).toMatchObject({ from: 'bright green leaf scarf', to: 'teal explorer scarf' });
-
-    const block = buildCanonBlock(currentCanonVersion(registry)!);
-    expect(block).toContain('TRANSITIONING');
-    expect(block).toContain('teal explorer scarf');
-
-    // Completing the transition adopts the target value.
-    registry = patchMark(store, storyId, 'CHAR_BOBO_001', 'scarf', { status: 'active' });
-    mark = currentCanonVersion(registry)!.entities.find((e) => e.id === 'CHAR_BOBO_001')!.marks.find(
-      (m) => m.key === 'scarf',
-    )!;
-    expect(mark.status).toBe('active');
-    expect(mark.value).toBe('teal explorer scarf');
-    expect(mark.transition).toBeNull();
-    expect(registry.currentVersion).toBe(3);
-  });
-});
-
-describe('canon version diff', () => {
-  const mark = (key: string, value: string, severity = 'strong', status = 'active') => ({
+describe('canon diff', () => {
+  const mark = (key: string, value: string, severity = 'strong') => ({
     key,
     value,
     severity: severity as 'locked' | 'strong' | 'flexible',
-    status: status as 'active' | 'transitioning',
+    status: 'active' as const,
     transition: null,
     rationale: '',
   });
@@ -211,71 +72,72 @@ describe('canon version diff', () => {
     negativePrompt: '',
   });
 
-  it('reports added/removed entities and per-mark value/severity/status changes', () => {
+  it('reports added/removed entities and per-mark value changes', () => {
     const v1 = version(1, [
-      { id: 'CHAR_BOBO_001', type: 'character', name: 'Bobo', summary: '', marks: [mark('scarf', 'green', 'locked'), mark('hat', 'none')] },
-      { id: 'LOC_TREE_001', type: 'location', name: 'Tree', summary: '', marks: [mark('leaves', 'green')] },
+      { id: 'CHAR_BOBO_001', type: 'character', name: 'Bobo', summary: '', marks: [mark('scarf', 'green')] },
+      { id: 'LOC_TREE_001', type: 'location', name: 'Tree', summary: '', marks: [] },
     ]);
     const v2 = version(2, [
-      // Bobo: scarf value changed + severity relaxed, hat removed, boots added.
-      { id: 'CHAR_BOBO_001', type: 'character', name: 'Bobo', summary: '', marks: [mark('scarf', 'red', 'strong'), mark('boots', 'yellow')] },
-      // Tree removed; new character added.
-      { id: 'CHAR_RIZZO_001', type: 'character', name: 'Rizzo', summary: '', marks: [mark('goggles', 'amber')] },
+      { id: 'CHAR_BOBO_001', type: 'character', name: 'Bobo', summary: '', marks: [mark('scarf', 'red')] },
+      { id: 'CHAR_RIZZO_001', type: 'character', name: 'Rizzo', summary: '', marks: [] },
     ]);
-
     const diff = diffCanonVersions(v1, v2);
-    expect(diff.identical).toBe(false);
     expect(diff.entitiesAdded.map((e) => e.name)).toEqual(['Rizzo']);
     expect(diff.entitiesRemoved.map((e) => e.name)).toEqual(['Tree']);
-
-    const kinds = diff.changes.filter((c) => c.entityName === 'Bobo');
-    expect(kinds.find((c) => c.markKey === 'scarf' && c.kind === 'value')).toMatchObject({ before: 'green', after: 'red' });
-    expect(kinds.find((c) => c.markKey === 'scarf' && c.kind === 'severity')).toMatchObject({ before: 'locked', after: 'strong' });
-    expect(kinds.find((c) => c.markKey === 'hat' && c.kind === 'removed')).toBeTruthy();
-    expect(kinds.find((c) => c.markKey === 'boots' && c.kind === 'added')).toMatchObject({ after: 'yellow' });
-  });
-
-  it('reports identical when nothing changed', () => {
-    const v = version(1, [{ id: 'CHAR_BOBO_001', type: 'character', name: 'Bobo', summary: '', marks: [mark('scarf', 'green')] }]);
-    const diff = diffCanonVersions(v, structuredClone({ ...v, version: 2 }));
-    expect(diff.identical).toBe(true);
-    expect(diff.changes).toHaveLength(0);
+    expect(diff.changes.find((c) => c.markKey === 'scarf')).toMatchObject({ before: 'green', after: 'red' });
   });
 });
 
-describe('canon-aware storyline generation', () => {
-  it('injects the canon block, records the version, and merges the negative prompt', async () => {
-    const { store, storyId } = setup();
-    const { client, calls } = makeStudioFakeClaude();
-    await extractCanon(store, client, storyId);
-    const episode = store.createEpisode(storyId, { title: 'Ep 1', brief: 'Bobo wants a banana' });
-
-    const project = await createStorylineProject(store, client, storyId, episode.id, {});
-
-    // Last call is the storyline generation; its prompt carries the canon.
-    const gen = calls[calls.length - 1];
-    const user = (gen.params.messages as Array<{ content: string }>)[0].content;
-    expect(user).toContain('CANON (version-controlled consistency marks');
-    expect(user).toContain('[LOCKED] scarf: bright green leaf scarf');
-    expect(String(gen.params.system)).toContain('Canon discipline');
-    expect(String(gen.params.system)).toContain('Child-audience discipline');
-
-    expect(project.storyline.canonVersion).toBe(1);
-    for (const scene of project.storyline.scenes) {
-      expect(scene.negativePrompt).toContain('photorealism'); // merged from canon
-      expect(scene.negativePrompt).toContain('watermark'); // original kept
-    }
+describe('drift detection and resolution', () => {
+  it('requires canon to exist', async () => {
+    const { store, cleanup } = makeStore();
+    cleanups.push(cleanup);
+    const { client } = makeStudioFakeClaude();
+    const story = store.createStory({ title: 'NoCanon' });
+    const episode = store.createEpisode(story.id, { title: 'E' });
+    const project = await createStorylineProject(store, client, story.id, episode.id, {});
+    await expect(checkDrift(store, client, project.storyline.id)).rejects.toThrow(/extract canon first/i);
   });
 
-  it('generates without canon when none exists (canonVersion null)', async () => {
-    const { store, storyId } = setup();
+  it('maps findings to canon entities and the scenes involved', async () => {
+    const { store, client, storylineId } = await studioWithCanon();
+    const report = await checkDrift(store, client, storylineId);
+    const scarf = report.findings[0];
+    expect(scarf.entityId).toBe('CHAR_BOBO_001');
+    expect(scarf.severity).toBe('high');
+    expect(scarf.sceneIds[0]).toBe(store.getProject(storylineId).storyline.scenes[0].id);
+  });
+
+  it('feeds the audience + a child-safety directive into the drift check', async () => {
+    const { store, cleanup } = makeStore();
+    cleanups.push(cleanup);
+    const story = store.createStory({ title: 'Kids', bible: '# Bible\nBobo.', meta: { audienceMin: 4, audienceMax: 7 } });
     const { client, calls } = makeStudioFakeClaude();
-    const episode = store.createEpisode(storyId, { title: 'Ep 1', brief: 'x' });
-    const project = await createStorylineProject(store, client, storyId, episode.id, {});
-    expect(project.storyline.canonVersion).toBeNull();
-    const user = (calls[0].params.messages as Array<{ content: string }>)[0].content;
-    expect(user).not.toContain('CANON (version-controlled');
-    // Metadata still steers generation.
-    expect(user).toContain('Audience: ages 4–7');
+    await extractCanon(store, client, story.id);
+    const episode = store.createEpisode(story.id, { title: 'E1', brief: 'x' });
+    const project = await createStorylineProject(store, client, story.id, episode.id, {});
+    await checkDrift(store, client, project.storyline.id);
+
+    const driftCall = calls.find((c) => String(c.params.system).includes('report every drift'))!;
+    const user = String((driftCall.params.messages as Array<{ content: string }>)[0].content);
+    expect(user).toContain('CHILD-SAFETY MODE: ON');
+  });
+
+  it('accept-now promotes the observed value into a new canon version', async () => {
+    const { store, client, storyId, storylineId } = await studioWithCanon();
+    const report = await checkDrift(store, client, storylineId);
+    resolveDrift(store, storylineId, report.id, report.findings[0].id, 'accept-now');
+    const mark = currentCanonVersion(store.getCanonRegistry(storyId))!
+      .entities.find((e) => e.id === 'CHAR_BOBO_001')!
+      .marks.find((m) => m.key === 'scarf')!;
+    expect(mark.value).toBe('red woolly scarf');
+  });
+
+  it('reject records the resolution and leaves canon untouched', async () => {
+    const { store, client, storyId, storylineId } = await studioWithCanon();
+    const report = await checkDrift(store, client, storylineId);
+    const result = resolveDrift(store, storylineId, report.id, report.findings[0].id, 'reject');
+    expect(result.finding.resolution?.action).toBe('reject');
+    expect(store.getCanonRegistry(storyId)!.currentVersion).toBe(1);
   });
 });

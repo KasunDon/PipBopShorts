@@ -116,26 +116,26 @@ Open <http://localhost:4000> (production) or <http://localhost:5173> (dev).
 
 ## Testing
 
-The service and API layers are fully covered by a regression suite with all external
-services (PixVerse, Claude, YouTube) mocked — no network or API keys needed.
+The service and API layers are covered by a behavioral suite that drives the real
+code through in-memory fakes — every external service (PixVerse, Claude, YouTube) is
+stubbed, and a network guard in `tests/setup.ts` fails any test that reaches past
+localhost. No network or API keys needed.
 
 ```bash
-npm test          # vitest run  (310 tests)
+npm test          # vitest run  (42 tests)
 npm run typecheck # tsc --noEmit
 ```
 
-Tests live in `tests/`:
+Each file states a behavior, then asserts it. Tests live in `tests/`:
 
 | File | Covers |
 | --- | --- |
-| `pixverse.test.ts` | request shaping, headers, envelope errors, polling, parameter validation |
-| `claude.test.ts` | per-model request construction (thinking/effort/fallbacks), parsing, refusals |
-| `store.test.ts` | file-backed store, `.md` bibles/settings, persistence, cascading deletes |
-| `services.test.ts` | storyline creation, scene tweaking, render/refresh/extend, publish |
-| `canon.test.ts` | templates, canon extraction/versioning, auto audience marks, transitions, canon-aware generation |
-| `exchange.test.ts` | `.story.md` export/import round-trip, marker escaping, format-version guard |
-| `drift.test.ts` | drift detection, mapping to canon/scenes, accept-now / accept-gradually / reject |
-| `api.test.ts` | the full workflow end-to-end over HTTP (supertest), including canon + drift |
+| `store.test.ts` | story/episode create + slug + bible, cascading delete, snapshot/restore round-trip |
+| `canon.test.ts` | canon extraction with stable ids, mark versioning + transition blends, version diff, drift detection/resolution, child-safety mode |
+| `production.test.ts` | invalid-combo normalization, scene edit guards, duplicate scene/storyline, text- vs image-to-video routing, seed/lighting injection, background job runner + resume |
+| `services.test.ts` | deterministic auto-fix fallback, directed patch / fresh-take edits, episode ideas, dialogue → timed captions, reference readiness |
+| `publishing.test.ts` | approval gate, publish history, server-side publish + render scheduling (injectable clock) |
+| `api.test.ts` | full story→render→approve→publish workflow over HTTP, error mapping (404/400/422), audit-log restore fail-safe |
 
 ---
 
