@@ -36,6 +36,7 @@ export function SceneCard({
   storylineId,
   setProject,
   run,
+  onMove,
   references = [],
 }: {
   index: number;
@@ -46,6 +47,7 @@ export function SceneCard({
   storylineId: string;
   setProject: (p: Project) => void;
   run: Run;
+  onMove?: (dir: -1 | 1) => void;
   references?: ReferenceReadinessItem[];
 }) {
   const [draft, setDraft] = useState<Scene>(scene);
@@ -121,6 +123,16 @@ export function SceneCard({
     <div className="scene-card">
       <div className="scene-head">
         <div className="scene-num">#{index + 1}</div>
+        {onMove && (
+          <div className="scene-move">
+            <button className="ghost small" title="Move up" disabled={index === 0} onClick={() => onMove(-1)}>
+              ↑
+            </button>
+            <button className="ghost small" title="Move down" disabled={index === total - 1} onClick={() => onMove(1)}>
+              ↓
+            </button>
+          </div>
+        )}
         <input className="scene-heading" value={draft.heading} onChange={(e) => update('heading', e.target.value)} />
         <span className={`status status-${status}`}>{STATUS_LABELS[status]}</span>
       </div>

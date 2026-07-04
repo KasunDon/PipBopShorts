@@ -2057,6 +2057,15 @@ function ProjectPanel({
             storylineId={storylineId}
             setProject={setProject}
             run={run}
+            onMove={async (dir) => {
+              const ids = scenes.map((s) => s.id);
+              const from = i;
+              const to = i + dir;
+              if (to < 0 || to >= ids.length) return;
+              [ids[from], ids[to]] = [ids[to], ids[from]];
+              const res = await run(() => api.reorder(storylineId, ids));
+              if (res) setProject(res.project);
+            }}
             references={(scene.referenceCharacterIds ?? [])
               .map((id) => refByEntity.get(id))
               .filter((it): it is ReferenceReadinessItem => Boolean(it))}
