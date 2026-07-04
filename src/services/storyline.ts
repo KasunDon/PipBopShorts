@@ -264,6 +264,43 @@ export function removeScene(store: Store, storylineId: string, sceneId: string):
   return store.saveProject(project);
 }
 
+/**
+ * Deep-copy a storyline into a fresh project so variations can be tried without
+ * touching the original. Scenes get new ids, clips reset to idle, and all
+ * render/publish/review state (clips, publish history, drift, schedules,
+ * performance, review sign-off) starts clean.
+ */
+export function duplicateStoryline(store: Store, storylineId: string): Project {
+  const src = store.getProject(storylineId);
+  const now = new Date().toISOString();
+  const scenes: Scene[] = src.storyline.scenes
+    .sort((a, b) => a.order - b.order)
+    .map((s, i) => ({ ...structuredClone(s), id: makeId('scene'), order: i }));
+  const storyline: Storyline = {
+    ...structuredClone(src.storyline),
+    id: makeId('sl'),
+    title: `${src.storyline.title} (copy)`,
+    scenes,
+    reviewStatus: undefined,
+    reviewNote: undefined,
+    createdAt: now,
+    updatedAt: now,
+  };
+  const clips: Record<string, Clip> = {};
+  for (const s of scenes) clips[s.id] = idleClip(s.id);
+  const project: Project = {
+    storyline,
+    clips,
+    publish: null,
+    publishHistory: [],
+    driftReports: [],
+    schedule: null,
+    renderSchedule: null,
+    performance: null,
+  };
+  return store.saveProject(project);
+}
+
 /** Reorder scenes to match the provided list of scene ids. */
 export function reorderScenes(store: Store, storylineId: string, orderedIds: string[]): Project {
   const project = store.getProject(storylineId);

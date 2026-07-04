@@ -648,6 +648,29 @@ describe('CTA endpoint coverage', () => {
     return { storyId, episodeId, storylineId: project.storyline.id, scenes: project.storyline.scenes };
   }
 
+  it('duplicates a storyline into a fresh, clean copy', async () => {
+    const { app } = makeApp();
+    const { storylineId, scenes } = await scaffold(app);
+    // Render + approve a clip and record performance on the original.
+    await request(app).post(`/api/storylines/${storylineId}/scenes/${scenes[0].id}/generate`).send({ wait: true }).expect(200);
+    await request(app).post(`/api/storylines/${storylineId}/scenes/${scenes[0].id}/clip/approval`).send({ approved: true }).expect(200);
+
+    const dup = await request(app).post(`/api/storylines/${storylineId}/duplicate`).send({}).expect(201);
+    const copy = dup.body.project;
+    expect(copy.storyline.id).not.toBe(storylineId);
+    expect(copy.storyline.title).toMatch(/\(copy\)$/);
+    // Same scene content, new ids.
+    expect(copy.storyline.scenes).toHaveLength(scenes.length);
+    expect(copy.storyline.scenes[0].id).not.toBe(scenes[0].id);
+    expect(copy.storyline.scenes[0].prompt).toBe(scenes[0].prompt);
+    // Clips reset to idle; publish/performance cleared.
+    expect(copy.clips[copy.storyline.scenes[0].id].status).toBe('idle');
+    expect(copy.publish).toBeNull();
+    // The original is untouched.
+    const orig = await request(app).get(`/api/storylines/${storylineId}`).expect(200);
+    expect(orig.body.project.clips[scenes[0].id].approved).toBe(true);
+  });
+
   it('add, reorder, tweak, remove a scene, and edit youtube metadata', async () => {
     const { app } = makeApp();
     const { storylineId, scenes } = await scaffold(app);

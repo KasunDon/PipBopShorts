@@ -310,6 +310,7 @@ export function App() {
               setProject={setProject}
               lastJob={lastJob}
               pushToast={pushToast}
+              onOpenProject={openProject}
               onBack={() => {
                 setStorylineId(null);
                 setProject(null);
@@ -1479,6 +1480,7 @@ function ProjectPanel({
   setProject,
   lastJob,
   pushToast,
+  onOpenProject,
   onBack,
   run,
 }: {
@@ -1487,6 +1489,7 @@ function ProjectPanel({
   setProject: (p: Project) => void;
   lastJob: JobEvent | null;
   pushToast: (kind: Toast['kind'], text: string) => void;
+  onOpenProject: (id: string) => void;
   onBack: () => void;
   run: Run;
 }) {
@@ -1641,9 +1644,24 @@ function ProjectPanel({
   return (
     <div className="panel">
       <div className="page-head">
-        <button className="link back" onClick={onBack}>
-          <IconChevronLeft /> Back to episode
-        </button>
+        <div className="row">
+          <button className="link back" onClick={onBack}>
+            <IconChevronLeft /> Back to episode
+          </button>
+          <button
+            className="link"
+            title="Make a clean copy of this storyline to try variations"
+            onClick={async () => {
+              const res = await run(() => api.duplicateProject(storylineId));
+              if (res) {
+                pushToast('ok', `Duplicated as "${res.project.storyline.title}".`);
+                onOpenProject(res.project.storyline.id);
+              }
+            }}
+          >
+            <IconPlus /> Duplicate
+          </button>
+        </div>
         <h2 className="page-title">{project.storyline.title}</h2>
         <p className="page-sub">{project.storyline.logline}</p>
         <div className="row">

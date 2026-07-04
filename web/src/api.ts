@@ -99,6 +99,8 @@ export const api = {
   },
   getProject: (storylineId: string) => req<{ project: Project }>('GET', `/api/storylines/${storylineId}`),
   deleteProject: (storylineId: string) => req<void>('DELETE', `/api/storylines/${storylineId}`),
+  duplicateProject: (storylineId: string) =>
+    req<{ project: Project }>('POST', `/api/storylines/${storylineId}/duplicate`),
 
   updateScene: (storylineId: string, sceneId: string, patch: Partial<Scene>) =>
     req<{ project: Project }>('PATCH', `/api/storylines/${storylineId}/scenes/${sceneId}`, patch),

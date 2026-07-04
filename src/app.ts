@@ -82,6 +82,7 @@ import {
   addScene,
   applySceneDefaults,
   createStorylineProject,
+  duplicateStoryline,
   removeScene,
   reorderScenes,
   updateScene,
@@ -1045,6 +1046,22 @@ export function createApp(deps: AppDeps): express.Express {
     '/api/storylines/:storylineId',
     asyncHandler((req, res) => {
       res.json({ project: deps.store.getProject(req.params.storylineId) });
+    }),
+  );
+
+  // Deep-copy a storyline to try variations without touching the original.
+  app.post(
+    '/api/storylines/:storylineId/duplicate',
+    asyncHandler((req, res) => {
+      const project = duplicateStoryline(deps.store, req.params.storylineId);
+      recordMutation(req, {
+        resource: 'storyline',
+        action: 'update',
+        summary: `Duplicated storyline "${project.storyline.title}"`,
+        before: null,
+        after: { id: project.storyline.id, title: project.storyline.title },
+      });
+      res.status(201).json({ project });
     }),
   );
 
