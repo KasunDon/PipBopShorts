@@ -212,10 +212,11 @@ Consistency by reference, not just by prompt:
   the prior one) gives the audit-log-of-canon-changes view. **Performance →
   story-formula insights** is also shipped — an LLM analyses recorded performance
   across a story's shorts for what's working and recommends a formula tweak. The
-  **analytics-sync pipeline** is built + tested behind a pluggable source (no-ops
-  until YouTube Analytics credentials/scope are configured, like dry-run publish).
-  Still open: the live YouTube Analytics fetch, rendering the actual thumbnail
-  images, and dubbed/translated video variants with canon-consistent visuals.
+  **analytics-sync pipeline** is built + tested behind a pluggable source, and the
+  **live YouTube Analytics fetch** is implemented (parses views/likes/retention;
+  no-ops in dry-run) — it activates with credentials + the `yt-analytics.readonly`
+  scope, exactly like the live publish path. Still open: rendering the actual
+  thumbnail images, and dubbed/translated video variants with canon-consistent visuals.
 
 ---
 

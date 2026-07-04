@@ -157,12 +157,42 @@ export class YoutubeClient {
   }
 
   /**
-   * Fetch real performance for a published video. Requires the YouTube Analytics
-   * API and the analytics scope; returns null until that's configured (like
-   * dry-run publishing), so callers no-op gracefully.
+   * Fetch real performance for a published video via the YouTube Analytics API.
+   * Requires credentials with the `yt-analytics.readonly` scope; returns null in
+   * dry-run or on any failure, so callers no-op gracefully. Best-effort (mirrors
+   * uploadShort's live path — exercised for real only when configured).
    */
-  async fetchAnalytics(_videoId: string): Promise<VideoAnalytics | null> {
-    return null;
+  async fetchAnalytics(videoId: string): Promise<VideoAnalytics | null> {
+    if (this.dryRun || !videoId || videoId.startsWith('dry-run-')) return null;
+    try {
+      const token = await this.accessToken();
+      const params = new URLSearchParams({
+        ids: 'channel==MINE',
+        metrics: 'views,likes,averageViewPercentage',
+        filters: `video==${videoId}`,
+        startDate: '2005-02-01', // YouTube's founding — effectively "all time".
+        endDate: new Date().toISOString().slice(0, 10),
+      });
+      const res = await this.fetchImpl(`https://youtubeanalytics.googleapis.com/v2/reports?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) return null;
+      const json = (await res.json()) as { columnHeaders?: Array<{ name: string }>; rows?: number[][] };
+      const row = json.rows?.[0];
+      if (!row || !json.columnHeaders) return null;
+      const idx = (name: string) => json.columnHeaders!.findIndex((c) => c.name === name);
+      const num = (name: string): number | null => {
+        const i = idx(name);
+        return i >= 0 && typeof row[i] === 'number' ? row[i] : null;
+      };
+      return {
+        views: num('views') ?? 0,
+        likes: num('likes'),
+        avgViewPct: num('averageViewPercentage'),
+      };
+    } catch {
+      return null;
+    }
   }
 }
 
