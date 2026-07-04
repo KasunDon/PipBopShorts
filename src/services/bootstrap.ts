@@ -22,12 +22,13 @@ Produce:
 - "continuity": "random" for episodic series (standalone episodes, can run forever); "linear" when the idea implies a serialized arc with an ending (a quest, a season-long mystery, "until they finally...").
 - "meta": production metadata inferred from the idea. Infer a sensible target audience age range; genres (2-4, lowercase); tones (3-5 adjectives); a format line (e.g. "3D animated comedy shorts"); episode_length_sec (default 60 for Shorts); language.
 - "bible_markdown": a COMPLETE story bible in Markdown following EXACTLY the section structure of the reference template provided by the user — same numbered headings. Replace every placeholder with concrete, production-ready content:
-  * 2-5 main characters, each with a vivid, renderable visual signature (species/build, exact colors, eyes, one distinctive accessory, proportions), personality with one comic/dramatic flaw, movement style, voice, catchphrases, and an explicit "Never change" list.
+  * 2-5 main characters. Describe EVERY character to the SAME level of detail using the same fields in the same order, so none renders "a little off": species/build, exact primary & secondary colors and materials, face/head shape, eyes, 1-3 signature never-change features, outfit (or "none"), and proportions/scale. Then personality with one comic/dramatic flaw, movement style, voice, catchphrases, and an explicit "Never change" list. A stranger must be able to paint each character from its description ALONE.
   * A concrete world with explicit world rules (what is possible/impossible), a color palette to use and moods to avoid, and default lighting.
+  * A "Reference background" line in the visual style section: ONE fixed neutral backdrop used for all character reference images (e.g. "seamless soft-gradient studio backdrop, warm neutral grey, even soft key light") so every reference image looks like part of the same set.
   * Relationships between character pairs, 2-4 recurring locations with fixed landmarks and "never change" facts, a repeatable story formula with beats, visual & camera style, and a Do/Don't safety-rails section calibrated to the audience age.
-  * Section 10 consistency prompts: one ready-to-paste paragraph per character and location.
+  * Section 10 consistency prompts: one ready-to-paste paragraph per character and location, each self-contained and restating the full visual signature.
 If the audience is children (12 or under), the entire bible must be emotionally safe: no violence, weapons, fear, bullying, or sarcasm; accidents harmless with soft landings; stories understandable with the sound off.
-Write concretely — a stranger (or a video model) must be able to paint every character from the bible alone.`;
+Write concretely and uniformly — a stranger (or a video model) must be able to paint every character from the bible alone.`;
 
 function storyBootstrapSchema() {
   return {

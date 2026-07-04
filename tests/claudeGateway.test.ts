@@ -3,7 +3,7 @@ import { createGatewayClaudeClient, _internal } from '../src/clients/claudeGatew
 import { generateStoryline } from '../src/clients/claude';
 import { sampleStorylineJson } from './helpers';
 
-const { toGatewayRequest, toAnthropicResponse, contentToText } = _internal;
+const { toGatewayRequest, toAnthropicResponse, contentToText, describeNetworkError } = _internal;
 
 describe('gateway request mapping', () => {
   it('translates system, user prompt, schema and effort into a gateway request', () => {
@@ -55,6 +55,37 @@ describe('gateway response mapping', () => {
   it('throws on an execution failure with no result', () => {
     expect(() => toAnthropicResponse({ success: false, isError: true, subtype: 'error_during_execution', exitCode: 1 })).toThrow(
       /Claude gateway returned no result/,
+    );
+  });
+});
+
+describe('network error messages', () => {
+  it('flags a connection-refused error clearly, mentioning the gateway URL', () => {
+    const err = Object.assign(new Error('fetch failed'), { cause: { code: 'ECONNREFUSED' } });
+    expect(describeNetworkError(err, 'http://localhost:8757')).toMatch(/Could not reach.*http:\/\/localhost:8757.*running\?/);
+  });
+
+  it('flags a DNS failure distinctly', () => {
+    const err = Object.assign(new Error('fetch failed'), { cause: { code: 'ENOTFOUND' } });
+    expect(describeNetworkError(err, 'http://bad-host:8757')).toMatch(/Could not resolve.*CLAUDE_GATEWAY_URL/);
+  });
+
+  it('flags an abort/timeout distinctly', () => {
+    const err = new DOMException('The operation was aborted.', 'AbortError');
+    expect(describeNetworkError(err, 'http://localhost:8757')).toMatch(/cancelled or timed out/);
+  });
+
+  it('falls back to a generic reachable-gateway message for anything else', () => {
+    expect(describeNetworkError(new Error('boom'), 'http://localhost:8757')).toMatch(/Could not reach.*boom/);
+  });
+
+  it('surfaces the friendly message through the gateway client when fetch throws', async () => {
+    const fakeFetch = (async () => {
+      throw Object.assign(new Error('fetch failed'), { cause: { code: 'ECONNREFUSED' } });
+    }) as unknown as typeof fetch;
+    const client = createGatewayClaudeClient({ baseUrl: 'http://localhost:8757', fetchImpl: fakeFetch });
+    await expect(client.messages.create({ messages: [{ role: 'user', content: 'hi' }] })).rejects.toThrow(
+      /Could not reach the Claude Code Gateway.*running\?/,
     );
   });
 });

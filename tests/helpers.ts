@@ -1,10 +1,29 @@
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import type { AnthropicLike, AnthropicResponse } from '../src/clients/claude';
 import { PixverseClient } from '../src/clients/pixverse';
 import { YoutubeClient } from '../src/clients/youtube';
+import { FFMPEG_BIN } from '../src/services/ffmpeg';
 import { Store } from '../src/store/store';
+
+/** Synthesize a tiny real test video with ffmpeg itself — a fully self-contained fixture for frame-extraction tests. */
+export function synthesizeTestVideo(): Uint8Array {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pipbop-frame-fixture-'));
+  try {
+    const videoPath = path.join(dir, 'test.mp4');
+    const gen = spawnSync(
+      FFMPEG_BIN,
+      ['-y', '-f', 'lavfi', '-i', 'color=c=blue:s=64x64:d=1', '-frames:v', '5', videoPath],
+      { stdio: 'ignore' },
+    );
+    if (gen.status !== 0) throw new Error('failed to synthesize fixture video');
+    return new Uint8Array(fs.readFileSync(videoPath));
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
 
 export function makeStore(): { store: Store; dir: string; cleanup: () => void } {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pipbop-test-'));
@@ -83,6 +102,12 @@ export function sampleCanonExtractionJson(): string {
         summary: 'Rounded stylized 3D.',
         marks: [
           { key: 'style', value: 'rounded stylized 3D, bright colors, soft cinematic lighting', severity: 'locked', rationale: 'Series look.' },
+          {
+            key: 'reference_background',
+            value: 'seamless mint-green studio backdrop, even soft light',
+            severity: 'locked',
+            rationale: 'Consistent reference set.',
+          },
         ],
       },
     ],

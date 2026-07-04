@@ -114,13 +114,18 @@ export interface PortraitVersion {
   previewUrl: string | null;
   imageId: number | null;
   imageUrl: string | null;
+  imageError: string | null;
+  sourceImageUrl: string | null;
   error: string | null;
   createdAt: string;
   finishedAt: string | null;
 }
 
+export type ReferenceAssetType = 'character' | 'location';
+
 export interface CharacterAsset {
   entityId: string;
+  type: ReferenceAssetType;
   name: string;
   approvedVersionId: string | null;
   versions: PortraitVersion[];
@@ -245,4 +250,25 @@ export interface ProjectSummary {
   sceneCount: number;
   createdAt: string;
   publish: PublishRecord | null;
+}
+
+// ---- Audit events ----
+
+export type EventService = 'claude' | 'pixverse' | 'youtube';
+export type EventStatus = 'ok' | 'error';
+
+export interface AuditEvent {
+  id: string;
+  ts: string;
+  durationMs: number;
+  service: EventService;
+  type: string;
+  method: string;
+  url: string;
+  status: EventStatus;
+  httpStatus?: number;
+  summary: string;
+  request: unknown;
+  response: unknown;
+  error?: string;
 }

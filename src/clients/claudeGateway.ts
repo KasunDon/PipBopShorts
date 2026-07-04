@@ -110,6 +110,26 @@ function toAnthropicResponse(gw: GatewayResponse): AnthropicResponse {
   };
 }
 
+/** Turn a raw fetch failure into a message that tells the user what to actually check. */
+function describeNetworkError(err: unknown, baseUrl: string): string {
+  const message = err instanceof Error ? err.message : String(err);
+  const cause = err instanceof Error ? (err as Error & { cause?: unknown }).cause : undefined;
+  const code = cause && typeof cause === 'object' && 'code' in cause ? String((cause as { code?: unknown }).code) : '';
+  if (err instanceof DOMException && err.name === 'AbortError') {
+    return `The request to the Claude Code Gateway (${baseUrl}) was cancelled or timed out before it finished.`;
+  }
+  if (code === 'ECONNREFUSED' || /ECONNREFUSED/.test(message)) {
+    return `Could not reach the Claude Code Gateway at ${baseUrl} — is it running?`;
+  }
+  if (code === 'ENOTFOUND' || /ENOTFOUND/.test(message)) {
+    return `Could not resolve the Claude Code Gateway host (${baseUrl}). Check the CLAUDE_GATEWAY_URL setting.`;
+  }
+  if (/timed? ?out|ETIMEDOUT/i.test(message)) {
+    return `Timed out waiting for the Claude Code Gateway at ${baseUrl} to respond.`;
+  }
+  return `Could not reach the Claude Code Gateway at ${baseUrl}: ${message}`;
+}
+
 /** Build a client that satisfies {@link AnthropicLike} but is backed by the gateway. */
 export function createGatewayClaudeClient(options: GatewayClientOptions): AnthropicLike {
   const baseUrl = options.baseUrl.replace(/\/$/, '');
@@ -118,11 +138,16 @@ export function createGatewayClaudeClient(options: GatewayClientOptions): Anthro
 
   async function run(params: Record<string, unknown>): Promise<AnthropicResponse> {
     const body = toGatewayRequest(params as AnthropicParams, timeoutSeconds);
-    const res = await doFetch(`${baseUrl}/api/v1/claude/prompt`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
+    let res: Response;
+    try {
+      res = await doFetch(`${baseUrl}/api/v1/claude/prompt`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+    } catch (err) {
+      throw new Error(describeNetworkError(err, baseUrl));
+    }
     if (!res.ok) {
       const text = await res.text().catch(() => '');
       throw new Error(`Claude gateway request failed (HTTP ${res.status}): ${text.slice(0, 500)}`);
@@ -140,4 +165,4 @@ export function createGatewayClaudeClient(options: GatewayClientOptions): Anthro
 }
 
 // Exposed for unit tests.
-export const _internal = { toGatewayRequest, toAnthropicResponse, contentToText };
+export const _internal = { toGatewayRequest, toAnthropicResponse, contentToText, describeNetworkError };

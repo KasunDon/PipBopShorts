@@ -10,6 +10,7 @@ import type {
   PortraitSource,
   PortraitStatus,
   PortraitVersion,
+  ReferenceAssetType,
   Story,
 } from '../types';
 import { currentCanonVersion } from './canon';
@@ -25,56 +26,133 @@ export const PORTRAIT_DEFAULTS = {
   style: 'none',
 };
 
-function requireCanonCharacter(canon: CanonVersion | null, entityId: string): CanonEntity {
-  const entity = canon?.entities.find((e) => e.id === entityId && e.type === 'character');
-  if (!entity) throw new UserInputError(`No canon character with id ${entityId}. Extract canon first.`);
+const REFERENCE_TYPES: ReferenceAssetType[] = ['character', 'location'];
+
+function requireCanonReferenceEntity(canon: CanonVersion | null, entityId: string): CanonEntity {
+  const entity = canon?.entities.find((e) => e.id === entityId && (REFERENCE_TYPES as string[]).includes(e.type));
+  if (!entity) throw new UserInputError(`No canon character or location with id ${entityId}. Extract canon first.`);
   return entity;
 }
 
 function styleMark(canon: CanonVersion | null): string {
   const style = canon?.entities.find((e) => e.type === 'visual_style');
-  const mark = style?.marks.find((m) => /style|render|animation/i.test(m.key));
+  const mark = style?.marks.find((m) => /style|render|animation/i.test(m.key) && !/background|backdrop/i.test(m.key));
   return mark?.value ?? '';
 }
 
-/** Build a reference-sheet prompt from a character's canon marks. */
-export function buildPortraitPrompt(entity: CanonEntity, canon: CanonVersion | null): string {
-  const descriptors = entity.marks
-    .filter((m) => !/personality|voice|movement|catchphrase|never/i.test(m.key))
-    .map((m) => m.value)
-    .filter(Boolean);
-  const style = styleMark(canon);
-  const parts = [
-    `Character reference sheet of ${entity.name}: full body, neutral A-pose, facing forward, centered on a plain neutral studio background, even soft lighting, no text.`,
-    entity.summary,
-    descriptors.join('; '),
-  ].filter(Boolean);
-  if (style) parts.push(`Rendered in this exact style: ${style}.`);
-  parts.push('Clear, consistent, canonical character design suitable as a reference for future shots.');
-  return parts.join(' ');
+/**
+ * The single, canon-defined backdrop every character reference image should use
+ * so the whole cast reads as one consistent set. Falls back to a fixed neutral
+ * studio when the canon has not defined one.
+ */
+function referenceBackground(canon: CanonVersion | null): string {
+  const style = canon?.entities.find((e) => e.type === 'visual_style');
+  const mark = style?.marks.find((m) => /reference_background|backdrop|background/i.test(m.key));
+  return mark?.value?.trim() || 'plain seamless neutral studio backdrop, warm neutral grey, even soft key light, subtle floor shadow';
 }
 
-const DEFAULT_NEGATIVE = 'text, watermark, logo, multiple characters, extra limbs, distorted anatomy, blurry, cropped';
+/**
+ * Marks that describe how a character behaves rather than how it looks —
+ * useless (and sometimes actively confusing) in a still-image render prompt.
+ * Note "never" is deliberately NOT excluded here: a "never change" mark is
+ * exactly the kind of hard identity constraint the render needs to see.
+ */
+const NON_VISUAL_MARK = /personality|voice|movement|catchphrase/i;
+
+/** PixVerse rejects prompts over 2048 chars; keep a safety margin below that. */
+const MAX_PROMPT_CHARS = 2000;
+
+/**
+ * Join prompt fragments (highest-priority first) without exceeding the char
+ * budget. Lower-priority fragments are skipped — not truncated mid-sentence —
+ * so a locked identity feature is never dropped in favour of a filler
+ * descriptor. A final hard clamp guards against any single oversized fragment.
+ */
+function joinWithinBudget(parts: Array<string | undefined>, max = MAX_PROMPT_CHARS): string {
+  const kept: string[] = [];
+  let len = 0;
+  for (const raw of parts) {
+    const p = raw?.trim();
+    if (!p) continue;
+    const add = (kept.length ? 1 : 0) + p.length;
+    if (kept.length && len + add > max) continue; // skip this one; a later, shorter fragment may still fit
+    kept.push(p);
+    len += add;
+  }
+  const out = kept.join(' ');
+  return out.length > max ? `${out.slice(0, max - 1).replace(/\s+\S*$/, '')}…` : out;
+}
+
+/** Build a reference-sheet prompt from a character's canon marks (priority-ordered, budget-capped). */
+export function buildCharacterPortraitPrompt(entity: CanonEntity, canon: CanonVersion | null): string {
+  const visual = entity.marks.filter((m) => !NON_VISUAL_MARK.test(m.key) && m.value);
+  const locked = visual.filter((m) => m.severity === 'locked');
+  const rest = visual.filter((m) => m.severity !== 'locked');
+  const style = styleMark(canon);
+  const background = referenceBackground(canon);
+
+  // Ordered most- to least-important so the budget drops filler, never identity.
+  return joinWithinBudget([
+    // The same fixed backdrop for every character keeps the whole cast's reference set visually consistent.
+    `Character reference sheet of ${entity.name}: full body, neutral A-pose, facing forward, centered on ${background}, no text.`,
+    entity.summary,
+    locked.length ? `Must-have identity features — never change these: ${locked.map((m) => m.value).join('; ')}.` : undefined,
+    style ? `Rendered in this exact style: ${style}.` : undefined,
+    'Clear, consistent, canonical character design suitable as a reference for future shots. Depict only this one character.',
+    rest.length ? rest.map((m) => m.value).join('; ') : undefined,
+  ]);
+}
+
+/** Build an establishing-shot reference prompt from a location's canon marks (priority-ordered, budget-capped). */
+export function buildLocationReferencePrompt(entity: CanonEntity, canon: CanonVersion | null): string {
+  const visual = entity.marks.filter((m) => !NON_VISUAL_MARK.test(m.key) && m.value);
+  const locked = visual.filter((m) => m.severity === 'locked');
+  const rest = visual.filter((m) => m.severity !== 'locked');
+  const style = styleMark(canon);
+
+  return joinWithinBudget([
+    `Establishing shot of the location "${entity.name}": wide angle, empty of characters or people, even balanced lighting, no text.`,
+    entity.summary,
+    locked.length ? `Must-have fixed landmarks — never change these: ${locked.map((m) => m.value).join('; ')}.` : undefined,
+    style ? `Rendered in this exact style: ${style}.` : undefined,
+    'Clear, consistent, canonical environment design suitable as a reference for future shots.',
+    rest.length ? rest.map((m) => m.value).join('; ') : undefined,
+  ]);
+}
+
+/** Dispatches to the character or location prompt builder based on entity type. */
+export function buildPortraitPrompt(entity: CanonEntity, canon: CanonVersion | null): string {
+  return entity.type === 'location' ? buildLocationReferencePrompt(entity, canon) : buildCharacterPortraitPrompt(entity, canon);
+}
+
+const DEFAULT_NEGATIVE_CHARACTER = 'text, watermark, logo, multiple characters, extra limbs, distorted anatomy, blurry, cropped';
+const DEFAULT_NEGATIVE_LOCATION = 'text, watermark, logo, characters, people, blurry, cropped, distorted geometry';
+
+function defaultNegative(type: ReferenceAssetType): string {
+  return type === 'location' ? DEFAULT_NEGATIVE_LOCATION : DEFAULT_NEGATIVE_CHARACTER;
+}
 
 function emptyRegistry(storyId: string): CharacterRegistry {
   return { storyId, characters: {} };
 }
 
-/** Ensure a character asset exists for every canon character; returns the registry. */
+/** Ensure a reference asset exists for every canon character and location; returns the registry. */
 export function syncCharactersFromCanon(store: Store, storyId: string): CharacterRegistry {
   const canon = currentCanonVersion(store.getCanonRegistry(storyId));
   const registry = store.getCharacterRegistry(storyId) ?? emptyRegistry(storyId);
   if (!canon) return store.saveCharacterRegistry(registry);
-  for (const entity of canon.entities.filter((e) => e.type === 'character')) {
+  for (const entity of canon.entities.filter((e) => (REFERENCE_TYPES as string[]).includes(e.type))) {
     if (!registry.characters[entity.id]) {
       registry.characters[entity.id] = {
         entityId: entity.id,
+        type: entity.type as ReferenceAssetType,
         name: entity.name,
         approvedVersionId: null,
         versions: [],
       };
     } else {
       registry.characters[entity.id].name = entity.name; // keep display name fresh
+      registry.characters[entity.id].type = entity.type as ReferenceAssetType;
     }
   }
   return store.saveCharacterRegistry(registry);
@@ -82,7 +160,7 @@ export function syncCharactersFromCanon(store: Store, storyId: string): Characte
 
 function getAsset(registry: CharacterRegistry, entityId: string): CharacterAsset {
   const asset = registry.characters[entityId];
-  if (!asset) throw new UserInputError(`Unknown character asset ${entityId}. Sync characters first.`);
+  if (!asset) throw new UserInputError(`Unknown reference asset ${entityId}. Sync characters first.`);
   return asset;
 }
 
@@ -95,6 +173,13 @@ export interface GeneratePortraitOptions {
   quality?: string;
   aspectRatio?: string;
   style?: string;
+  /** Seed the render from an already-uploaded PixVerse image (image-to-video tweak). */
+  sourceImageId?: number;
+  sourceImageUrl?: string;
+  /** Raw image bytes to upload first, then use as the image-to-video source. */
+  sourceImageBytes?: Uint8Array;
+  sourceImageFilename?: string;
+  sourceImageContentType?: string;
   wait?: boolean;
   pollIntervalMs?: number;
   pollTimeoutMs?: number;
@@ -125,7 +210,7 @@ export async function generatePortrait(
 ): Promise<PortraitVersion> {
   store.getStory(storyId);
   const canon = currentCanonVersion(store.getCanonRegistry(storyId));
-  const entity = requireCanonCharacter(canon, entityId);
+  const entity = requireCanonReferenceEntity(canon, entityId);
 
   const registry = syncCharactersFromCanon(store, storyId);
   const asset = getAsset(registry, entityId);
@@ -141,7 +226,7 @@ export async function generatePortrait(
     id: makeId('port'),
     version: asset.versions.length + 1,
     prompt,
-    negativePrompt: options.negativePrompt ?? DEFAULT_NEGATIVE,
+    negativePrompt: options.negativePrompt ?? defaultNegative(asset.type),
     model: options.model ?? PORTRAIT_DEFAULTS.model,
     quality: options.quality ?? PORTRAIT_DEFAULTS.quality,
     aspectRatio: options.aspectRatio ?? PORTRAIT_DEFAULTS.aspectRatio,
@@ -152,6 +237,8 @@ export async function generatePortrait(
     previewUrl: null,
     imageId: null,
     imageUrl: null,
+    imageError: null,
+    sourceImageUrl: options.sourceImageUrl ?? null,
     error: null,
     createdAt: new Date().toISOString(),
     finishedAt: null,
@@ -160,16 +247,41 @@ export async function generatePortrait(
   store.saveCharacterRegistry(registry);
 
   try {
-    const videoId = await pixverse.generateTextToVideo({
-      prompt: version.prompt,
-      model: version.model as never,
-      quality: version.quality as never,
-      duration: PORTRAIT_DEFAULTS.duration,
-      motionMode: PORTRAIT_DEFAULTS.motionMode,
-      aspectRatio: version.aspectRatio as never,
-      negativePrompt: version.negativePrompt,
-      style: version.style as never,
-    });
+    // If an input image is supplied (upload bytes or a pre-uploaded id), seed the
+    // render with image-to-video so the tweak stays anchored to that image.
+    let sourceImageId = options.sourceImageId;
+    if (sourceImageId == null && options.sourceImageBytes) {
+      const uploaded = await pixverse.uploadImage(
+        options.sourceImageBytes,
+        options.sourceImageFilename,
+        options.sourceImageContentType,
+      );
+      sourceImageId = uploaded.imgId;
+      version.sourceImageUrl = uploaded.imgUrl;
+      store.saveCharacterRegistry(registry);
+    }
+
+    const videoId =
+      sourceImageId != null
+        ? await pixverse.generateImageToVideo({
+            imageId: sourceImageId,
+            prompt: version.prompt,
+            model: version.model as never,
+            quality: version.quality as never,
+            duration: PORTRAIT_DEFAULTS.duration,
+            motionMode: PORTRAIT_DEFAULTS.motionMode,
+            negativePrompt: version.negativePrompt,
+          })
+        : await pixverse.generateTextToVideo({
+            prompt: version.prompt,
+            model: version.model as never,
+            quality: version.quality as never,
+            duration: PORTRAIT_DEFAULTS.duration,
+            motionMode: PORTRAIT_DEFAULTS.motionMode,
+            aspectRatio: version.aspectRatio as never,
+            negativePrompt: version.negativePrompt,
+            style: version.style as never,
+          });
     version.videoId = videoId;
     store.saveCharacterRegistry(registry);
 
@@ -183,17 +295,22 @@ export async function generatePortrait(
       version.previewUrl = result.url;
       version.finishedAt = new Date().toISOString();
 
-      // Best-effort: derive a still and upload it for image-to-video use.
+      // Derive a still and upload it for image-to-video use; failures are
+      // surfaced on the version (imageError) rather than swallowed, so a
+      // missing image is visible and debuggable instead of just absent.
       if (version.status === 'ready' && result.url) {
         const frame = await extractFirstFrame(result.url, options.fetchImpl ?? fetch);
-        if (frame) {
+        if (frame.ok) {
           try {
-            const uploaded = await pixverse.uploadImage(frame, `${entity.name}-ref.png`, 'image/png');
+            const uploaded = await pixverse.uploadImage(frame.bytes, `${entity.name}-ref.png`, 'image/png');
             version.imageId = uploaded.imgId;
             version.imageUrl = uploaded.imgUrl;
-          } catch {
-            // Non-fatal: scenes fall back to descriptor-only references.
+            version.imageError = null;
+          } catch (err) {
+            version.imageError = `Still captured but upload to PixVerse failed: ${err instanceof Error ? err.message : String(err)}`;
           }
+        } else {
+          version.imageError = frame.reason;
         }
       }
     }
@@ -231,14 +348,17 @@ export async function refreshPortrait(
   if (version.status !== 'generating') version.finishedAt = new Date().toISOString();
   if (version.status === 'ready' && result.url && version.imageId == null) {
     const frame = await extractFirstFrame(result.url, options.fetchImpl ?? fetch);
-    if (frame) {
+    if (frame.ok) {
       try {
-        const up = await pixverse.uploadImage(frame, 'ref.png', 'image/png');
+        const up = await pixverse.uploadImage(frame.bytes, 'ref.png', 'image/png');
         version.imageId = up.imgId;
         version.imageUrl = up.imgUrl;
-      } catch {
-        /* non-fatal */
+        version.imageError = null;
+      } catch (err) {
+        version.imageError = `Still captured but upload to PixVerse failed: ${err instanceof Error ? err.message : String(err)}`;
       }
+    } else {
+      version.imageError = frame.reason;
     }
   }
   store.saveCharacterRegistry(registry);
@@ -273,6 +393,8 @@ export async function uploadPortraitStill(
     previewUrl: uploaded.imgUrl,
     imageId: uploaded.imgId,
     imageUrl: uploaded.imgUrl,
+    imageError: null,
+    sourceImageUrl: null,
     error: null,
     createdAt: new Date().toISOString(),
     finishedAt: new Date().toISOString(),

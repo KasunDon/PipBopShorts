@@ -275,15 +275,23 @@ export interface PortraitVersion {
   /** Uploaded still that PixVerse can consume as an image-to-video source. */
   imageId: number | null;
   imageUrl: string | null;
+  /** Why no still image was captured/uploaded for an otherwise-ready render (null when one exists or wasn't attempted). */
+  imageError: string | null;
+  /** When this render was seeded from an input image (image-to-video tweak), the URL of that source image. */
+  sourceImageUrl: string | null;
   error: string | null;
   createdAt: string;
   finishedAt: string | null;
 }
 
-/** All reference-image versions for one canon character, plus the approved pick. */
+/** What kind of canon entity this reference-image asset renders. */
+export type ReferenceAssetType = 'character' | 'location';
+
+/** All reference-image versions for one canon character or location, plus the approved pick. */
 export interface CharacterAsset {
-  /** Canon entity id, e.g. CHAR_BOBO_001. */
+  /** Canon entity id, e.g. CHAR_BOBO_001 or LOC_GIGGLE_TREE_001. */
   entityId: string;
+  type: ReferenceAssetType;
   name: string;
   approvedVersionId: string | null;
   versions: PortraitVersion[];

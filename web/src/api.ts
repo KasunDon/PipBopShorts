@@ -1,5 +1,6 @@
 import type {
   AppConfig,
+  AuditEvent,
   CanonRegistry,
   CharacterAsset,
   CharacterRegistry,
@@ -7,6 +8,8 @@ import type {
   DriftFinding,
   DriftReport,
   Episode,
+  EventService,
+  EventStatus,
   PortraitVersion,
   Project,
   ProjectSummary,
@@ -16,11 +19,12 @@ import type {
   YoutubeMeta,
 } from './types';
 
-async function req<T>(method: string, url: string, body?: unknown): Promise<T> {
+async function req<T>(method: string, url: string, body?: unknown, opts?: { signal?: AbortSignal }): Promise<T> {
   const res = await fetch(url, {
     method,
     headers: body !== undefined ? { 'Content-Type': 'application/json' } : undefined,
     body: body !== undefined ? JSON.stringify(body) : undefined,
+    signal: opts?.signal,
   });
   if (res.status === 204) return undefined as T;
   const text = await res.text();
@@ -105,8 +109,24 @@ export const api = {
   generatePortrait: (
     storyId: string,
     entityId: string,
-    opts: { source?: string; promptOverride?: string; model?: string; quality?: string; aspectRatio?: string } = {},
-  ) => req<{ version: PortraitVersion }>('POST', `/api/stories/${storyId}/characters/${entityId}/portraits`, opts),
+    opts: {
+      source?: string;
+      promptOverride?: string;
+      model?: string;
+      quality?: string;
+      aspectRatio?: string;
+      /** Attach an image to seed an image-to-video (image-guided) render. */
+      dataBase64?: string;
+      contentType?: string;
+      filename?: string;
+      signal?: AbortSignal;
+    } = {},
+  ) => {
+    const { signal, ...body } = opts;
+    return req<{ version: PortraitVersion }>('POST', `/api/stories/${storyId}/characters/${entityId}/portraits`, body, {
+      signal,
+    });
+  },
   refreshPortrait: (storyId: string, entityId: string, versionId: string) =>
     req<{ version: PortraitVersion }>(
       'POST',
@@ -134,8 +154,10 @@ export const api = {
     req<{ story: Story }>('POST', `/api/stories/${storyId}/plan/extend`, opts),
   generateEpisode: (storyId: string, opts: { runtimeSec?: number; model?: string; guidance?: string } = {}) =>
     req<{ episode: Episode; story: Story }>('POST', `/api/stories/${storyId}/episodes/generate`, opts),
-  bootstrapStory: (idea: string, opts: { model?: string; withCanon?: boolean } = {}) =>
-    req<{ story: Story; registry: CanonRegistry | null }>('POST', '/api/stories/bootstrap', { idea, ...opts }),
+  bootstrapStory: (idea: string, opts: { model?: string; withCanon?: boolean; signal?: AbortSignal } = {}) => {
+    const { signal, ...rest } = opts;
+    return req<{ story: Story; registry: CanonRegistry | null }>('POST', '/api/stories/bootstrap', { idea, ...rest }, { signal });
+  },
   draftEpisode: (storyId: string, idea: string, opts: { model?: string } = {}) =>
     req<{ draft: { title: string; brief: string; setting: string } }>(
       'POST',
@@ -159,6 +181,20 @@ export const api = {
     req<{ markdown: string }>('GET', `/api/templates/story-bible?title=${encodeURIComponent(title)}`),
   episodeSettingTemplate: (title: string) =>
     req<{ markdown: string }>('GET', `/api/templates/episode-setting?title=${encodeURIComponent(title)}`),
+
+  // ---- Audit events ----
+  listEvents: (opts: { q?: string; service?: EventService; status?: EventStatus; before?: string; limit?: number } = {}) => {
+    const params = new URLSearchParams();
+    if (opts.q) params.set('q', opts.q);
+    if (opts.service) params.set('service', opts.service);
+    if (opts.status) params.set('status', opts.status);
+    if (opts.before) params.set('before', opts.before);
+    if (opts.limit) params.set('limit', String(opts.limit));
+    const qs = params.toString();
+    return req<{ events: AuditEvent[]; hasMore: boolean }>('GET', `/api/events${qs ? `?${qs}` : ''}`);
+  },
+  getEvent: (id: string) => req<{ event: AuditEvent }>('GET', `/api/events/${id}`),
+  clearEvents: () => req<void>('DELETE', '/api/events'),
 };
 
 interface PublishResult {

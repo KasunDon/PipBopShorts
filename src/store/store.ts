@@ -304,7 +304,16 @@ export class Store {
   getCharacterRegistry(storyId: string): CharacterRegistry | null {
     this.getStory(storyId);
     try {
-      return JSON.parse(fs.readFileSync(this.charactersPath(storyId), 'utf8')) as CharacterRegistry;
+      const registry = JSON.parse(fs.readFileSync(this.charactersPath(storyId), 'utf8')) as CharacterRegistry;
+      // Backfill fields for assets/versions persisted before they existed.
+      for (const asset of Object.values(registry.characters)) {
+        if (!asset.type) asset.type = 'character';
+        for (const version of asset.versions) {
+          if (version.imageError === undefined) version.imageError = null;
+          if (version.sourceImageUrl === undefined) version.sourceImageUrl = null;
+        }
+      }
+      return registry;
     } catch {
       return null;
     }

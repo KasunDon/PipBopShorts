@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { extractCanon } from '../src/services/canon';
 import {
   approvePortrait,
+  buildCharacterPortraitPrompt,
+  buildLocationReferencePrompt,
   buildPortraitPrompt,
   detectCharactersInText,
   generatePortrait,
@@ -13,8 +15,9 @@ import {
 import { generateClip } from '../src/services/generation';
 import { createStorylineProject, updateScene } from '../src/services/storyline';
 import { currentCanonVersion } from '../src/services/canon';
+import type { CanonEntity } from '../src/types';
 import type { Store } from '../src/store/store';
-import { makeFakePixverse, makeStore, makeStudioFakeClaude, noSleep } from './helpers';
+import { makeFakePixverse, makeStore, makeStudioFakeClaude, noSleep, synthesizeTestVideo } from './helpers';
 
 let cleanups: Array<() => void> = [];
 afterEach(() => {
@@ -46,22 +49,127 @@ describe('portrait prompt', () => {
     expect(prompt).not.toContain('rushes in'); // personality mark excluded
     expect(prompt).toContain('rounded stylized 3D'); // style mark appended
   });
+
+  it('calls out locked marks as must-have identity features (never dropped)', async () => {
+    const { store, storyId } = await storyWithCanon();
+    const canon = currentCanonVersion(store.getCanonRegistry(storyId))!;
+    const bobo = canon.entities.find((e) => e.id === 'CHAR_BOBO_001')!;
+    const prompt = buildCharacterPortraitPrompt(bobo, canon);
+    expect(prompt).toContain('Must-have identity features — never change these:');
+    expect(prompt).toContain('bright green leaf scarf');
+    expect(prompt).toContain('golden-brown fur, warm cream face');
+  });
+
+  it('uses the canon reference_background so every character shares one consistent backdrop', async () => {
+    const { store, storyId } = await storyWithCanon();
+    const canon = currentCanonVersion(store.getCanonRegistry(storyId))!;
+    const bobo = canon.entities.find((e) => e.id === 'CHAR_BOBO_001')!;
+    const prompt = buildCharacterPortraitPrompt(bobo, canon);
+    expect(prompt).toContain('seamless mint-green studio backdrop, even soft light');
+    // The style mark is still applied and is not confused with the background mark.
+    expect(prompt).toContain('rounded stylized 3D');
+  });
+
+  it('falls back to a fixed neutral backdrop when canon defines no reference background', () => {
+    const entity: CanonEntity = {
+      id: 'CHAR_X_001',
+      type: 'character',
+      name: 'X',
+      summary: 'x',
+      marks: [{ key: 'colors', value: 'blue', severity: 'locked', status: 'active', transition: null, rationale: '' }],
+    };
+    const prompt = buildCharacterPortraitPrompt(entity, null);
+    expect(prompt).toMatch(/neutral studio backdrop/i);
+  });
+
+  it('caps the prompt under PixVerse\'s 2048-char limit, keeping locked features and dropping filler', () => {
+    const mark = (key: string, value: string, severity: 'locked' | 'flexible') => ({
+      key,
+      value,
+      severity,
+      status: 'active' as const,
+      transition: null,
+      rationale: '',
+    });
+    const entity: CanonEntity = {
+      id: 'CHAR_BIG_001',
+      type: 'character',
+      name: 'Bigmarks',
+      summary: 'A very over-documented character.',
+      marks: [
+        mark('signature_features', 'a single unmistakable golden monocle', 'locked'),
+        // A pile of long flexible descriptors that would blow the budget.
+        ...Array.from({ length: 40 }, (_, i) => mark(`extra_${i}`, `flexible descriptor number ${i} `.repeat(20), 'flexible')),
+      ],
+    };
+    const prompt = buildCharacterPortraitPrompt(entity, null);
+    expect(prompt.length).toBeLessThanOrEqual(2000);
+    // The locked identity feature survives; low-priority filler is what gets dropped.
+    expect(prompt).toContain('golden monocle');
+  });
+
+  it('includes a "never change" mark instead of silently dropping it (previous bug)', () => {
+    const entity: CanonEntity = {
+      id: 'CHAR_TEST_001',
+      type: 'character',
+      name: 'Test Hero',
+      summary: 'A test character.',
+      marks: [
+        {
+          key: 'never_change_list',
+          value: 'always has a red cape, never depicted without it',
+          severity: 'locked',
+          status: 'active',
+          transition: null,
+          rationale: 'Signature identity.',
+        },
+      ],
+    };
+    const prompt = buildCharacterPortraitPrompt(entity, null);
+    expect(prompt).toContain('always has a red cape, never depicted without it');
+  });
+
+  it('builds a distinct establishing-shot prompt for locations (not character A-pose framing)', async () => {
+    const { store, storyId } = await storyWithCanon();
+    const canon = currentCanonVersion(store.getCanonRegistry(storyId))!;
+    const tree = canon.entities.find((e) => e.type === 'location')!;
+    const prompt = buildLocationReferencePrompt(tree, canon);
+    expect(prompt).toContain('Establishing shot of the location "Giggle Tree"');
+    expect(prompt).toContain('empty of characters or people');
+    expect(prompt).not.toContain('A-pose');
+    expect(prompt).toContain('curved branches, hanging bananas');
+    expect(prompt).toContain('rounded stylized 3D'); // shares the series style mark
+  });
+
+  it('dispatches to the right builder based on entity.type', async () => {
+    const { store, storyId } = await storyWithCanon();
+    const canon = currentCanonVersion(store.getCanonRegistry(storyId))!;
+    const bobo = canon.entities.find((e) => e.type === 'character')!;
+    const tree = canon.entities.find((e) => e.type === 'location')!;
+    expect(buildPortraitPrompt(bobo, canon)).toBe(buildCharacterPortraitPrompt(bobo, canon));
+    expect(buildPortraitPrompt(tree, canon)).toBe(buildLocationReferencePrompt(tree, canon));
+  });
 });
 
 describe('sync + generate + version', () => {
-  it('creates an asset per canon character', async () => {
+  it('creates an asset per canon character and per canon location', async () => {
     const { store, storyId } = await storyWithCanon();
     const registry = syncCharactersFromCanon(store, storyId);
     expect(Object.keys(registry.characters)).toContain('CHAR_BOBO_001');
     expect(registry.characters['CHAR_BOBO_001'].versions).toHaveLength(0);
+    expect(registry.characters['CHAR_BOBO_001'].type).toBe('character');
+
+    const locationId = Object.keys(registry.characters).find((id) => id.startsWith('LOC_'))!;
+    expect(locationId).toBeTruthy();
+    expect(registry.characters[locationId].type).toBe('location');
+    expect(registry.characters[locationId].name).toBe('Giggle Tree');
   });
 
-  it('generates a portrait version and marks it ready with a preview + uploaded still', async () => {
+  it('generates a portrait version, marks it ready, and surfaces why a still was not captured', async () => {
     const { store, storyId } = await storyWithCanon();
     const { client: pixverse, requests } = makeFakePixverse({ defaultStatus: 1 });
-    // Fake frame extraction so a still is uploaded even without ffmpeg.
+    // Not a real video — real ffmpeg (bundled) will genuinely attempt and fail to decode it.
     const fetchImpl = (async () => new Response(new Uint8Array([1, 2, 3]))) as unknown as typeof fetch;
-    // No ffmpeg in CI → imageId stays null; assert the ready portrait regardless.
     const v = await generatePortrait(store, pixverse, storyId, 'CHAR_BOBO_001', {
       pollIntervalMs: 1,
       sleep: noSleep,
@@ -73,6 +181,64 @@ describe('sync + generate + version', () => {
     expect(v.previewUrl).toContain('.mp4');
     expect(v.videoId).toBe(111);
     expect(requests.some((r) => r.url.endsWith('/video/text/generate'))).toBe(true);
+    // Extraction was attempted and failed on the garbage bytes — the reason is visible, not silently dropped.
+    expect(v.imageId).toBeNull();
+    expect(v.imageError).toBeTruthy();
+  });
+
+  it('captures and uploads a real still image alongside the video (end-to-end fix)', async () => {
+    const { store, storyId } = await storyWithCanon();
+    const { client: pixverse } = makeFakePixverse({ defaultStatus: 1 });
+    const videoBytes = synthesizeTestVideo();
+    const fetchImpl = (async () => new Response(videoBytes)) as unknown as typeof fetch;
+
+    const v = await generatePortrait(store, pixverse, storyId, 'CHAR_BOBO_001', {
+      pollIntervalMs: 1,
+      sleep: noSleep,
+      fetchImpl,
+    });
+    expect(v.status).toBe('ready');
+    expect(v.imageError).toBeNull();
+    expect(v.imageId).toBe(42); // from fake uploadImage
+    expect(v.imageUrl).toBeTruthy();
+  });
+
+  it('generates a location reference image using the location-specific prompt', async () => {
+    const { store, storyId } = await storyWithCanon();
+    const registry = syncCharactersFromCanon(store, storyId);
+    const locationId = Object.keys(registry.characters).find((id) => id.startsWith('LOC_'))!;
+    const { client: pixverse, requests } = makeFakePixverse({ defaultStatus: 1 });
+
+    const v = await generatePortrait(store, pixverse, storyId, locationId, { pollIntervalMs: 1, sleep: noSleep });
+    expect(v.status).toBe('ready');
+    expect(v.prompt).toContain('Establishing shot of the location "Giggle Tree"');
+    const textReq = requests.find((r) => r.url.endsWith('/video/text/generate'));
+    expect((textReq!.body as { negative_prompt: string }).negative_prompt).toContain('people');
+  });
+
+  it('image-guided tweak uploads the image and renders via image-to-video, recording the source image', async () => {
+    const { store, storyId } = await storyWithCanon();
+    const { client: pixverse, requests } = makeFakePixverse({ defaultStatus: 1 });
+
+    const v = await generatePortrait(store, pixverse, storyId, 'CHAR_BOBO_001', {
+      source: 'tweak',
+      promptOverride: 'Bobo with a tiny party hat, matching this reference',
+      sourceImageBytes: new Uint8Array([9, 9, 9]),
+      sourceImageFilename: 'seed.png',
+      pollIntervalMs: 1,
+      sleep: noSleep,
+    });
+
+    expect(v.status).toBe('ready');
+    expect(v.source).toBe('tweak');
+    // It uploaded the seed image and routed through image-to-video (not text-to-video).
+    expect(requests.some((r) => r.url.endsWith('/image/upload'))).toBe(true);
+    const imgReq = requests.find((r) => r.url.endsWith('/video/img/generate'));
+    expect(imgReq).toBeTruthy();
+    expect((imgReq!.body as { img_id: number }).img_id).toBe(42);
+    expect(requests.some((r) => r.url.endsWith('/video/text/generate'))).toBe(false);
+    // The seeding image is recorded for display.
+    expect(v.sourceImageUrl).toBeTruthy();
   });
 
   it('refresh and tweak append new versions with the right source', async () => {

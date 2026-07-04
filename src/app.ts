@@ -30,6 +30,7 @@ import {
 import { assertRuntime, extendPlan, generateNextEpisode, planStory } from './services/season';
 import { checkDrift, resolveDrift } from './services/drift';
 import { UserInputError } from './errors';
+import { EventStore, type EventService, type EventStatus } from './events/eventStore';
 import { exportFilename, exportStory, ImportError, importStory } from './services/exchange';
 import {
   extendClip,
@@ -60,6 +61,8 @@ export interface AppDeps {
   generateDefaults?: Omit<GenerateOptions, 'wait'>;
   /** Path to a built web app to serve statically. */
   webDir?: string;
+  /** Audit log of outbound network calls; defaults to an in-memory-only store. */
+  eventStore?: EventStore;
 }
 
 type Handler = (req: Request, res: Response) => Promise<unknown> | unknown;
@@ -73,6 +76,7 @@ function asyncHandler(fn: Handler) {
 export function createApp(deps: AppDeps): express.Express {
   const app = express();
   app.use(express.json({ limit: '30mb' }));
+  const eventStore = deps.eventStore ?? new EventStore();
 
   const genOpts = (body: Record<string, unknown>): GenerateOptions => ({
     ...deps.generateDefaults,
@@ -101,6 +105,50 @@ export function createApp(deps: AppDeps): express.Express {
       dissect: { models: DISSECT_MODELS, defaultModel: DEFAULT_DISSECT_MODEL },
       episodeRuntimes: EPISODE_RUNTIMES,
     });
+  });
+
+  // ---- Audit events (all outbound network / LLM / PixVerse calls) ----
+  app.get('/api/events', (req, res) => {
+    const { q, service, status, before, limit } = req.query;
+    const result = eventStore.list({
+      q: typeof q === 'string' ? q : undefined,
+      service: typeof service === 'string' && service ? (service as EventService) : undefined,
+      status: typeof status === 'string' && status ? (status as EventStatus) : undefined,
+      before: typeof before === 'string' ? before : undefined,
+      limit: limit !== undefined ? Number(limit) : undefined,
+    });
+    res.json(result);
+  });
+
+  app.get('/api/events/stream', (req, res) => {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders?.();
+    res.write(': connected\n\n');
+
+    const unsubscribe = eventStore.subscribe((event) => {
+      res.write(`data: ${JSON.stringify(event)}\n\n`);
+    });
+    const ping = setInterval(() => res.write(': ping\n\n'), 20000);
+    req.on('close', () => {
+      clearInterval(ping);
+      unsubscribe();
+    });
+  });
+
+  app.get(
+    '/api/events/:id',
+    asyncHandler((req, res) => {
+      const event = eventStore.get(req.params.id);
+      if (!event) throw new HttpError(404, `Event not found: ${req.params.id}`);
+      res.json({ event });
+    }),
+  );
+
+  app.delete('/api/events', (_req, res) => {
+    eventStore.clear();
+    res.status(204).end();
   });
 
   // ---- Templates ----
@@ -355,7 +403,11 @@ export function createApp(deps: AppDeps): express.Express {
   app.post(
     '/api/stories/:storyId/characters/:entityId/portraits',
     asyncHandler(async (req, res) => {
-      const { source, promptOverride, negativePrompt, model, quality, aspectRatio, style, wait } = req.body ?? {};
+      const { source, promptOverride, negativePrompt, model, quality, aspectRatio, style, wait, dataBase64, contentType, filename } =
+        req.body ?? {};
+      // An optional attached image seeds an image-to-video (image-guided) render.
+      const sourceImageBytes =
+        typeof dataBase64 === 'string' && dataBase64 ? new Uint8Array(Buffer.from(dataBase64, 'base64')) : undefined;
       const version = await generatePortrait(deps.store, deps.pixverse, req.params.storyId, req.params.entityId, {
         ...deps.generateDefaults,
         source,
@@ -365,6 +417,9 @@ export function createApp(deps: AppDeps): express.Express {
         quality,
         aspectRatio,
         style,
+        sourceImageBytes,
+        sourceImageFilename: typeof filename === 'string' ? filename : undefined,
+        sourceImageContentType: typeof contentType === 'string' ? contentType : undefined,
         wait: wait === undefined ? true : Boolean(wait),
       });
       res.status(201).json({ version });

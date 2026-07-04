@@ -18,7 +18,8 @@
     "web:install": "npm --prefix web install"
   },
   "dependencies": {
-    "express": "^4.21.2"
+    "express": "^4.21.2",
+    "ffmpeg-static": "^5.3.0"
   },
   "devDependencies": {
     "@types/express": "^4.17.25",

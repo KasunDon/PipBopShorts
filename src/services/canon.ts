@@ -97,13 +97,28 @@ const EXTRACTION_SYSTEM = `You are the continuity supervisor of an AI video prod
 Dissect a story bible into a canonical registry of consistency marks — the facts that must stay identical (or evolve only deliberately) across every episode, so AI-generated video does not drift.
 
 Extract entities of these types:
-- character: every recurring character. Marks must capture the full visual signature (species/build, colors, eyes, accessories, proportions), personality pillars, movement style, and any "never change" rules.
+- character: every recurring character. See the REQUIRED character checklist below.
 - location: recurring places with their fixed landmarks, palette, and lighting.
 - prop: recurring signature objects.
 - relationship: important character pair dynamics.
 - world_rule: what is possible/impossible in this world (physics, magic, safety rules).
-- visual_style: the render/animation style, camera and lighting language, color rules.
+- visual_style: the render/animation style, camera and lighting language, color rules. See the REQUIRED visual_style marks below.
 - audience_tone: target audience, tone, emotional-safety rules, content restrictions.
+
+REQUIRED character checklist — for EVERY character, produce a mark for EACH of these keys (use the exact snake_case key), so every character is described to the SAME level of detail and never renders "a little off":
+- species_build: species/type and body build (e.g. "small round robot, stocky proportions").
+- colors: exact primary and secondary colors, materials/finish (e.g. "matte tangerine-orange body, cream belly, brushed-steel dish").
+- face: face/head shape and notable facial features.
+- eyes: eye shape, color, expression.
+- signature_features: the 1-3 unmistakable, never-change identifying features (accessory, marking, silhouette).
+- outfit: clothing/accessories, or "none" if unclothed.
+- proportions_scale: relative size/scale (e.g. "knee-high to an adult human; head is 1/3 of body").
+Set species_build, colors, signature_features to severity "locked". A character missing any of these keys is a bug — infer sensible, on-brand values from the bible rather than omitting.
+
+REQUIRED visual_style marks (produce all three):
+- style: the render/animation look, camera and lighting language.
+- color_rules: the palette to use and moods/colors to avoid.
+- reference_background: ONE consistent neutral backdrop to use for ALL character reference images so every reference looks like part of the same set (e.g. "seamless soft-gradient studio backdrop, warm neutral grey, even soft key light, subtle floor shadow"). This must be a single fixed description, severity "locked".
 
 Mark severity:
 - locked: must never change without an explicit canon change (signature accessories, names, species, brand colors, safety rules).
@@ -112,7 +127,7 @@ Mark severity:
 
 Mark keys are short snake_case (e.g. "scarf", "fur_color", "lighting_default"). Values are concrete and renderable — write them so a video model could paint from them.
 Also produce "negative_prompt": a comma-separated avoid-list for video generation distilled from the bible's forbidden content, moods, and styles.
-Be exhaustive on characters — visual drift there is the most damaging.`;
+Be exhaustive and uniform on characters — visual drift there is the most damaging.`;
 
 interface RawExtractedMark {
   key: string;

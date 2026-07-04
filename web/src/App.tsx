@@ -3,15 +3,18 @@ import { api } from './api';
 import { CanonSection, StoryMetaEditor } from './CanonPanel';
 import { CharactersPanel } from './CharactersPanel';
 import { DriftPanel } from './DriftPanel';
+import { EventsPanel } from './EventsPanel';
 import { SceneCard } from './SceneCard';
 import { formatRuntime, RuntimeSelect, SeasonPanel } from './SeasonPanel';
 import type { AppConfig, Episode, Project, ProjectSummary, Story } from './types';
+import { formatElapsed, useAsyncAction } from './useAsyncAction';
 
 export function App() {
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [stories, setStories] = useState<Story[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [showEvents, setShowEvents] = useState(false);
 
   const [storyId, setStoryId] = useState<string | null>(null);
   const [story, setStory] = useState<{ story: Story; bible: string; episodes: Episode[] } | null>(null);
@@ -128,6 +131,9 @@ export function App() {
             {project && <span className="sep">/</span>}
             {project && <span className="crumb current">{project.storyline.title}</span>}
           </div>
+          <button className={`events-toggle ${showEvents ? 'active' : ''}`} onClick={() => setShowEvents((v) => !v)}>
+            🛰 Events
+          </button>
           {config && (
             <span className={`badge ${config.youtubeDryRun ? 'warn' : 'live'}`}>
               YouTube: {config.youtubeDryRun ? 'dry-run' : 'live'}
@@ -144,20 +150,20 @@ export function App() {
         {busy && <div className="busybar" />}
 
         <div className="content">
-          {!storyId && (
+          {showEvents && <EventsPanel onClose={() => setShowEvents(false)} />}
+
+          {!showEvents && !storyId && (
             <Welcome
               config={config}
-              onLaunch={async (idea, model, withCanon) => {
-                const res = await run(() => api.bootstrapStory(idea, { model, withCanon }));
-                if (res) {
-                  await refreshStories();
-                  openStory(res.story.id);
-                }
+              onLaunch={async (idea, model, withCanon, signal) => {
+                const res = await api.bootstrapStory(idea, { model, withCanon, signal });
+                await refreshStories();
+                openStory(res.story.id);
               }}
             />
           )}
 
-          {storyId && story && !episodeId && config && (
+          {!showEvents && storyId && story && !episodeId && config && (
             <StoryPanel
               data={story}
               config={config}
@@ -173,7 +179,7 @@ export function App() {
             />
           )}
 
-          {episodeId && episode && !storylineId && config && (
+          {!showEvents && episodeId && episode && !storylineId && config && (
             <EpisodePanel
               data={episode}
               config={config}
@@ -183,7 +189,7 @@ export function App() {
             />
           )}
 
-          {storylineId && project && config && (
+          {!showEvents && storylineId && project && config && (
             <ProjectPanel
               project={project}
               config={config}
@@ -209,12 +215,12 @@ function Welcome({
   onLaunch,
 }: {
   config: AppConfig | null;
-  onLaunch: (idea: string, model: string, withCanon: boolean) => Promise<void>;
+  onLaunch: (idea: string, model: string, withCanon: boolean, signal: AbortSignal) => Promise<void>;
 }) {
   const [idea, setIdea] = useState('');
   const [model, setModel] = useState('');
   const [withCanon, setWithCanon] = useState(true);
-  const [pending, setPending] = useState(false);
+  const { pending, elapsedSec, error, execute, cancel, dismissError } = useAsyncAction();
 
   const effectiveModel = model || config?.dissect.defaultModel || 'claude-sonnet-5';
 
@@ -252,23 +258,35 @@ function Welcome({
           <button
             className="primary big"
             disabled={pending || !idea.trim()}
-            onClick={async () => {
-              setPending(true);
-              try {
-                await onLaunch(idea.trim(), effectiveModel, withCanon);
-              } finally {
-                setPending(false);
-              }
-            }}
+            onClick={() => execute((signal) => onLaunch(idea.trim(), effectiveModel, withCanon, signal))}
           >
             {pending ? '✨ Developing your series…' : '✨ Create my series'}
           </button>
         </div>
         {pending && (
-          <p className="muted small">
-            Writing the bible{withCanon ? ' and extracting canon' : ''} — this takes a minute. Everything will be
-            editable when it lands.
-          </p>
+          <div className="row idea-progress">
+            <p className="muted small">
+              Writing the bible{withCanon ? ' and extracting canon' : ''} — {formatElapsed(elapsedSec)} elapsed. This can
+              take a few minutes, especially with canon extraction on. Everything will be editable when it lands.
+            </p>
+            <button className="ghost small" onClick={cancel}>
+              ✕ Cancel
+            </button>
+          </div>
+        )}
+        {error && (
+          <div className="error inline" role="alert">
+            {error}
+            <div className="row">
+              <button
+                className="ghost small"
+                onClick={() => execute((signal) => onLaunch(idea.trim(), effectiveModel, withCanon, signal))}
+              >
+                ↻ Retry
+              </button>
+              <button onClick={dismissError}>×</button>
+            </div>
+          </div>
         )}
       </div>
 

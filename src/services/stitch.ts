@@ -2,18 +2,11 @@ import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { FFMPEG_BIN, hasFfmpeg } from './ffmpeg';
 
 type FetchLike = typeof fetch;
 
-/** Whether an ffmpeg binary is available on PATH. */
-export function hasFfmpeg(): boolean {
-  try {
-    const res = spawnSync('ffmpeg', ['-version'], { stdio: 'ignore' });
-    return res.status === 0;
-  } catch {
-    return false;
-  }
-}
+export { hasFfmpeg };
 
 /**
  * Concatenate several clip URLs into a single MP4 using ffmpeg. Best-effort:
@@ -39,7 +32,7 @@ export async function stitchClips(urls: string[], fetchImpl: FetchLike = fetch):
     writeFileSync(listPath, files.map((f) => `file '${f.replace(/'/g, "'\\''")}'`).join('\n'), 'utf8');
     const outPath = path.join(dir, 'out.mp4');
     const res = spawnSync(
-      'ffmpeg',
+      FFMPEG_BIN,
       ['-y', '-f', 'concat', '-safe', '0', '-i', listPath, '-c', 'copy', outPath],
       { stdio: 'ignore' },
     );
