@@ -296,6 +296,87 @@ export function currentCanonVersion(registry: CanonRegistry | null): CanonVersio
   return registry.versions.find((v) => v.version === registry.currentVersion) ?? null;
 }
 
+export interface MarkChange {
+  entityId: string;
+  entityName: string;
+  entityType: string;
+  markKey: string;
+  kind: 'added' | 'removed' | 'value' | 'severity' | 'status';
+  before: string | null;
+  after: string | null;
+}
+export interface CanonDiff {
+  from: number;
+  to: number;
+  entitiesAdded: Array<{ id: string; name: string; type: string }>;
+  entitiesRemoved: Array<{ id: string; name: string; type: string }>;
+  changes: MarkChange[];
+  /** True when nothing changed between the two versions. */
+  identical: boolean;
+}
+
+/**
+ * Diff two canon versions into a readable changelog: entities added/removed and,
+ * per surviving entity, marks added/removed and any value/severity/status change.
+ * Entities are matched by their base id so a re-extraction that re-versions ids
+ * still lines up.
+ */
+export function diffCanonVersions(from: CanonVersion, to: CanonVersion): CanonDiff {
+  const base = (id: string) => id.replace(/_\d+$/, '');
+  const fromById = new Map(from.entities.map((e) => [base(e.id), e]));
+  const toById = new Map(to.entities.map((e) => [base(e.id), e]));
+
+  const entitiesAdded = to.entities
+    .filter((e) => !fromById.has(base(e.id)))
+    .map((e) => ({ id: e.id, name: e.name, type: e.type }));
+  const entitiesRemoved = from.entities
+    .filter((e) => !toById.has(base(e.id)))
+    .map((e) => ({ id: e.id, name: e.name, type: e.type }));
+
+  const changes: MarkChange[] = [];
+  for (const toEntity of to.entities) {
+    const fromEntity = fromById.get(base(toEntity.id));
+    if (!fromEntity) continue; // brand-new entity — its marks aren't per-mark diffed
+    const fromMarks = new Map(fromEntity.marks.map((m) => [m.key, m]));
+    const toMarks = new Map(toEntity.marks.map((m) => [m.key, m]));
+    const meta = { entityId: toEntity.id, entityName: toEntity.name, entityType: toEntity.type };
+
+    for (const [key, m] of toMarks) {
+      const prev = fromMarks.get(key);
+      if (!prev) {
+        changes.push({ ...meta, markKey: key, kind: 'added', before: null, after: m.value });
+        continue;
+      }
+      if (prev.value !== m.value) changes.push({ ...meta, markKey: key, kind: 'value', before: prev.value, after: m.value });
+      if (prev.severity !== m.severity)
+        changes.push({ ...meta, markKey: key, kind: 'severity', before: prev.severity, after: m.severity });
+      if (prev.status !== m.status)
+        changes.push({ ...meta, markKey: key, kind: 'status', before: prev.status, after: m.status });
+    }
+    for (const [key, m] of fromMarks) {
+      if (!toMarks.has(key)) changes.push({ ...meta, markKey: key, kind: 'removed', before: m.value, after: null });
+    }
+  }
+
+  return {
+    from: from.version,
+    to: to.version,
+    entitiesAdded,
+    entitiesRemoved,
+    changes,
+    identical: entitiesAdded.length === 0 && entitiesRemoved.length === 0 && changes.length === 0,
+  };
+}
+
+/** Diff two versions of a story's canon by version number. */
+export function diffCanonByVersion(registry: CanonRegistry, from: number, to: number): CanonDiff {
+  const a = registry.versions.find((v) => v.version === from);
+  const b = registry.versions.find((v) => v.version === to);
+  if (!a) throw new Error(`Canon version not found: ${from}`);
+  if (!b) throw new Error(`Canon version not found: ${to}`);
+  return diffCanonVersions(a, b);
+}
+
 /**
  * Deterministic canon block appended to storyline prompts. Transitioning marks
  * instruct the model to blend toward the new value (gradual acceptance).

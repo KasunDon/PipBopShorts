@@ -125,7 +125,9 @@ Consistency by reference, not just by prompt:
   publishing requires approved clips; approved clips become references for future scenes.
 - **Continuity QC checklist** auto-run on rendered clips (LLM vision pass against canon
   marks: accessory present? colors right? style consistent?).
-- **Canon diff view** in the UI (side-by-side mark changes between versions, changelog).
+- ~~**Canon diff view** in the UI~~ — **shipped**: the canon panel shows a
+  changelog between any version and the prior one (entities added/removed and
+  per-mark value/severity/status changes), backed by `GET /canon/diff`.
 
 ## Phase 3 — Episode production depth
 

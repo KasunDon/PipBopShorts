@@ -17,6 +17,7 @@ import type {
   Project,
   ProjectSummary,
   AutofixResult,
+  CanonDiff,
   ReferenceDefinition,
   ReferenceReadiness,
   RenderValidation,
@@ -102,6 +103,13 @@ export const api = {
 
   // ---- Canon & drift ----
   getCanon: (storyId: string) => req<{ registry: CanonRegistry | null }>('GET', `/api/stories/${storyId}/canon`),
+  canonDiff: (storyId: string, opts: { from?: number; to?: number } = {}) => {
+    const params = new URLSearchParams();
+    if (opts.from !== undefined) params.set('from', String(opts.from));
+    if (opts.to !== undefined) params.set('to', String(opts.to));
+    const qs = params.toString();
+    return req<{ diff: CanonDiff | null }>('GET', `/api/stories/${storyId}/canon/diff${qs ? `?${qs}` : ''}`);
+  },
   extractCanon: (storyId: string, opts: { model?: string; effort?: string; note?: string }) =>
     req<{ registry: CanonRegistry }>('POST', `/api/stories/${storyId}/canon/extract`, opts),
   patchMark: (

@@ -1112,6 +1112,49 @@ textarea:disabled {
   background: rgba(139, 92, 246, 0.08);
 }
 
+/* Canon version diff */
+.canon-diff {
+  margin: 10px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+.diff-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 12.5px;
+  border-left: 3px solid var(--border-strong);
+  padding-left: 10px;
+}
+.diff-row.diff-added,
+.diff-row.diff-value {
+  border-left-color: var(--ok);
+}
+.diff-row.diff-removed {
+  border-left-color: var(--danger);
+}
+.diff-row.diff-severity,
+.diff-row.diff-status {
+  border-left-color: var(--warn);
+}
+.diff-tag {
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--text-3);
+  min-width: 92px;
+}
+.diff-val {
+  color: var(--text-2);
+}
+.diff-strike {
+  text-decoration: line-through;
+  color: var(--text-3);
+}
+
 /* Rendered markdown --------------------------------------------------------------------- */
 
 .md-viewer {

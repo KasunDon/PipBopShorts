@@ -247,6 +247,32 @@ describe('canon + drift over HTTP', () => {
     expect(getRes.body.registry.versions).toHaveLength(3);
   });
 
+  it('diffs two canon versions over HTTP', async () => {
+    const { client: studioClaude } = makeStudioFakeClaude();
+    const { app } = makeApp({ claude: studioClaude });
+    const storyId = (
+      await request(app).post('/api/stories').send({ title: 'Diff', bible: 'Bobo has a green scarf.' }).expect(201)
+    ).body.story.id;
+    await request(app).post(`/api/stories/${storyId}/canon/extract`).send({}).expect(201);
+    // v1 only — diff against a non-existent v0 yields null.
+    expect((await request(app).get(`/api/stories/${storyId}/canon/diff`).expect(200)).body.diff).toBeNull();
+
+    // Edit a mark → v2, then diff v1→v2 shows the change.
+    const boboId = (await request(app).get(`/api/stories/${storyId}/canon`).expect(200)).body.registry.versions[0].entities.find(
+      (e: { name: string }) => e.name === 'Bobo',
+    ).id;
+    await request(app)
+      .patch(`/api/stories/${storyId}/canon/entities/${boboId}/marks/scarf`)
+      .send({ value: 'red woolly scarf' })
+      .expect(200);
+    const diff = (await request(app).get(`/api/stories/${storyId}/canon/diff?from=1&to=2`).expect(200)).body.diff;
+    expect(diff.identical).toBe(false);
+    expect(diff.changes.find((c: { markKey: string }) => c.markKey === 'scarf')).toMatchObject({
+      kind: 'value',
+      after: 'red woolly scarf',
+    });
+  });
+
   it('rejects an invalid drift resolution action', async () => {
     const { client: studioClaude } = makeStudioFakeClaude();
     const { app } = makeApp({ claude: studioClaude });

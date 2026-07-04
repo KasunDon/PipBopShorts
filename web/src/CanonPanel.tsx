@@ -3,7 +3,7 @@ import { api } from './api';
 import { Field } from './App';
 import { IconCheck, IconEdit, IconWand } from './Icons';
 import { RuntimeSelect } from './SeasonPanel';
-import type { AppConfig, CanonRegistry, CanonVersion, Story, StoryMeta } from './types';
+import type { AppConfig, CanonDiff, CanonRegistry, CanonVersion, Story, StoryMeta } from './types';
 
 type Run = <T>(fn: () => Promise<T>) => Promise<T | undefined>;
 
@@ -115,6 +115,7 @@ export function CanonSection({
   const [model, setModel] = useState(config.dissect.defaultModel);
   const [viewVersion, setViewVersion] = useState<number | null>(null);
   const [showHistory, setShowHistory] = useState(false);
+  const [diff, setDiff] = useState<CanonDiff | null>(null);
 
   const reload = useCallback(async () => {
     const res = await run(() => api.getCanon(story.id));
@@ -186,7 +187,62 @@ export function CanonSection({
             <button className="ghost" onClick={() => setShowHistory((s) => !s)}>
               {showHistory ? 'Hide history' : `History (${registry.versions.length})`}
             </button>
+            {version.version > 1 && (
+              <button
+                className="ghost"
+                title={`What changed from v${version.version - 1} to v${version.version}`}
+                onClick={async () => {
+                  if (diff && diff.to === version.version) {
+                    setDiff(null);
+                    return;
+                  }
+                  const res = await run(() => api.canonDiff(story.id, { from: version.version - 1, to: version.version }));
+                  if (res) setDiff(res.diff);
+                }}
+              >
+                {diff && diff.to === version.version ? 'Hide changes' : `Changes since v${version.version - 1}`}
+              </button>
+            )}
           </div>
+
+          {diff && diff.to === version.version && (
+            <div className="canon-diff">
+              {diff.identical ? (
+                <p className="muted small">No changes between v{diff.from} and v{diff.to}.</p>
+              ) : (
+                <>
+                  <p className="muted small">
+                    Changes from <b>v{diff.from}</b> to <b>v{diff.to}</b>
+                  </p>
+                  {diff.entitiesAdded.map((e) => (
+                    <div key={`a-${e.id}`} className="diff-row diff-added">
+                      <span className="diff-tag">added entity</span>
+                      <b>{e.name}</b> <span className="muted small">{e.type}</span>
+                    </div>
+                  ))}
+                  {diff.entitiesRemoved.map((e) => (
+                    <div key={`r-${e.id}`} className="diff-row diff-removed">
+                      <span className="diff-tag">removed entity</span>
+                      <b>{e.name}</b> <span className="muted small">{e.type}</span>
+                    </div>
+                  ))}
+                  {diff.changes.map((c, i) => (
+                    <div key={i} className={`diff-row diff-${c.kind}`}>
+                      <span className="diff-tag">{c.kind}</span>
+                      <b>{c.entityName}</b> · {c.markKey}
+                      {c.kind === 'added' && <span className="diff-val"> → {c.after}</span>}
+                      {c.kind === 'removed' && <span className="diff-val diff-strike"> {c.before}</span>}
+                      {(c.kind === 'value' || c.kind === 'severity' || c.kind === 'status') && (
+                        <span className="diff-val">
+                          <span className="diff-strike">{c.before}</span> → {c.after}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
+          )}
 
           {showHistory && (
             <ul className="canon-history">

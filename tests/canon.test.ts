@@ -2,9 +2,11 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   buildCanonBlock,
   currentCanonVersion,
+  diffCanonVersions,
   extractCanon,
   patchMark,
 } from '../src/services/canon';
+import type { CanonVersion } from '../src/types';
 import { createStorylineProject } from '../src/services/storyline';
 import { episodeSettingTemplate, storyBibleTemplate } from '../src/templates';
 import type { Store } from '../src/store/store';
@@ -187,6 +189,57 @@ describe('canon block + versioned edits', () => {
     expect(mark.value).toBe('teal explorer scarf');
     expect(mark.transition).toBeNull();
     expect(registry.currentVersion).toBe(3);
+  });
+});
+
+describe('canon version diff', () => {
+  const mark = (key: string, value: string, severity = 'strong', status = 'active') => ({
+    key,
+    value,
+    severity: severity as 'locked' | 'strong' | 'flexible',
+    status: status as 'active' | 'transitioning',
+    transition: null,
+    rationale: '',
+  });
+  const version = (n: number, entities: CanonVersion['entities']): CanonVersion => ({
+    version: n,
+    createdAt: '2026-01-01T00:00:00Z',
+    source: 'manual',
+    model: null,
+    note: '',
+    entities,
+    negativePrompt: '',
+  });
+
+  it('reports added/removed entities and per-mark value/severity/status changes', () => {
+    const v1 = version(1, [
+      { id: 'CHAR_BOBO_001', type: 'character', name: 'Bobo', summary: '', marks: [mark('scarf', 'green', 'locked'), mark('hat', 'none')] },
+      { id: 'LOC_TREE_001', type: 'location', name: 'Tree', summary: '', marks: [mark('leaves', 'green')] },
+    ]);
+    const v2 = version(2, [
+      // Bobo: scarf value changed + severity relaxed, hat removed, boots added.
+      { id: 'CHAR_BOBO_001', type: 'character', name: 'Bobo', summary: '', marks: [mark('scarf', 'red', 'strong'), mark('boots', 'yellow')] },
+      // Tree removed; new character added.
+      { id: 'CHAR_RIZZO_001', type: 'character', name: 'Rizzo', summary: '', marks: [mark('goggles', 'amber')] },
+    ]);
+
+    const diff = diffCanonVersions(v1, v2);
+    expect(diff.identical).toBe(false);
+    expect(diff.entitiesAdded.map((e) => e.name)).toEqual(['Rizzo']);
+    expect(diff.entitiesRemoved.map((e) => e.name)).toEqual(['Tree']);
+
+    const kinds = diff.changes.filter((c) => c.entityName === 'Bobo');
+    expect(kinds.find((c) => c.markKey === 'scarf' && c.kind === 'value')).toMatchObject({ before: 'green', after: 'red' });
+    expect(kinds.find((c) => c.markKey === 'scarf' && c.kind === 'severity')).toMatchObject({ before: 'locked', after: 'strong' });
+    expect(kinds.find((c) => c.markKey === 'hat' && c.kind === 'removed')).toBeTruthy();
+    expect(kinds.find((c) => c.markKey === 'boots' && c.kind === 'added')).toMatchObject({ after: 'yellow' });
+  });
+
+  it('reports identical when nothing changed', () => {
+    const v = version(1, [{ id: 'CHAR_BOBO_001', type: 'character', name: 'Bobo', summary: '', marks: [mark('scarf', 'green')] }]);
+    const diff = diffCanonVersions(v, structuredClone({ ...v, version: 2 }));
+    expect(diff.identical).toBe(true);
+    expect(diff.changes).toHaveLength(0);
   });
 });
 

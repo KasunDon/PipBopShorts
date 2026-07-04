@@ -19,7 +19,14 @@ import {
   PIXVERSE_STYLES,
 } from './constants';
 import { bootstrapStory, draftEpisode } from './services/bootstrap';
-import { DEFAULT_DISSECT_MODEL, DISSECT_MODELS, extractCanon, patchMark } from './services/canon';
+import {
+  DEFAULT_DISSECT_MODEL,
+  DISSECT_MODELS,
+  currentCanonVersion,
+  diffCanonByVersion,
+  extractCanon,
+  patchMark,
+} from './services/canon';
 import {
   approvePortrait,
   buildReferenceDefinition,
@@ -526,6 +533,23 @@ export function createApp(deps: AppDeps): express.Express {
     asyncHandler((req, res) => {
       const registry = deps.store.getCanonRegistry(req.params.storyId);
       res.json({ registry });
+    }),
+  );
+
+  // Changelog between two canon versions (defaults: previous → current).
+  app.get(
+    '/api/stories/:storyId/canon/diff',
+    asyncHandler((req, res) => {
+      const registry = deps.store.getCanonRegistry(req.params.storyId);
+      const current = currentCanonVersion(registry);
+      if (!registry || !current) throw new HttpError(400, 'No canon registry for this story.');
+      const to = req.query.to !== undefined ? Number(req.query.to) : current.version;
+      const from = req.query.from !== undefined ? Number(req.query.from) : to - 1;
+      if (from < 1) {
+        res.json({ diff: null });
+        return;
+      }
+      res.json({ diff: diffCanonByVersion(registry, from, to) });
     }),
   );
 

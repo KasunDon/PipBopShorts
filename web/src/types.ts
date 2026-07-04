@@ -151,6 +151,24 @@ export interface DriftFinding {
   resolution: { action: string; resolvedAt: string; note: string; canonVersion: number | null } | null;
 }
 
+export interface MarkChange {
+  entityId: string;
+  entityName: string;
+  entityType: string;
+  markKey: string;
+  kind: 'added' | 'removed' | 'value' | 'severity' | 'status';
+  before: string | null;
+  after: string | null;
+}
+export interface CanonDiff {
+  from: number;
+  to: number;
+  entitiesAdded: Array<{ id: string; name: string; type: string }>;
+  entitiesRemoved: Array<{ id: string; name: string; type: string }>;
+  changes: MarkChange[];
+  identical: boolean;
+}
+
 export interface DriftReport {
   id: string;
   storylineId: string;
