@@ -454,6 +454,124 @@ describe('story export/import over HTTP', () => {
   });
 });
 
+describe('CTA endpoint coverage', () => {
+  /** Create a story→episode→storyline over HTTP and return the ids + a scene id. */
+  async function scaffold(app: ReturnType<typeof makeApp>['app']) {
+    const storyId = (await request(app).post('/api/stories').send({ title: 'CTA' }).expect(201)).body.story.id;
+    await request(app).put(`/api/stories/${storyId}/bible`).send({ markdown: '# Bible\nHero cat.' }).expect(200);
+    const episodeId = (
+      await request(app).post(`/api/stories/${storyId}/episodes`).send({ title: 'E', brief: 'x' }).expect(201)
+    ).body.episode.id;
+    const project = (await request(app).post(`/api/episodes/${episodeId}/storylines`).send({}).expect(201)).body
+      .project;
+    return { storyId, episodeId, storylineId: project.storyline.id, scenes: project.storyline.scenes };
+  }
+
+  it('add, reorder, tweak, remove a scene, and edit youtube metadata', async () => {
+    const { app } = makeApp();
+    const { storylineId, scenes } = await scaffold(app);
+
+    // Add a scene.
+    const added = await request(app).post(`/api/storylines/${storylineId}/scenes`).send({ heading: 'New beat' }).expect(201);
+    const ids: string[] = added.body.project.storyline.scenes.map((s: { id: string }) => s.id);
+    expect(ids).toHaveLength(scenes.length + 1);
+
+    // Reorder (reverse).
+    const reordered = await request(app)
+      .post(`/api/storylines/${storylineId}/reorder`)
+      .send({ orderedIds: [...ids].reverse() })
+      .expect(200);
+    expect(reordered.body.project.storyline.scenes[0].id).toBe(ids[ids.length - 1]);
+
+    // Remove the added scene.
+    const removed = await request(app).delete(`/api/storylines/${storylineId}/scenes/${ids[ids.length - 1]}`).expect(200);
+    expect(removed.body.project.storyline.scenes).toHaveLength(scenes.length);
+
+    // YouTube metadata edit.
+    const yt = await request(app)
+      .patch(`/api/storylines/${storylineId}/youtube`)
+      .send({ title: 'My Short', tags: ['a', 'b'] })
+      .expect(200);
+    expect(yt.body.project.storyline.youtube.title).toBe('My Short');
+
+    // Bad reorder payload → 400.
+    await request(app).post(`/api/storylines/${storylineId}/reorder`).send({}).expect(400);
+  });
+
+  it('refreshes and extends a rendered scene', async () => {
+    const { app } = makeApp();
+    const { storylineId, scenes } = await scaffold(app);
+    const sceneId = scenes[0].id;
+    await request(app).post(`/api/storylines/${storylineId}/scenes/${sceneId}/generate`).send({ wait: true }).expect(200);
+
+    const refreshed = await request(app).post(`/api/storylines/${storylineId}/scenes/${sceneId}/refresh`).expect(200);
+    expect(refreshed.body.clip.status).toBe('ready');
+
+    const extended = await request(app)
+      .post(`/api/storylines/${storylineId}/scenes/${sceneId}/extend`)
+      .send({ wait: true })
+      .expect(200);
+    expect(extended.body.clip.status).toBe('ready');
+  });
+
+  it('auto-fixes invalid render parameters via the autofix CTA', async () => {
+    const { client: studioClaude } = makeStudioFakeClaude();
+    const { app, deps } = makeApp({ claude: studioClaude });
+    const { storylineId, scenes } = await scaffold(app);
+
+    // Force scene 1 into an invalid combo directly on the store (updateScene would reject it).
+    const project = deps.store.getProject(storylineId);
+    const scene = project.storyline.scenes.find((s) => s.id === scenes[0].id)!;
+    scene.motionMode = 'fast';
+    scene.duration = 8;
+    deps.store.saveProject(project);
+
+    // Validation reports the issue.
+    const before = await request(app).get(`/api/storylines/${storylineId}/validate`).expect(200);
+    expect(before.body.validation.ok).toBe(false);
+
+    // Autofix resolves it and returns fresh validation.
+    const fixed = await request(app).post(`/api/storylines/${storylineId}/autofix`).send({}).expect(200);
+    expect(fixed.body.result.ok).toBe(true);
+    expect(fixed.body.validation.ok).toBe(true);
+    const after = deps.store.getProject(storylineId).storyline.scenes.find((s) => s.id === scenes[0].id)!;
+    expect(after.duration).toBe(5);
+    expect(after.prompt).toBe(scene.prompt); // creative content untouched
+  });
+
+  it('400s a drift check when no canon has been extracted', async () => {
+    const { client: studioClaude } = makeStudioFakeClaude();
+    const { app } = makeApp({ claude: studioClaude });
+    const { storylineId } = await scaffold(app);
+    const res = await request(app).post(`/api/storylines/${storylineId}/drift-check`).send({}).expect(400);
+    expect(res.body.error).toMatch(/canon/i);
+  });
+
+  it('rejects a drift finding over HTTP without changing canon', async () => {
+    const { client: studioClaude } = makeStudioFakeClaude();
+    const { app } = makeApp({ claude: studioClaude });
+    const storyId = (
+      await request(app).post('/api/stories').send({ title: 'S', bible: 'Bobo has a green scarf.' }).expect(201)
+    ).body.story.id;
+    await request(app).post(`/api/stories/${storyId}/canon/extract`).send({}).expect(201);
+    const episodeId = (await request(app).post(`/api/stories/${storyId}/episodes`).send({ title: 'E' }).expect(201)).body
+      .episode.id;
+    const storylineId = (await request(app).post(`/api/episodes/${episodeId}/storylines`).send({}).expect(201)).body
+      .project.storyline.id;
+    const report = (await request(app).post(`/api/storylines/${storylineId}/drift-check`).send({}).expect(201)).body
+      .report;
+
+    const rej = await request(app)
+      .post(`/api/storylines/${storylineId}/drift/${report.id}/findings/${report.findings[0].id}/resolve`)
+      .send({ action: 'reject' })
+      .expect(200);
+    expect(rej.body.finding.resolution.action).toBe('reject');
+    expect(rej.body.registry).toBeNull();
+    const canon = await request(app).get(`/api/stories/${storyId}/canon`).expect(200);
+    expect(canon.body.registry.currentVersion).toBe(1);
+  });
+});
+
 describe('error handling', () => {
   it('404 for a missing story', async () => {
     const { app } = makeApp();

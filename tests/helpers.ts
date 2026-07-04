@@ -127,6 +127,7 @@ export function sampleDriftJson(): string {
         observed: 'red woolly scarf',
         scene_numbers: [1],
         severity: 'high',
+        category: 'consistency',
         explanation: 'Scene 1 dresses Bobo in a red scarf, contradicting the locked signature accessory.',
         suggestion: 'Change the scene prompt to the bright green leaf scarf, or accept the change into canon.',
       },
@@ -137,8 +138,28 @@ export function sampleDriftJson(): string {
         observed: 'no bananas mentioned',
         scene_numbers: [2],
         severity: 'low',
+        category: 'consistency',
         explanation: 'Scene 2 omits the hanging bananas.',
         suggestion: 'Optionally mention the bananas for set continuity.',
+      },
+    ],
+  });
+}
+
+/** An auto-fix payload: shorten a fast-motion 8s scene to 5s, keeping its energy. */
+export function sampleAutofixJson(): string {
+  return JSON.stringify({
+    fixes: [
+      {
+        scene_number: 1,
+        duration: 5,
+        quality: '540p',
+        motion_mode: 'fast',
+        model: 'v5',
+        aspect_ratio: '9:16',
+        style: 'none',
+        camera_movement: 'zoom_in',
+        rationale: 'Kept the fast-motion energy by shortening the beat to 5s.',
       },
     ],
   });
@@ -198,6 +219,7 @@ export function makeStudioFakeClaude(overrides?: {
   bootstrapJson?: string;
   episodeDraftJson?: string;
   planJson?: string;
+  autofixJson?: string;
 }): { client: AnthropicLike; calls: FakeClaudeCall[] } {
   return makeFakeClaude((params) => {
     const system = String(params.system ?? '');
@@ -206,6 +228,8 @@ export function makeStudioFakeClaude(overrides?: {
       text = overrides?.canonJson ?? sampleCanonExtractionJson();
     } else if (system.includes('report every drift')) {
       text = overrides?.driftJson ?? sampleDriftJson();
+    } else if (system.includes('technical delivery supervisor')) {
+      text = overrides?.autofixJson ?? sampleAutofixJson();
     } else if (system.includes('head of story development')) {
       text = overrides?.bootstrapJson ?? sampleBootstrapJson();
     } else if (system.includes('season architect')) {

@@ -29,7 +29,9 @@ import {
   uploadPortraitStill,
 } from './services/characters';
 import { assertRuntime, extendPlan, generateNextEpisode, planStory } from './services/season';
+import { autofixStoryline } from './services/autofix';
 import { checkDrift, resolveDrift } from './services/drift';
+import { JobRunner } from './services/jobs';
 import { UserInputError } from './errors';
 import { EventStore, type EventService, type EventStatus } from './events/eventStore';
 import { withCostContext, type CostContext } from './costs/context';
@@ -67,6 +69,8 @@ export interface AppDeps {
   webDir?: string;
   /** Audit log of outbound network calls; defaults to an in-memory-only store. */
   eventStore?: EventStore;
+  /** Background runner completing async renders server-side; defaults to a non-started runner. */
+  jobs?: JobRunner;
 }
 
 type Handler = (req: Request, res: Response) => Promise<unknown> | unknown;
@@ -80,6 +84,7 @@ function phaseFromPath(path: string): string | undefined {
   if (/\/episodes\/draft/.test(path)) return 'episode-draft';
   if (/\/episodes\/generate/.test(path)) return 'episode-gen';
   if (/\/plan/.test(path)) return 'season';
+  if (/\/autofix/.test(path)) return 'autofix';
   if (/\/drift/.test(path)) return 'drift';
   if (/\/(generate|refresh|extend)\b|\/scenes\/[^/]+\/image/.test(path)) return 'clip';
   if (/\/publish/.test(path)) return 'publish';
@@ -122,6 +127,7 @@ export function createApp(deps: AppDeps): express.Express {
   const app = express();
   app.use(express.json({ limit: '30mb' }));
   const eventStore = deps.eventStore ?? new EventStore();
+  const jobs = deps.jobs ?? new JobRunner({ store: deps.store, pixverse: deps.pixverse });
 
   const asyncHandler = (fn: Handler) => (req: Request, res: Response, next: NextFunction) => {
     // Run within a cost context so any outbound call this handler makes is
@@ -200,6 +206,29 @@ export function createApp(deps: AppDeps): express.Express {
   app.delete('/api/events', (_req, res) => {
     eventStore.clear();
     res.status(204).end();
+  });
+
+  // ---- Background jobs (async renders processed server-side) ----
+  app.get('/api/jobs', (_req, res) => {
+    res.json({ jobs: jobs.pending() });
+  });
+
+  app.get('/api/jobs/stream', (req, res) => {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders?.();
+    // Initial snapshot so a (re)connecting console can restore its pending count.
+    res.write(`data: ${JSON.stringify({ type: 'init', jobs: jobs.pending() })}\n\n`);
+
+    const unsubscribe = jobs.subscribe((event) => {
+      res.write(`data: ${JSON.stringify(event)}\n\n`);
+    });
+    const ping = setInterval(() => res.write(': ping\n\n'), 20000);
+    req.on('close', () => {
+      clearInterval(ping);
+      unsubscribe();
+    });
   });
 
   // ---- Cost report (production spend across LLM + PixVerse) ----
@@ -504,6 +533,9 @@ export function createApp(deps: AppDeps): express.Express {
         sourceImageContentType: typeof contentType === 'string' ? contentType : undefined,
         wait: wait === undefined ? true : Boolean(wait),
       });
+      if (version.status === 'generating' && version.videoId != null) {
+        jobs.track({ kind: 'portrait', storyId: req.params.storyId, entityId: req.params.entityId, versionId: version.id });
+      }
       res.status(201).json({ version });
     }),
   );
@@ -670,6 +702,17 @@ export function createApp(deps: AppDeps): express.Express {
     }),
   );
 
+  // LLM-powered auto-fix: resolve render-parameter issues in a way that best
+  // preserves each scene's creative intent (never touches the prompt itself).
+  app.post(
+    '/api/storylines/:storylineId/autofix',
+    asyncHandler(async (req, res) => {
+      const { model, effort } = req.body ?? {};
+      const result = await autofixStoryline(deps.store, deps.claude, req.params.storylineId, { model, effort });
+      res.json({ result, validation: validateStorylineForRender(deps.store, req.params.storylineId) });
+    }),
+  );
+
   app.get(
     '/api/storylines/:storylineId',
     asyncHandler((req, res) => {
@@ -729,6 +772,14 @@ export function createApp(deps: AppDeps): express.Express {
   );
 
   // ---- Rendering (PixVerse) ----
+  // Async submits (wait:false) return immediately; the JobRunner completes them
+  // server-side, so the render finishes even if the browser tab is closed.
+  const trackClipIfPending = (storylineId: string, clip: { sceneId: string; status: string; videoId: number | null }) => {
+    if (clip.status === 'generating' && clip.videoId != null) {
+      jobs.track({ kind: 'clip', storylineId, sceneId: clip.sceneId });
+    }
+  };
+
   app.post(
     '/api/storylines/:storylineId/scenes/:sceneId/generate',
     asyncHandler(async (req, res) => {
@@ -739,6 +790,7 @@ export function createApp(deps: AppDeps): express.Express {
         req.params.sceneId,
         genOpts(req.body ?? {}),
       );
+      trackClipIfPending(req.params.storylineId, clip);
       res.json({ clip });
     }),
   );
@@ -747,6 +799,7 @@ export function createApp(deps: AppDeps): express.Express {
     '/api/storylines/:storylineId/generate',
     asyncHandler(async (req, res) => {
       const project = await generateAllClips(deps.store, deps.pixverse, req.params.storylineId, genOpts(req.body ?? {}));
+      for (const clip of Object.values(project.clips)) trackClipIfPending(req.params.storylineId, clip);
       res.json({ project });
     }),
   );
@@ -769,6 +822,7 @@ export function createApp(deps: AppDeps): express.Express {
         req.params.sceneId,
         genOpts(req.body ?? {}),
       );
+      trackClipIfPending(req.params.storylineId, clip);
       res.json({ clip });
     }),
   );

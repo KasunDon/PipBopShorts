@@ -8,6 +8,7 @@ import { loadEnvFile } from './env';
 import { createPixverseProvider } from './costs/pricing';
 import { EventStore } from './events/eventStore';
 import { instrumentFetch } from './events/instrument';
+import { JobRunner } from './services/jobs';
 import { Store } from './store/store';
 
 function main(): void {
@@ -54,15 +55,27 @@ function main(): void {
     fetchImpl: instrumentFetch(fetch, eventStore, 'youtube'),
   });
 
-  const app = createApp({ store, claude, pixverse, youtube, eventStore, webDir: defaultWebDir() });
+  // Background job runner: async renders complete server-side even if every
+  // browser tab is closed; resume() re-tracks in-flight renders after a restart.
+  const jobs = new JobRunner({ store, pixverse });
+  const resumed = jobs.resume();
+  jobs.start();
 
-  app.listen(config.port, () => {
+  const app = createApp({ store, claude, pixverse, youtube, eventStore, jobs, webDir: defaultWebDir() });
+
+  const server = app.listen(config.port, () => {
     console.log(`Backlot server listening on http://localhost:${config.port}`);
     console.log(`  data dir: ${config.dataDir}`);
     console.log(`  claude:   via gateway ${config.claudeGateway.baseUrl}`);
     console.log(`  youtube:  ${config.youtube.dryRun ? 'dry-run (no real uploads)' : 'live'}`);
     console.log(`  events:   ${path.join(config.dataDir, 'events.jsonl')}`);
+    console.log(`  jobs:     background render polling every 5s${resumed ? ` (resumed ${resumed} in-flight)` : ''}`);
   });
+  // Long LLM calls (drift check, storyline generation) can run for several
+  // minutes. Node's default 5-minute requestTimeout would abort them and the
+  // browser would see a bare "Failed to fetch" — disable it so these complete.
+  server.requestTimeout = 0;
+  server.headersTimeout = 0;
 }
 
 main();

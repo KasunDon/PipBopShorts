@@ -330,6 +330,8 @@ export interface DriftFinding {
   observed: string;
   sceneIds: string[];
   severity: DriftSeverity;
+  /** consistency = a canon/continuity break; safety = a tone or audience-appropriateness concern. */
+  category: 'consistency' | 'safety';
   explanation: string;
   suggestion: string;
   resolution: DriftResolution | null;

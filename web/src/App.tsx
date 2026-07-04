@@ -26,10 +26,18 @@ import {
 import { Markdown, MarkdownViewer } from './Markdown';
 import { SceneCard } from './SceneCard';
 import { formatRuntime, RuntimeSelect, SeasonPanel } from './SeasonPanel';
-import type { AppConfig, Episode, Project, ProjectSummary, RenderValidation, Story, StorylinePreview } from './types';
+import type { AppConfig, AutofixResult, Episode, JobEvent, Project, ProjectSummary, RenderValidation, Story, StorylinePreview } from './types';
 import { formatElapsed, useAsyncAction } from './useAsyncAction';
 
 type Overlay = 'costs' | 'events' | null;
+
+interface Toast {
+  id: number;
+  kind: 'ok' | 'bad';
+  text: string;
+}
+
+let toastSeq = 0;
 
 export function App() {
   const [config, setConfig] = useState<AppConfig | null>(null);
@@ -37,6 +45,15 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [overlay, setOverlay] = useState<Overlay>(null);
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const [pendingJobs, setPendingJobs] = useState(0);
+  const [lastJob, setLastJob] = useState<JobEvent | null>(null);
+
+  const pushToast = useCallback((kind: Toast['kind'], text: string) => {
+    const id = ++toastSeq;
+    setToasts((t) => [...t, { id, kind, text }]);
+    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 7000);
+  }, []);
 
   const [storyId, setStoryId] = useState<string | null>(null);
   const [story, setStory] = useState<{ story: Story; bible: string; episodes: Episode[] } | null>(null);
@@ -70,6 +87,31 @@ export function App() {
     api.config().then(setConfig).catch((e) => setError(String(e)));
     refreshStories();
   }, [refreshStories]);
+
+  // Background render notifications: renders complete server-side (even with the
+  // tab closed); when a console *is* open, this stream keeps it live.
+  useEffect(() => {
+    const source = new EventSource('/api/jobs/stream');
+    source.onmessage = (msg) => {
+      try {
+        const data = JSON.parse(msg.data);
+        if (data.type === 'init') {
+          setPendingJobs((data.jobs ?? []).length);
+        } else if (data.type === 'queued') {
+          setPendingJobs((n) => n + 1);
+        } else if (data.type === 'done') {
+          setPendingJobs((n) => Math.max(0, n - 1));
+          const event = data as JobEvent;
+          if (event.status === 'ready') pushToast('ok', `${event.job.label} is ready.`);
+          else pushToast('bad', `${event.job.label} ${event.status.replace('_', ' ')}${event.error ? ` — ${event.error}` : ''}`);
+          setLastJob(event);
+        }
+      } catch {
+        // ignore malformed frames
+      }
+    };
+    return () => source.close();
+  }, [pushToast]);
 
   const goHome = useCallback(() => {
     setOverlay(null);
@@ -167,6 +209,11 @@ export function App() {
             {showBrowse && project && storylineId && <span className="sep">/</span>}
             {showBrowse && project && storylineId && <span className="crumb current">{project.storyline.title}</span>}
           </div>
+          {pendingJobs > 0 && (
+            <span className="badge busy" title="Renders are processed on the server — safe to close the tab">
+              Rendering {pendingJobs}
+            </span>
+          )}
           {config && (
             <span className={`badge ${config.youtubeDryRun ? 'warn' : 'live'}`}>
               YouTube {config.youtubeDryRun ? 'dry-run' : 'live'}
@@ -203,6 +250,7 @@ export function App() {
             <StoryPanel
               data={story}
               config={config}
+              lastJob={lastJob}
               onChanged={() => openStory(story.story.id)}
               onStoriesChanged={refreshStories}
               onOpenEpisode={openEpisode}
@@ -231,6 +279,8 @@ export function App() {
               project={project}
               config={config}
               setProject={setProject}
+              lastJob={lastJob}
+              pushToast={pushToast}
               onBack={() => {
                 setStorylineId(null);
                 setProject(null);
@@ -239,6 +289,18 @@ export function App() {
               run={run}
             />
           )}
+        </div>
+
+        <div className="toasts" aria-live="polite">
+          {toasts.map((t) => (
+            <div key={t.id} className={`toast toast-${t.kind}`}>
+              {t.kind === 'ok' ? <IconCheck /> : <IconAlert />}
+              <span>{t.text}</span>
+              <button className="ghost small" onClick={() => setToasts((all) => all.filter((x) => x.id !== t.id))} aria-label="Dismiss">
+                <IconX />
+              </button>
+            </div>
+          ))}
         </div>
       </main>
     </div>
@@ -472,6 +534,7 @@ const STORY_TABS: Array<{ id: StoryTab; label: string }> = [
 function StoryPanel({
   data,
   config,
+  lastJob,
   onChanged,
   onStoriesChanged,
   onOpenEpisode,
@@ -480,6 +543,7 @@ function StoryPanel({
 }: {
   data: { story: Story; bible: string; episodes: Episode[] };
   config: AppConfig;
+  lastJob: JobEvent | null;
   onChanged: () => void;
   onStoriesChanged: () => void;
   onOpenEpisode: (id: string, opts?: { compile?: boolean }) => void;
@@ -519,7 +583,7 @@ function StoryPanel({
       )}
       {tab === 'bible' && <BibleTab data={data} onStoriesChanged={onStoriesChanged} run={run} />}
       {tab === 'canon' && <CanonSection story={data.story} config={config} run={run} />}
-      {tab === 'references' && <CharactersPanel story={data.story} run={run} />}
+      {tab === 'references' && <CharactersPanel story={data.story} run={run} lastJob={lastJob} />}
       {tab === 'season' && <SeasonPanel story={data.story} config={config} run={run} onChanged={onChanged} />}
       {tab === 'settings' && (
         <SettingsTab data={data} config={config} onChanged={onChanged} onStoriesChanged={onStoriesChanged} onDeleted={onDeleted} run={run} />
@@ -1093,12 +1157,16 @@ function ProjectPanel({
   project,
   config,
   setProject,
+  lastJob,
+  pushToast,
   onBack,
   run,
 }: {
   project: Project;
   config: AppConfig;
   setProject: (p: Project) => void;
+  lastJob: JobEvent | null;
+  pushToast: (kind: Toast['kind'], text: string) => void;
   onBack: () => void;
   run: Run;
 }) {
@@ -1107,9 +1175,19 @@ function ProjectPanel({
   const [privacy, setPrivacy] = useState('private');
   const [stitch, setStitch] = useState(true);
   const [validation, setValidation] = useState<RenderValidation | null>(null);
+  const [autofix, setAutofix] = useState<AutofixResult | null>(null);
 
   const readyCount = scenes.filter((s) => project.clips[s.id]?.status === 'ready').length;
-  const canRenderAll = validation !== null && validation.ok;
+  const generatingCount = scenes.filter((s) => project.clips[s.id]?.status === 'generating').length;
+  const canRenderAll = validation !== null && validation.ok && generatingCount === 0;
+
+  // A background render for this storyline finished — pull the fresh project.
+  useEffect(() => {
+    if (lastJob?.type === 'done' && lastJob.job.ref.kind === 'clip' && lastJob.job.ref.storylineId === storylineId) {
+      api.getProject(storylineId).then((res) => setProject(res.project)).catch(() => {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastJob, storylineId]);
 
   return (
     <div className="panel">
@@ -1137,11 +1215,11 @@ function ProjectPanel({
               if (!validation) return;
               if (
                 !confirm(
-                  `Render all ${scenes.length} scenes?\n\nEstimated cost: ${validation.estUsdLabel} (${validation.totalCredits} credits, ${validation.totalDurationSec}s total). This spends PixVerse credits.`,
+                  `Render all ${scenes.length} scenes?\n\nEstimated cost: ${validation.estUsdLabel} (${validation.totalCredits} credits, ${validation.totalDurationSec}s total). This spends PixVerse credits.\n\nRenders run in the background — you'll be notified as each scene finishes, even if you navigate away.`,
                 )
               )
                 return;
-              const res = await run(() => api.generateAll(storylineId, true));
+              const res = await run(() => api.generateAll(storylineId, false));
               if (res) setProject(res.project);
             }}
           >
@@ -1150,6 +1228,7 @@ function ProjectPanel({
           <span className="badge plain">
             {readyCount}/{scenes.length} ready
           </span>
+          {generatingCount > 0 && <span className="badge busy">{generatingCount} rendering</span>}
           {!canRenderAll && (
             <span className="gate-note">
               <IconAlert /> {validation ? 'Fix the failing scenes below, then validate again.' : 'Validate before rendering.'}
@@ -1173,9 +1252,27 @@ function ProjectPanel({
               </p>
             ) : (
               <>
-                <p className="check check-error">
-                  <span className="check-text">{validation.invalidCount} scene(s) have parameter issues:</span>
-                </p>
+                <div className="row validation-fix-row">
+                  <p className="check check-error">
+                    <span className="check-text">{validation.invalidCount} scene(s) have parameter issues:</span>
+                  </p>
+                  <button
+                    className="primary small"
+                    title="Let the AI resolve these render-parameter issues in a way that fits each scene — it never rewrites your prompts"
+                    onClick={async () => {
+                      const res = await run(() => api.autofixStoryline(storylineId));
+                      if (res) {
+                        setAutofix(res.result);
+                        setValidation(res.validation);
+                        const fresh = await api.getProject(storylineId).catch(() => null);
+                        if (fresh) setProject(fresh.project);
+                        pushToast(res.result.ok ? 'ok' : 'bad', res.result.summary);
+                      }
+                    }}
+                  >
+                    <IconCheck /> Fix all issues automatically
+                  </button>
+                </div>
                 <ul className="check-list">
                   {validation.scenes
                     .filter((s) => s.issues.length > 0)
@@ -1188,6 +1285,23 @@ function ProjectPanel({
                     ))}
                 </ul>
               </>
+            )}
+            {autofix && autofix.fixes.length > 0 && (
+              <div className="autofix-summary">
+                <p className="check check-ok">
+                  <span className="check-text">{autofix.summary}</span>
+                </p>
+                <ul className="check-list">
+                  {autofix.fixes
+                    .filter((f) => f.changes.length > 0)
+                    .map((f) => (
+                      <li key={f.sceneId} className="muted small">
+                        <b>Scene {f.sceneNumber}:</b> {f.changes.join(', ')} — {f.rationale}
+                        {f.method === 'deterministic' && <span className="muted"> (safe default)</span>}
+                      </li>
+                    ))}
+                </ul>
+              </div>
             )}
             <p className="muted small">
               Video costs are estimates (the provider bills in credits) — reconcile against your invoice in Costs.

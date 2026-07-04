@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { api } from './api';
 import { IconCheck, IconEye, IconImage, IconPaperclip, IconRefresh, IconWand, IconX, IconZoom } from './Icons';
 import { Lightbox, type LightboxMedia } from './Lightbox';
-import type { CharacterAsset, CharacterRegistry, PortraitVersion, ReferenceAssetType, ReferenceDefinition, Story } from './types';
+import type { CharacterAsset, CharacterRegistry, JobEvent, PortraitVersion, ReferenceAssetType, ReferenceDefinition, Story } from './types';
 import { formatElapsed, useAsyncAction } from './useAsyncAction';
 
 type Run = <T>(fn: () => Promise<T>) => Promise<T | undefined>;
@@ -71,7 +71,7 @@ function SeedThumb({ url, onPreview }: { url: string; onPreview: OpenPreview }) 
   );
 }
 
-export function CharactersPanel({ story, run }: { story: Story; run: Run }) {
+export function CharactersPanel({ story, run, lastJob }: { story: Story; run: Run; lastJob?: JobEvent | null }) {
   const [registry, setRegistry] = useState<CharacterRegistry | null>(null);
   const [lightbox, setLightbox] = useState<LightboxMedia | null>(null);
   const [bulk, setBulk] = useState<{ done: number; total: number } | null>(null);
@@ -86,6 +86,14 @@ export function CharactersPanel({ story, run }: { story: Story; run: Run }) {
     reload();
   }, [reload]);
 
+  // A background reference render for this story finished — refresh the grid.
+  useEffect(() => {
+    if (lastJob?.type === 'done' && lastJob.job.ref.kind === 'portrait' && lastJob.job.ref.storyId === story.id) {
+      reload();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastJob]);
+
   const all = registry ? Object.values(registry.characters) : [];
   const characters = all.filter((a) => a.type !== 'location');
   const locations = all.filter((a) => a.type === 'location');
@@ -97,7 +105,7 @@ export function CharactersPanel({ story, run }: { story: Story; run: Run }) {
       !confirm(
         `Render reference images for ${missing.length} item(s) without an approved reference (${missing
           .map((m) => m.name)
-          .join(', ')})?\n\nThis sends ${missing.length} generation(s) to PixVerse and uses credits. Already-approved references are skipped.`,
+          .join(', ')})?\n\nThis sends ${missing.length} generation(s) to PixVerse and uses credits. Renders run in the background — you'll be notified as each finishes. Already-approved references are skipped.`,
       )
     )
       return;
@@ -121,7 +129,7 @@ export function CharactersPanel({ story, run }: { story: Story; run: Run }) {
         <div className="row">
           {missing.length > 0 && (
             <button className="primary" disabled={bulk !== null} onClick={renderAllMissing} title="Generate references for everything not yet approved">
-              <IconWand /> {bulk ? `Rendering ${bulk.done}/${bulk.total}…` : `Render all missing (${missing.length})`}
+              <IconWand /> {bulk ? `Submitting ${bulk.done}/${bulk.total}…` : `Render all missing (${missing.length})`}
             </button>
           )}
           <button className="ghost" onClick={reload}>
@@ -204,7 +212,9 @@ function CharacterCard({
   const generate = (opts: Parameters<typeof api.generatePortrait>[2], confirmMsg: string) => {
     if (!confirm(confirmMsg)) return Promise.resolve(undefined);
     return gen.execute(async (signal) => {
-      await api.generatePortrait(story.id, asset.entityId, { ...opts, signal });
+      // Async submit: acknowledged immediately; the server completes the render
+      // in the background and the jobs stream notifies when it's done.
+      await api.generatePortrait(story.id, asset.entityId, { ...opts, wait: false, signal });
       onChanged();
       return true;
     });
@@ -222,7 +232,8 @@ function CharacterCard({
     }
   };
 
-  const anyBusy = busy || gen.pending;
+  const rendering = latest?.status === 'generating';
+  const anyBusy = busy || gen.pending || rendering;
   const showcase = approved ?? latest;
   const kindNoun = asset.type === 'location' ? 'location' : 'character';
 

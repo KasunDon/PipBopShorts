@@ -7,6 +7,7 @@ import type {
   Clip,
   CostLineItem,
   CostReport,
+  Job,
   DriftFinding,
   DriftReport,
   Episode,
@@ -15,6 +16,7 @@ import type {
   PortraitVersion,
   Project,
   ProjectSummary,
+  AutofixResult,
   ReferenceDefinition,
   RenderValidation,
   Scene,
@@ -126,6 +128,7 @@ export const api = {
       dataBase64?: string;
       contentType?: string;
       filename?: string;
+      wait?: boolean;
       signal?: AbortSignal;
     } = {},
   ) => {
@@ -147,8 +150,10 @@ export const api = {
   uploadStill: (storyId: string, entityId: string, data: { dataBase64: string; contentType: string; filename: string }) =>
     req<{ version: PortraitVersion }>('POST', `/api/stories/${storyId}/characters/${entityId}/still`, data),
 
-  driftCheck: (storylineId: string, opts: { model?: string } = {}) =>
-    req<{ report: DriftReport }>('POST', `/api/storylines/${storylineId}/drift-check`, opts),
+  driftCheck: (storylineId: string, opts: { model?: string; signal?: AbortSignal } = {}) => {
+    const { signal, ...body } = opts;
+    return req<{ report: DriftReport }>('POST', `/api/storylines/${storylineId}/drift-check`, body, { signal });
+  },
   resolveDrift: (storylineId: string, reportId: string, findingId: string, action: string, note?: string) =>
     req<{ finding: DriftFinding; registry: CanonRegistry | null }>(
       'POST',
@@ -201,6 +206,7 @@ export const api = {
     return req<{ events: AuditEvent[]; hasMore: boolean }>('GET', `/api/events${qs ? `?${qs}` : ''}`);
   },
   getEvent: (id: string) => req<{ event: AuditEvent }>('GET', `/api/events/${id}`),
+  jobs: () => req<{ jobs: Job[] }>('GET', '/api/jobs'),
   clearEvents: () => req<void>('DELETE', '/api/events'),
 
   // ---- Costs, preview & validation ----
@@ -224,6 +230,15 @@ export const api = {
     req<{ preview: StorylinePreview }>('GET', `/api/episodes/${episodeId}/storyline-preview`),
   validateStoryline: (storylineId: string) =>
     req<{ validation: RenderValidation }>('GET', `/api/storylines/${storylineId}/validate`),
+  autofixStoryline: (storylineId: string, opts: { model?: string; signal?: AbortSignal } = {}) => {
+    const { signal, ...body } = opts;
+    return req<{ result: AutofixResult; validation: RenderValidation }>(
+      'POST',
+      `/api/storylines/${storylineId}/autofix`,
+      body,
+      { signal },
+    );
+  },
 };
 
 interface PublishResult {

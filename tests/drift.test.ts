@@ -71,6 +71,70 @@ describe('drift detection', () => {
   });
 });
 
+describe('tone & child-safety consistency', () => {
+  it('injects audience/tone context and CHILD-SAFETY MODE for a young audience, and maps safety findings', async () => {
+    const { store, cleanup } = makeStore();
+    cleanups.push(cleanup);
+    const story = store.createStory({
+      title: 'PipBop Pals',
+      bible: '# Bible\nBobo wears a bright green leaf scarf.',
+      meta: { audienceMin: 4, audienceMax: 7, tones: ['gentle', 'cheerful'] },
+    });
+    const safetyDrift = JSON.stringify({
+      summary: 'A scary moment slipped in.',
+      findings: [
+        {
+          entity_name: 'Audience & Tone',
+          mark_key: 'child_safety',
+          expected: 'gentle, cheerful; nothing scary for ages 4–7',
+          observed: 'a looming shadow monster frightens Bobo in the dark',
+          scene_numbers: [1],
+          severity: 'high',
+          category: 'safety',
+          explanation: 'A frightening monster in the dark is inappropriate for a 4–7 audience.',
+          suggestion: 'Replace the monster with a friendly surprise, or brighten the scene.',
+        },
+      ],
+    });
+    const { client, calls } = makeStudioFakeClaude({ driftJson: safetyDrift });
+    await extractCanon(store, client, story.id);
+    const episode = store.createEpisode(story.id, { title: 'Ep 1', brief: 'night walk' });
+    const project = await createStorylineProject(store, client, story.id, episode.id, {});
+
+    const report = await checkDrift(store, client, project.storyline.id);
+    expect(report.findings[0].category).toBe('safety');
+    expect(report.findings[0].severity).toBe('high');
+
+    // The drift LLM call actually received the audience + child-safety context.
+    const driftCall = calls.find((c) => String(c.params.system).includes('report every drift'))!;
+    const userMsg = String((driftCall.params.messages as Array<{ content: string }>)[0].content);
+    expect(userMsg).toContain('AUDIENCE & TONE');
+    expect(userMsg).toContain('ages 4–7');
+    expect(userMsg).toContain('gentle, cheerful');
+    expect(userMsg).toContain('CHILD-SAFETY MODE: ON');
+  });
+
+  it('omits child-safety mode for an adult audience', async () => {
+    const { store, cleanup } = makeStore();
+    cleanups.push(cleanup);
+    const story = store.createStory({
+      title: 'Late Night Noir',
+      bible: '# Bible\nA detective in a rain-soaked city.',
+      meta: { audienceMin: 18, audienceMax: 40, tones: ['moody'] },
+    });
+    const { client, calls } = makeStudioFakeClaude({ driftJson: JSON.stringify({ summary: 'ok', findings: [] }) });
+    await extractCanon(store, client, story.id);
+    const episode = store.createEpisode(story.id, { title: 'Ep 1', brief: 'stakeout' });
+    const project = await createStorylineProject(store, client, story.id, episode.id, {});
+
+    await checkDrift(store, client, project.storyline.id);
+    const driftCall = calls.find((c) => String(c.params.system).includes('report every drift'))!;
+    const userMsg = String((driftCall.params.messages as Array<{ content: string }>)[0].content);
+    expect(userMsg).toContain('AUDIENCE & TONE');
+    expect(userMsg).not.toContain('CHILD-SAFETY MODE');
+  });
+});
+
 describe('drift resolution', () => {
   it('accept-now promotes the observed value into a new canon version', async () => {
     const { store, client, storyId, storylineId } = await setup();

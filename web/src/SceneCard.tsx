@@ -158,10 +158,16 @@ export function SceneCard({
               {dirty ? 'Save changes' : 'Saved'}
             </button>
             <button
+              disabled={status === 'generating'}
+              title={status === 'generating' ? 'Already rendering — you will be notified when it finishes' : undefined}
               onClick={async () => {
-                const verb = status === 'ready' ? 're-render' : 'render';
-                if (!confirm(`${verb === 're-render' ? 'Re-render' : 'Render'} scene #${index + 1} with PixVerse? This uses credits.`)) return;
-                const res = await run(() => api.generateScene(storylineId, scene.id, true));
+                if (
+                  !confirm(
+                    `${status === 'ready' ? 'Re-render' : 'Render'} scene #${index + 1}? This uses credits.\n\nThe render runs in the background — you'll be notified when it's ready, even if you navigate away.`,
+                  )
+                )
+                  return;
+                const res = await run(() => api.generateScene(storylineId, scene.id, false));
                 if (res) {
                   const p = await api.getProject(storylineId);
                   setProject(p.project);
@@ -184,8 +190,13 @@ export function SceneCard({
             {status === 'ready' && (
               <button
                 onClick={async () => {
-                  if (!confirm(`Extend scene #${index + 1}? This renders a continuation on PixVerse and uses credits.`)) return;
-                  await run(() => api.extendScene(storylineId, scene.id, true));
+                  if (
+                    !confirm(
+                      `Extend scene #${index + 1}? This renders a continuation and uses credits.\n\nThe render runs in the background — you'll be notified when it's ready.`,
+                    )
+                  )
+                    return;
+                  await run(() => api.extendScene(storylineId, scene.id, false));
                   const p = await api.getProject(storylineId);
                   setProject(p.project);
                 }}

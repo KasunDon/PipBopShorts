@@ -348,6 +348,11 @@ export class Store {
     return p;
   }
 
+  /** Every project (storyline) in the studio — used by background job recovery. */
+  listProjects(): Project[] {
+    return Object.values(this.db.projects);
+  }
+
   listProjectsByEpisode(episodeId: string): Project[] {
     return Object.values(this.db.projects)
       .filter((p) => p.storyline.episodeId === episodeId)

@@ -145,6 +145,7 @@ export interface DriftFinding {
   observed: string;
   sceneIds: string[];
   severity: 'high' | 'medium' | 'low';
+  category: 'consistency' | 'safety';
   explanation: string;
   suggestion: string;
   resolution: { action: string; resolvedAt: string; note: string; canonVersion: number | null } | null;
@@ -308,6 +309,36 @@ export interface AuditEvent {
   context?: CostContext;
 }
 
+// ---- Background jobs ----
+
+export interface JobRefClip {
+  kind: 'clip';
+  storylineId: string;
+  sceneId: string;
+}
+export interface JobRefPortrait {
+  kind: 'portrait';
+  storyId: string;
+  entityId: string;
+  versionId: string;
+}
+export interface Job {
+  id: string;
+  kind: 'clip' | 'portrait';
+  ref: JobRefClip | JobRefPortrait;
+  label: string;
+  addedAt: string;
+  attempts: number;
+}
+export interface JobEvent {
+  type: 'queued' | 'done';
+  job: Job;
+  status: string;
+  url?: string | null;
+  error?: string | null;
+  at: string;
+}
+
 // ---- Cost report ----
 
 export interface CostBucket {
@@ -385,4 +416,25 @@ export interface RenderValidation {
   totalDurationSec: number;
   ok: boolean;
   invalidCount: number;
+}
+
+export interface SceneFix {
+  sceneId: string;
+  sceneNumber: number;
+  heading: string;
+  issues: string[];
+  changes: string[];
+  rationale: string;
+  method: 'llm' | 'deterministic';
+  resolved: boolean;
+  remaining: string[];
+}
+export interface AutofixResult {
+  storylineId: string;
+  model: string | null;
+  scenesConsidered: number;
+  fixedCount: number;
+  fixes: SceneFix[];
+  ok: boolean;
+  summary: string;
 }

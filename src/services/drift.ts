@@ -1,5 +1,6 @@
 import { structuredCall, type AnthropicLike } from '../clients/claude';
 import type { ClaudeEffort } from '../constants';
+import { UserInputError } from '../errors';
 import type { Store } from '../store/store';
 import { makeId } from '../store/store';
 import {
@@ -35,6 +36,7 @@ function driftSchema() {
             observed: { type: 'string' },
             scene_numbers: { type: 'array', items: { type: 'integer' } },
             severity: { type: 'string', enum: ['high', 'medium', 'low'] },
+            category: { type: 'string', enum: ['consistency', 'safety'] },
             explanation: { type: 'string' },
             suggestion: { type: 'string' },
           },
@@ -45,6 +47,7 @@ function driftSchema() {
             'observed',
             'scene_numbers',
             'severity',
+            'category',
             'explanation',
             'suggestion',
           ],
@@ -55,19 +58,28 @@ function driftSchema() {
   };
 }
 
-const DRIFT_SYSTEM = `You are the continuity supervisor of an AI video production studio.
-Compare a storyline's scene prompts against the canonical consistency marks and report every drift — any place where a scene contradicts, omits (when it matters), or alters a canonical fact.
+const DRIFT_SYSTEM = `You are the continuity AND content-safety supervisor of an AI video production studio.
+Compare a storyline's scene prompts against the canonical consistency marks and report every drift — any place where a scene contradicts, omits (when it matters), or alters a canonical fact — AND audit the storyline against the story's declared tone and target-audience metadata.
 
-Rules:
+Every finding has a category:
+- "consistency": a canon/continuity break (a character, location, prop, world-rule or visual-style mark is contradicted, omitted or altered).
+- "safety": the scene violates the declared TONE, or contains content inappropriate for the TARGET AUDIENCE — fear, violence, peril, cruelty, frightening imagery or sound, mature themes, or unsafe behaviour a viewer might imitate.
+
+Severity rules (consistency):
 - LOCKED marks: any contradiction or unauthorized change is HIGH severity. A locked visual signature that is missing from a scene where the entity clearly appears is MEDIUM.
 - STRONG marks: contradictions are MEDIUM, questionable variations LOW.
 - FLEXIBLE marks: only report clearly jarring contradictions, as LOW.
 - Marks labelled TRANSITIONING are mid-migration: scenes matching the new value are NOT drift; scenes matching only the old value are LOW severity ("still on old value").
-- Audience/tone marks apply to the storyline as a whole (violence, fear, tone shifts...).
-- "observed" quotes or paraphrases what the storyline actually says. "expected" is the canonical value.
+
+Severity rules (safety):
+- A clear tone violation or audience-inappropriate moment is at least MEDIUM.
+- When the audience includes young children (CHILD-SAFETY MODE below), apply the STRICTEST scrutiny: treat anything scary, violent, distressing, or unsafe-to-imitate as HIGH severity, and err on the side of flagging. It is far better to over-flag than to let unintended content reach a child audience.
+- Use the "Audience & Tone" entity and a descriptive mark_key (e.g. "tone", "child_safety", "audience_appropriateness") for safety findings; scene_numbers point at the offending scene(s).
+
+- "observed" quotes or paraphrases what the storyline actually says. "expected" is the canonical value or the tone/audience expectation.
 - scene_numbers are the 1-based scene numbers involved (empty array for storyline-wide findings).
-- Do not report style nitpicks that no viewer would notice; focus on real consistency breaks.
-Return an empty findings array when the storyline is consistent.`;
+- Do not report style nitpicks that no viewer would notice; focus on real consistency breaks and genuine safety concerns.
+Return an empty findings array when the storyline is consistent AND appropriate.`;
 
 export interface DriftCheckOptions {
   model?: string;
@@ -81,8 +93,18 @@ interface RawFinding {
   observed: string;
   scene_numbers: number[];
   severity: DriftSeverity;
+  category?: 'consistency' | 'safety';
   explanation: string;
   suggestion: string;
+}
+
+/** The story counts as a child audience when its upper age bound is 12 or under. */
+export function isChildAudience(meta: { audienceMin: number | null; audienceMax: number | null }): boolean {
+  const max = meta.audienceMax;
+  const min = meta.audienceMin;
+  if (max != null) return max <= 12;
+  if (min != null) return min <= 10;
+  return false;
 }
 
 /** Run a consistency check of a storyline against the story's current canon. */
@@ -96,8 +118,12 @@ export async function checkDrift(
   const registry = store.getCanonRegistry(project.storyline.storyId);
   const canon = currentCanonVersion(registry);
   if (!registry || !canon) {
-    throw new Error('No canon registry for this story — extract canon first.');
+    throw new UserInputError('No canon registry for this story — extract canon first.');
   }
+
+  const story = store.getStory(project.storyline.storyId);
+  const meta = story.meta;
+  const childAudience = isChildAudience(meta);
 
   const scenes = [...project.storyline.scenes].sort((a, b) => a.order - b.order);
   const sceneBlock = scenes
@@ -107,14 +133,28 @@ export async function checkDrift(
     )
     .join('\n\n');
 
+  const audienceLine =
+    meta.audienceMin != null || meta.audienceMax != null
+      ? `Target audience: ages ${meta.audienceMin ?? '?'}–${meta.audienceMax ?? '?'}${meta.audienceNotes ? ` (${meta.audienceNotes})` : ''}`
+      : 'Target audience: not specified';
+
   const user = [
     '# CANON',
     buildCanonBlock(canon),
+    '\n# AUDIENCE & TONE (double-check the storyline against these)',
+    audienceLine,
+    meta.tones.length ? `Declared tone: ${meta.tones.join(', ')}` : 'Declared tone: not specified',
+    meta.genres.length ? `Genres: ${meta.genres.join(', ')}` : '',
+    childAudience
+      ? '\n*** CHILD-SAFETY MODE: ON — the audience includes young children. Apply the strictest content-safety scrutiny; flag anything scary, violent, distressing, or unsafe to imitate as HIGH severity. ***'
+      : '',
     '\n# STORYLINE UNDER REVIEW',
     `Title: ${project.storyline.title}`,
     `Logline: ${project.storyline.logline}`,
     sceneBlock,
-  ].join('\n');
+  ]
+    .filter(Boolean)
+    .join('\n');
 
   const { json, model } = await structuredCall(claude, {
     model: options.model ?? DEFAULT_DISSECT_MODEL,
@@ -140,6 +180,7 @@ export async function checkDrift(
         .map((n) => scenes[n - 1]?.id)
         .filter((id): id is string => Boolean(id)),
       severity: f.severity,
+      category: f.category === 'safety' ? 'safety' : 'consistency',
       explanation: f.explanation,
       suggestion: f.suggestion,
       resolution: null,

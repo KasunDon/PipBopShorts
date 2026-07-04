@@ -931,6 +931,16 @@ textarea:disabled {
   font-size: 14px;
   font-weight: 700;
 }
+.validation-fix-row {
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.autofix-summary {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+}
 
 /* Rendered markdown --------------------------------------------------------------------- */
 
@@ -1650,6 +1660,18 @@ textarea:disabled {
 .finding.resolved {
   opacity: 0.65;
 }
+.finding.safety {
+  background: rgba(248, 81, 73, 0.06);
+}
+.badge.safety {
+  color: var(--danger);
+  border-color: rgba(248, 81, 73, 0.45);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.badge.safety::before {
+  background: var(--danger);
+}
 .finding-head {
   display: flex;
   align-items: center;
@@ -2061,5 +2083,78 @@ textarea:disabled {
   }
   .content {
     padding: 20px 16px 48px;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Background jobs — toasts + rendering indicator
+--------------------------------------------------------------------------- */
+
+.badge.busy {
+  color: var(--accent-text);
+  border-color: rgba(112, 124, 240, 0.5);
+  background: var(--accent-soft);
+}
+.badge.busy::before {
+  animation: pulse 1.2s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+
+.toasts {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 380px;
+}
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--surface-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  font-size: 13px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  animation: toast-in 0.18s ease-out;
+}
+.toast span {
+  flex: 1;
+}
+.toast .icon {
+  flex: none;
+}
+.toast-ok {
+  border-left: 3px solid var(--ok);
+}
+.toast-ok .icon:first-child {
+  color: var(--ok);
+}
+.toast-bad {
+  border-left: 3px solid var(--danger);
+}
+.toast-bad .icon:first-child {
+  color: var(--danger);
+}
+@keyframes toast-in {
+  from {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
   }
 }

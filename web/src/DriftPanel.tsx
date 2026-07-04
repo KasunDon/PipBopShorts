@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { api } from './api';
 import { IconCheck, IconClock, IconEye, IconX } from './Icons';
 import type { AppConfig, Project } from './types';
+import { formatElapsed, useAsyncAction } from './useAsyncAction';
 
 type Run = <T>(fn: () => Promise<T>) => Promise<T | undefined>;
 
@@ -20,6 +21,10 @@ export function DriftPanel({
   const storylineId = project.storyline.id;
   const reports = [...(project.driftReports ?? [])].reverse();
   const latest = reports[0];
+  // The drift check is the longest LLM call in the app — give it the elapsed
+  // readout / cancel / timeout treatment so a slow call reads as slow (not a
+  // silent "failed to fetch") and always recovers.
+  const check = useAsyncAction();
 
   const refresh = async () => {
     const res = await api.getProject(storylineId);
@@ -50,15 +55,35 @@ export function DriftPanel({
           </select>
           <button
             className="primary"
+            disabled={check.pending}
             onClick={async () => {
-              const res = await run(() => api.driftCheck(storylineId, { model }));
+              const res = await check.execute((signal) => api.driftCheck(storylineId, { model, signal }));
               if (res) refresh();
             }}
           >
-            <IconEye /> Check against canon
+            <IconEye /> {check.pending ? 'Checking…' : 'Check against canon'}
           </button>
+          {check.pending && (
+            <button className="ghost" onClick={check.cancel} title="Stop the consistency check">
+              Cancel
+            </button>
+          )}
         </div>
       </div>
+
+      {check.pending && (
+        <p className="muted small">
+          Reviewing every scene against canon, tone, and audience safety — {formatElapsed(check.elapsedSec)} elapsed.
+        </p>
+      )}
+      {check.error && (
+        <p className="check check-error">
+          <span className="check-text">{check.error}</span>
+          <button className="ghost small" onClick={check.dismissError} aria-label="Dismiss">
+            <IconX />
+          </button>
+        </p>
+      )}
 
       {!latest && (
         <p className="muted small">
@@ -77,9 +102,13 @@ export function DriftPanel({
           {latest.findings.length === 0 && <p className="drift-clean">No drift detected — the storyline matches canon.</p>}
 
           {latest.findings.map((f) => (
-            <div key={f.id} className={`finding sev-${f.severity} ${f.resolution ? 'resolved' : ''}`}>
+            <div
+              key={f.id}
+              className={`finding sev-${f.severity} ${f.category === 'safety' ? 'safety' : ''} ${f.resolution ? 'resolved' : ''}`}
+            >
               <div className="finding-head">
                 <span className={`badge sev-${f.severity}`}>{f.severity}</span>
+                {f.category === 'safety' && <span className="badge safety">safety</span>}
                 <b>
                   {f.entityName} · {f.markKey}
                 </b>
