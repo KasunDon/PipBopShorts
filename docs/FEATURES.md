@@ -73,6 +73,29 @@ redesign, and (3) the design system the console now follows.
 | Cost report: total / **exact (billed)** vs **estimated**, by provider, kind, model, phase, story, episode; token usage | Sidebar → Costs | `GET /api/costs/report` |
 | Penny-by-penny line items per story (audit ledger) | Costs → row drill-down | `GET /api/costs/events` |
 | Audit log of every outbound network call (LLM + PixVerse + YouTube), searchable, live SSE stream, full raw request/response, per-call cost | Sidebar → Activity | `/api/events*` |
+| **Data-mutation audit** (`store` events) on every delete/update with the **old value preserved** + a readable before→after field diff | Sidebar → Activity (filter `store`) | recorded on delete/update routes |
+| **Restore-from-audit (fail-safe)** — one-click rehydrate a deleted story / episode / storyline / scene from its preserved snapshot | Activity → expand a `*.delete` event → Restore | `POST /api/audit/:eventId/restore` |
+
+### Added since the redesign (production ergonomics, planning & distribution)
+| Feature | Where | Backend |
+| --- | --- | --- |
+| **Async background renders** — submit-and-forget clips/portraits; a server-side runner polls to completion (survives tab close + restart), SSE notifications, de-dupe | automatic; toasts + pending chip | `JobRunner`, `/api/jobs`, `/api/jobs/stream` |
+| **LLM auto-fix** of render-parameter issues — creatively-appropriate fixes using full story+canon context, never touches the prompt; deterministic fallback | Production → validation box → "Fix all issues automatically" | `POST /:id/autofix` |
+| **Tone & child-safety consistency** — drift checks audit tone + audience metadata; `consistency`/`safety` categories; strict CHILD-SAFETY mode ≤ 12 | Production → Consistency | `POST /:id/drift-check` |
+| **Directed scene patch** ("change one thing, preserve everything else") with per-scene patch history | each scene card → directed-edit box | `POST /:id/scenes/:sid/patch` |
+| **Scene review comments** (add / resolve / delete; never touches the render) | each scene card | `.../comments*` |
+| **Clip approval workflow** — per-clip approve/unapprove (reset on edit); **publish gated** on all clips approved | scene card → Approve; publish gate | `POST /:id/scenes/:sid/clip/approval` |
+| **Pre-render approval gate** — warns on unapproved referenced characters/locations with thumbnails; approve / generate-&-approve / **tweak-then-approve** inline, or generate anyway | "Render all" → modal | `GET /:id/reference-readiness` |
+| **Scenes auto-reference characters AND locations** named in them, shown per scene with approved / not-approved state | automatic; scene cards | `detectSceneReferences` |
+| **Global scene settings + presets** — set aspect/quality/motion/model/style once for all scenes; save/load named studio-wide presets | Production → global-settings toolbar | `POST /:id/scene-defaults`, `/api/presets*` |
+| **Canon version diff** — changelog between any version and the prior one (entities +/−, per-mark value/severity/status) | Story → Canon → "Changes since v…" | `GET /:id/canon/diff` |
+| **Per-story Insights + studio dashboard** — volume, approvals, publishes, canon stability, drift health; cross-IP roll-up surfacing riskiest first | Story → Insights; Home → Studio overview | `GET /:id/analytics`, `GET /api/studio/analytics` |
+| **Episode idea backlog** — brainstorm distinct future episodes (title/hook/synopsis), one-click Develop | Story → Episodes → "Suggest ideas" | `POST /:id/episode-ideas` |
+| **Beat sheet** — structural hook→turn→climax→resolution, foldable into generation guidance | Episode → storyline step → "Beat sheet" | `POST /api/episodes/:id/beat-sheet` |
+| **Dialogue & captions** + **Music & SFX** planning — sound-off captions, in-character lines, music direction, per-scene SFX + motifs (child-audience mode) | Production → "Dialogue & captions" / "Music & SFX" | `POST /:id/dialogue-plan`, `/:id/sound-plan` |
+| **Shot manifest** download — reproducible per-scene production document (params, refs, prompt, edits, notes, clip status) | Production → "Shot manifest" | `GET /:id/manifest.md` |
+| **YouTube localization + A/B titles** — translate title/description/tags/hashtags to any language; generate A/B title options with marketing angles | Production → YouTube editor | `POST /:id/youtube/localize`, `/:id/youtube/title-variants` |
+| **Resilient long LLM calls** — abortable drift/generation with elapsed/cancel UX; no dev-proxy/server request timeouts (no more "failed to fetch") | storyline generation, drift check | — |
 
 ---
 
