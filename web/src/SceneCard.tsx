@@ -106,6 +106,7 @@ export function SceneCard({
         motionMode: draft.motionMode,
         style: draft.style,
         cameraMovement: draft.cameraMovement,
+        caption: draft.caption ?? '',
       }),
     );
     if (res) {
@@ -126,6 +127,9 @@ export function SceneCard({
         <div className="scene-left">
           <Field label="Prompt (what PixVerse renders)">
             <textarea value={draft.prompt} onChange={(e) => update('prompt', e.target.value)} rows={4} />
+          </Field>
+          <Field label="Caption (sound-off subtitle)">
+            <input value={draft.caption ?? ''} onChange={(e) => update('caption', e.target.value)} placeholder="On-screen caption…" />
           </Field>
 
           <div className="scene-patch">
