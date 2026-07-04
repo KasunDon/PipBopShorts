@@ -76,6 +76,8 @@ export const api = {
   storyAnalytics: (id: string) => req<{ analytics: StoryAnalytics }>('GET', `/api/stories/${id}/analytics`),
   performanceInsights: (id: string, opts: { model?: string } = {}) =>
     req<{ insights: PerformanceInsights }>('POST', `/api/stories/${id}/performance-insights`, opts),
+  performanceSync: (id: string) =>
+    req<{ result: { updated: number; skipped: number }; configured: boolean }>('POST', `/api/stories/${id}/performance-sync`),
   updateStory: (id: string, patch: { title?: string; settingMode?: string; continuity?: string; meta?: Partial<StoryMeta> }) =>
     req<{ story: Story }>('PATCH', `/api/stories/${id}`, patch),
   deleteStory: (id: string) => req<void>('DELETE', `/api/stories/${id}`),

@@ -719,6 +719,24 @@ function InsightsTab({ storyId, run }: { storyId: string; run: Run }) {
       <div className="card-head">
         <h3>Production insights</h3>
         <button
+          className="small ghost"
+          title="Pull real views/retention from YouTube analytics (no-op until credentials are configured)"
+          onClick={async () => {
+            const res = await run(() => api.performanceSync(storyId));
+            if (res) {
+              const r = await run(() => api.storyAnalytics(storyId));
+              if (r) setA(r.analytics);
+              alert(
+                res.configured
+                  ? `Synced ${res.result.updated} short(s) from analytics.`
+                  : 'Analytics not configured (YouTube credentials + analytics scope). Nothing synced.',
+              );
+            }
+          }}
+        >
+          Sync analytics
+        </button>
+        <button
           className="small"
           disabled={analyzing}
           title="Analyse recorded performance for what's working (feeds the story formula)"

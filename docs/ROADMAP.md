@@ -211,8 +211,10 @@ Consistency by reference, not just by prompt:
   studio analytics. A **season-wide canon changelog** (every version's diff from
   the prior one) gives the audit-log-of-canon-changes view. **Performance →
   story-formula insights** is also shipped — an LLM analyses recorded performance
-  across a story's shorts for what's working and recommends a formula tweak. Still
-  open: automatic analytics **sync** (YouTube API), rendering the actual thumbnail
+  across a story's shorts for what's working and recommends a formula tweak. The
+  **analytics-sync pipeline** is built + tested behind a pluggable source (no-ops
+  until YouTube Analytics credentials/scope are configured, like dry-run publish).
+  Still open: the live YouTube Analytics fetch, rendering the actual thumbnail
   images, and dubbed/translated video variants with canon-consistent visuals.
 
 ---

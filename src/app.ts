@@ -52,6 +52,7 @@ import { suggestTitleVariants } from './services/titles';
 import { suggestThumbnailConcepts } from './services/thumbnails';
 import { suggestEpisodeIdeas } from './services/ideas';
 import { analyzePerformance } from './services/insights';
+import { syncPerformance } from './services/performanceSync';
 import { patchScene } from './services/patch';
 import { checkDrift, resolveDrift } from './services/drift';
 import { JobRunner } from './services/jobs';
@@ -440,6 +441,15 @@ export function createApp(deps: AppDeps): express.Express {
     '/api/stories/:storyId/bible',
     asyncHandler((req, res) => {
       res.json({ markdown: deps.store.getBible(req.params.storyId) });
+    }),
+  );
+
+  // Pull real performance for a story's published shorts from analytics (no-op until configured).
+  app.post(
+    '/api/stories/:storyId/performance-sync',
+    asyncHandler(async (req, res) => {
+      const result = await syncPerformance(deps.store, deps.youtube, req.params.storyId);
+      res.json({ result, configured: !deps.youtube.isDryRun });
     }),
   );
 

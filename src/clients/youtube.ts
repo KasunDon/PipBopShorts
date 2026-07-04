@@ -155,4 +155,25 @@ export class YoutubeClient {
     if (!json.id) throw new YoutubeError('Upload succeeded but returned no video id');
     return { videoId: json.id, url: `https://www.youtube.com/shorts/${json.id}`, dryRun: false };
   }
+
+  /**
+   * Fetch real performance for a published video. Requires the YouTube Analytics
+   * API and the analytics scope; returns null until that's configured (like
+   * dry-run publishing), so callers no-op gracefully.
+   */
+  async fetchAnalytics(_videoId: string): Promise<VideoAnalytics | null> {
+    return null;
+  }
+}
+
+/** Real-world performance for one published video. */
+export interface VideoAnalytics {
+  views: number;
+  likes: number | null;
+  avgViewPct: number | null;
+}
+
+/** Anything that can supply per-video analytics (the live client, or a test fake). */
+export interface AnalyticsSource {
+  fetchAnalytics(videoId: string): Promise<VideoAnalytics | null>;
 }
