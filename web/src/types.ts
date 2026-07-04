@@ -291,6 +291,21 @@ export interface SceneComment {
   createdAt: string;
 }
 
+export interface QcCheck {
+  entityName: string;
+  markKey: string;
+  expected: string;
+  verdict: 'pass' | 'warn' | 'fail';
+  note: string;
+}
+export interface QcResult {
+  sceneId: string;
+  checks: QcCheck[];
+  passed: number;
+  warnings: number;
+  failures: number;
+}
+
 export interface RenderPreset {
   id: string;
   name: string;

@@ -301,6 +301,24 @@ describe('canon + drift over HTTP', () => {
     });
   });
 
+  it('runs prompt-level continuity QC on a scene', async () => {
+    const { client: studioClaude } = makeStudioFakeClaude();
+    const { app } = makeApp({ claude: studioClaude });
+    const storyId = (
+      await request(app).post('/api/stories').send({ title: 'QC', bible: 'Bobo has a green scarf.', meta: { audienceMin: 4, audienceMax: 7 } }).expect(201)
+    ).body.story.id;
+    await request(app).post(`/api/stories/${storyId}/canon/extract`).send({}).expect(201);
+    const episodeId = (await request(app).post(`/api/stories/${storyId}/episodes`).send({ title: 'E' }).expect(201)).body.episode.id;
+    const slRes = await request(app).post(`/api/episodes/${episodeId}/storylines`).send({}).expect(201);
+    const storylineId = slRes.body.project.storyline.id;
+    const sceneId = slRes.body.project.storyline.scenes[0].id;
+
+    const res = await request(app).post(`/api/storylines/${storylineId}/scenes/${sceneId}/qc`).send({}).expect(200);
+    expect(res.body.qc).toHaveProperty('checks');
+    expect(res.body.qc.checks.length).toBeGreaterThan(0);
+    expect(res.body.qc.warnings + res.body.qc.failures + res.body.qc.passed).toBe(res.body.qc.checks.length);
+  });
+
   it('rejects an invalid drift resolution action', async () => {
     const { client: studioClaude } = makeStudioFakeClaude();
     const { app } = makeApp({ claude: studioClaude });

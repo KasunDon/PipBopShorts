@@ -29,7 +29,7 @@ export const PORTRAIT_DEFAULTS = {
 const REFERENCE_TYPES: ReferenceAssetType[] = ['character', 'location'];
 
 /** Strip the trailing canon-version suffix so ids from different versions compare equal. */
-function entityBase(id: string): string {
+export function entityBase(id: string): string {
   return id.replace(/_\d+$/, '');
 }
 

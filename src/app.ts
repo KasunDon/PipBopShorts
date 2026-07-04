@@ -43,6 +43,7 @@ import { generateBeatSheet } from './services/beatsheet';
 import { buildShotManifest } from './services/manifest';
 import { addSceneComment, deleteSceneComment, setSceneCommentResolved } from './services/comments';
 import { planStorylineDialogue } from './services/dialogue';
+import { qcScene } from './services/qc';
 import { localizeYoutubeMeta } from './services/localize';
 import { planStorylineSound } from './services/soundcues';
 import { suggestTitleVariants } from './services/titles';
@@ -913,6 +914,16 @@ export function createApp(deps: AppDeps): express.Express {
       const { model, effort } = req.body ?? {};
       const result = await autofixStoryline(deps.store, deps.claude, req.params.storylineId, { model, effort });
       res.json({ result, validation: validateStorylineForRender(deps.store, req.params.storylineId) });
+    }),
+  );
+
+  // Prompt-level continuity QC of a scene against the canon it references.
+  app.post(
+    '/api/storylines/:storylineId/scenes/:sceneId/qc',
+    asyncHandler(async (req, res) => {
+      const { model, effort } = req.body ?? {};
+      const result = await qcScene(deps.store, deps.claude, req.params.storylineId, req.params.sceneId, { model, effort });
+      res.json({ qc: result });
     }),
   );
 

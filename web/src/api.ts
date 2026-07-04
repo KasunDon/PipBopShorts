@@ -18,6 +18,7 @@ import type {
   Project,
   ProjectSummary,
   PublishSchedule,
+  QcResult,
   AutofixResult,
   Beat,
   CanonDiff,
@@ -121,6 +122,8 @@ export const api = {
     req<{ clip: Clip }>('POST', `/api/storylines/${storylineId}/scenes/${sceneId}/refresh`),
   approveClip: (storylineId: string, sceneId: string, approved: boolean) =>
     req<{ clip: Clip }>('POST', `/api/storylines/${storylineId}/scenes/${sceneId}/clip/approval`, { approved }),
+  qcScene: (storylineId: string, sceneId: string) =>
+    req<{ qc: QcResult }>('POST', `/api/storylines/${storylineId}/scenes/${sceneId}/qc`),
   extendScene: (storylineId: string, sceneId: string, wait = true) =>
     req<{ clip: Clip }>('POST', `/api/storylines/${storylineId}/scenes/${sceneId}/extend`, { wait }),
   generateAll: (storylineId: string, wait = true) =>

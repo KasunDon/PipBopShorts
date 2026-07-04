@@ -271,6 +271,7 @@ export function makeStudioFakeClaude(overrides?: {
   localizeJson?: string;
   titlesJson?: string;
   soundJson?: string;
+  qcJson?: string;
 }): { client: AnthropicLike; calls: FakeClaudeCall[] } {
   return makeFakeClaude((params) => {
     const system = String(params.system ?? '');
@@ -287,6 +288,14 @@ export function makeStudioFakeClaude(overrides?: {
       text = overrides?.ideasJson ?? sampleEpisodeIdeasJson();
     } else if (system.includes('building a BEAT SHEET')) {
       text = overrides?.beatSheetJson ?? sampleBeatSheetJson();
+    } else if (system.includes('quality-control supervisor verifying')) {
+      text =
+        overrides?.qcJson ??
+        JSON.stringify({
+          checks: [
+            { entity_name: 'Bobo', mark_key: 'scarf', verdict: 'warn', note: 'Scarf not described in the prompt.' },
+          ],
+        });
     } else if (system.includes('dialogue and caption writer')) {
       text = overrides?.dialogueJson ?? sampleDialogueJson();
     } else if (system.includes('sound designer planning music')) {

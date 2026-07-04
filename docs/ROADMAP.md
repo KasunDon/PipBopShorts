@@ -131,8 +131,11 @@ Consistency by reference, not just by prompt:
   per-clip Approve control. Still to do: the richer `draft → candidate →
   canonical` states, and making approved clips reusable as references for future
   scenes.
-- **Continuity QC checklist** auto-run on rendered clips (LLM vision pass against canon
-  marks: accessory present? colors right? style consistent?).
+- **Continuity QC checklist** — *prompt-level QC shipped*: per-scene, verify the
+  prompt against the canon marks it references (+ always-on visual-style /
+  audience marks) with pass/warn/fail verdicts and notes. Still to do: the
+  pixel-level **vision** pass on the rendered frame (needs image inputs to the
+  gateway).
 - ~~**Canon diff view** in the UI~~ — **shipped**: the canon panel shows a
   changelog between any version and the prior one (entities added/removed and
   per-mark value/severity/status changes), backed by `GET /canon/diff`.

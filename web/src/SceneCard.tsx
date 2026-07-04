@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from './api';
 import { Field } from './App';
 import { IconAlert, IconCheck, IconExpand, IconImage, IconPlay, IconRefresh } from './Icons';
-import type { AppConfig, Clip, Project, ReferenceReadinessItem, Scene } from './types';
+import type { AppConfig, Clip, Project, QcResult, ReferenceReadinessItem, Scene } from './types';
 
 function fileToBase64(file: File): Promise<{ dataBase64: string; contentType: string; filename: string }> {
   return new Promise((resolve, reject) => {
@@ -54,6 +54,8 @@ export function SceneCard({
   const [patching, setPatching] = useState(false);
   const [showPatchLog, setShowPatchLog] = useState(false);
   const [commentText, setCommentText] = useState('');
+  const [qc, setQc] = useState<QcResult | null>(null);
+  const [qcing, setQcing] = useState(false);
 
   useEffect(() => {
     setDraft(scene);
@@ -236,6 +238,24 @@ export function SceneCard({
                 <IconCheck /> {clip?.approved ? 'Approved' : 'Approve'}
               </button>
             )}
+            {status === 'ready' && (
+              <button
+                className="ghost"
+                disabled={qcing}
+                title="Check this shot's prompt against the canon it references"
+                onClick={async () => {
+                  setQcing(true);
+                  try {
+                    const res = await run(() => api.qcScene(storylineId, scene.id));
+                    if (res) setQc(res.qc);
+                  } finally {
+                    setQcing(false);
+                  }
+                }}
+              >
+                {qcing ? 'Checking…' : 'QC'}
+              </button>
+            )}
             <button
               disabled={status === 'generating'}
               title={status === 'generating' ? 'Already rendering — you will be notified when it finishes' : undefined}
@@ -331,6 +351,33 @@ export function SceneCard({
           )}
           {scene.imageUrl && <p className="muted small">Reference image attached (image-to-video). Camera movement will apply.</p>}
           {clip?.error && <p className="scene-error">{clip.error}</p>}
+
+          {qc && (
+            <div className="qc-box">
+              <div className="qc-head">
+                <b>Continuity QC</b>
+                <span className="muted small">
+                  {qc.passed} pass · {qc.warnings} warn · {qc.failures} fail
+                </span>
+                <button className="comment-del" onClick={() => setQc(null)} aria-label="Dismiss">×</button>
+              </div>
+              {qc.checks.filter((c) => c.verdict !== 'pass').length === 0 ? (
+                <p className="muted small">All referenced canon marks are honoured by the prompt.</p>
+              ) : (
+                <ul className="qc-list">
+                  {qc.checks
+                    .filter((c) => c.verdict !== 'pass')
+                    .map((c, i) => (
+                      <li key={i} className={`qc-${c.verdict}`}>
+                        <span className="qc-verdict">{c.verdict}</span>
+                        <b>{c.entityName}</b> · {c.markKey}
+                        {c.note && <span className="muted small"> — {c.note}</span>}
+                      </li>
+                    ))}
+                </ul>
+              )}
+            </div>
+          )}
 
           <div className="scene-comments">
             {scene.comments && scene.comments.length > 0 && (
