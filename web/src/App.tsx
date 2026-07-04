@@ -1436,6 +1436,7 @@ function ProjectPanel({
   const [privacy, setPrivacy] = useState('private');
   const [stitch, setStitch] = useState(true);
   const [scheduleAt, setScheduleAt] = useState('');
+  const [renderAt, setRenderAt] = useState('');
   const [validation, setValidation] = useState<RenderValidation | null>(null);
   const [autofix, setAutofix] = useState<AutofixResult | null>(null);
   const [dialogue, setDialogue] = useState<SceneDialogue[] | null>(null);
@@ -1717,6 +1718,48 @@ function ProjectPanel({
           <button className="small ghost" onClick={saveCurrentAsPreset} title="Save the current settings as a reusable preset">
             Save preset
           </button>
+          <span className="global-sep" />
+          {project.renderSchedule?.status === 'pending' ? (
+            <>
+              <span className="badge warn">render {new Date(project.renderSchedule.at).toLocaleString()}</span>
+              <button
+                className="small ghost"
+                onClick={async () => {
+                  const res = await run(() => api.cancelRenderSchedule(storylineId));
+                  if (res) {
+                    const p = await api.getProject(storylineId);
+                    setProject(p.project);
+                  }
+                }}
+              >
+                Cancel
+              </button>
+            </>
+          ) : (
+            <>
+              <input
+                type="datetime-local"
+                value={renderAt}
+                onChange={(e) => setRenderAt(e.target.value)}
+                title="Schedule the full render for later"
+              />
+              <button
+                className="small"
+                disabled={!canRenderAll || !renderAt}
+                title={canRenderAll ? 'Queue the full render for the chosen time' : 'Validate first'}
+                onClick={async () => {
+                  const res = await run(() => api.scheduleRender(storylineId, new Date(renderAt).toISOString()));
+                  if (res) {
+                    const p = await api.getProject(storylineId);
+                    setProject(p.project);
+                    pushToast('ok', `Render scheduled for ${new Date(res.renderSchedule.at).toLocaleString()}.`);
+                  }
+                }}
+              >
+                Schedule render
+              </button>
+            </>
+          )}
           {readiness && readiness.items.length > 0 && (
             <span className={`ref-summary ${readiness.ready ? 'ok' : 'warn'}`}>
               {readiness.ready ? (

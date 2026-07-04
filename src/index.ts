@@ -62,8 +62,17 @@ function main(): void {
   const resumed = jobs.resume();
   jobs.start();
 
-  // Fire scheduled publishes server-side (survives tab close; approval-gated).
-  const scheduler = new PublishScheduler({ store, youtube });
+  // Fire scheduled publishes + render runs server-side (survives tab close).
+  const scheduler = new PublishScheduler({
+    store,
+    youtube,
+    pixverse,
+    onClipSubmitted: (storylineId, clip) => {
+      if (clip.status === 'generating' && clip.videoId != null) {
+        jobs.track({ kind: 'clip', storylineId, sceneId: clip.sceneId });
+      }
+    },
+  });
   scheduler.start();
 
   const app = createApp({ store, claude, pixverse, youtube, eventStore, jobs, webDir: defaultWebDir() });

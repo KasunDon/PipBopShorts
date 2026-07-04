@@ -230,6 +230,14 @@ export interface PublishSchedule {
   createdAt: string;
 }
 
+export interface RenderSchedule {
+  /** ISO timestamp at/after which the scheduled render run should fire. */
+  at: string;
+  status: 'pending' | 'started' | 'failed' | 'cancelled';
+  error: string | null;
+  createdAt: string;
+}
+
 /** Top-level project record aggregating a storyline, its clips, and publish state. */
 export interface Project {
   storyline: Storyline;
@@ -242,6 +250,8 @@ export interface Project {
   driftReports?: DriftReport[];
   /** A pending/queued scheduled publish, if any. */
   schedule?: PublishSchedule | null;
+  /** A pending/queued scheduled render run, if any. */
+  renderSchedule?: RenderSchedule | null;
 }
 
 // ---------------------------------------------------------------------------

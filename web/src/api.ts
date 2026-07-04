@@ -18,6 +18,7 @@ import type {
   Project,
   ProjectSummary,
   PublishSchedule,
+  RenderSchedule,
   QcResult,
   AutofixResult,
   Beat,
@@ -140,6 +141,10 @@ export const api = {
     req<{ schedule: PublishSchedule }>('POST', `/api/storylines/${storylineId}/publish/schedule`, opts),
   cancelSchedule: (storylineId: string) =>
     req<{ schedule: PublishSchedule }>('DELETE', `/api/storylines/${storylineId}/publish/schedule`),
+  scheduleRender: (storylineId: string, at: string) =>
+    req<{ renderSchedule: RenderSchedule }>('POST', `/api/storylines/${storylineId}/render/schedule`, { at }),
+  cancelRenderSchedule: (storylineId: string) =>
+    req<{ renderSchedule: RenderSchedule }>('DELETE', `/api/storylines/${storylineId}/render/schedule`),
 
   // ---- Canon & drift ----
   getCanon: (storyId: string) => req<{ registry: CanonRegistry | null }>('GET', `/api/stories/${storyId}/canon`),

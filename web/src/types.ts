@@ -402,6 +402,13 @@ export interface PublishSchedule {
   createdAt: string;
 }
 
+export interface RenderSchedule {
+  at: string;
+  status: 'pending' | 'started' | 'failed' | 'cancelled';
+  error: string | null;
+  createdAt: string;
+}
+
 export interface Project {
   storyline: Storyline;
   clips: Record<string, Clip>;
@@ -409,6 +416,7 @@ export interface Project {
   publishHistory?: PublishRecord[];
   driftReports?: DriftReport[];
   schedule?: PublishSchedule | null;
+  renderSchedule?: RenderSchedule | null;
 }
 
 export interface ProjectSummary {

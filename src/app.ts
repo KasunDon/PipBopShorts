@@ -70,7 +70,7 @@ import {
 import { episodeSettingTemplate, storyBibleTemplate } from './templates';
 import { buildStorylinePreview, validateStorylineForRender } from './services/preview';
 import { publishProject } from './services/publish';
-import { cancelSchedule, schedulePublish } from './services/scheduler';
+import { cancelRenderSchedule, cancelSchedule, schedulePublish, scheduleRender } from './services/scheduler';
 import {
   addScene,
   applySceneDefaults,
@@ -1333,6 +1333,32 @@ export function createApp(deps: AppDeps): express.Express {
     asyncHandler((req, res) => {
       const project = cancelSchedule(deps.store, req.params.storylineId);
       res.json({ schedule: project.schedule });
+    }),
+  );
+
+  // Schedule a full render run for a future time (fires server-side into the JobRunner).
+  app.post(
+    '/api/storylines/:storylineId/render/schedule',
+    asyncHandler((req, res) => {
+      const { at } = req.body ?? {};
+      if (!at || typeof at !== 'string') throw new HttpError(400, 'at (ISO timestamp) is required');
+      const project = scheduleRender(deps.store, req.params.storylineId, at);
+      recordMutation(req, {
+        resource: 'render-schedule',
+        action: 'update',
+        summary: `Scheduled render for ${new Date(at).toISOString()}`,
+        before: null,
+        after: project.renderSchedule,
+      });
+      res.status(201).json({ renderSchedule: project.renderSchedule });
+    }),
+  );
+
+  app.delete(
+    '/api/storylines/:storylineId/render/schedule',
+    asyncHandler((req, res) => {
+      const project = cancelRenderSchedule(deps.store, req.params.storylineId);
+      res.json({ renderSchedule: project.renderSchedule });
     }),
   );
 
