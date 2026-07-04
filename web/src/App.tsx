@@ -902,6 +902,21 @@ function EpisodesTab({
               >
                 <IconDoc /> Compile script
               </button>
+              <button
+                className="small danger ghost"
+                title="Delete this episode and its storylines (restorable from Activity)"
+                onClick={async () => {
+                  if (!confirm(`Delete episode "${ep.title}" and its storylines? Restorable from the Activity log.`)) return;
+                  try {
+                    await api.deleteEpisode(ep.id);
+                    onChanged();
+                  } catch (err) {
+                    alert(err instanceof Error ? err.message : 'Delete failed');
+                  }
+                }}
+              >
+                <IconX />
+              </button>
             </li>
           ))}
           {data.episodes.length === 0 && <li className="muted small">No episodes yet — add one below or use the Season tab.</li>}
@@ -1538,6 +1553,7 @@ function ProjectPanel({
   const [globalStyle, setGlobalStyle] = useState(scenes[0]?.style ?? config.pixverse.styles[0]);
   const [applyingDefaults, setApplyingDefaults] = useState(false);
   const [presets, setPresets] = useState<RenderPreset[]>([]);
+  const [selectedPreset, setSelectedPreset] = useState('');
 
   const refreshPresets = useCallback(async () => {
     const res = await api.listPresets().catch(() => null);
@@ -1679,6 +1695,22 @@ function ProjectPanel({
             }}
           >
             <IconPlus /> Duplicate
+          </button>
+          <button
+            className="link danger"
+            title="Delete this storyline (the episode and story are kept)"
+            onClick={async () => {
+              if (!confirm(`Delete storyline "${project.storyline.title}"? This can be restored from the Activity log.`)) return;
+              try {
+                await api.deleteProject(storylineId);
+                pushToast('ok', 'Storyline deleted (restorable from Activity).');
+                onBack();
+              } catch (err) {
+                pushToast('bad', err instanceof Error ? err.message : 'Delete failed');
+              }
+            }}
+          >
+            <IconX /> Delete
           </button>
         </div>
         <h2 className="page-title">{project.storyline.title}</h2>
@@ -1886,8 +1918,9 @@ function ProjectPanel({
             <label className="global-field">
               Preset
               <select
-                value=""
+                value={selectedPreset}
                 onChange={(e) => {
+                  setSelectedPreset(e.target.value);
                   const p = presets.find((x) => x.id === e.target.value);
                   if (p) loadPreset(p);
                 }}
@@ -1900,6 +1933,19 @@ function ProjectPanel({
                 ))}
               </select>
             </label>
+          )}
+          {selectedPreset && (
+            <button
+              className="small danger ghost"
+              title="Delete the selected preset"
+              onClick={async () => {
+                await run(() => api.deletePreset(selectedPreset));
+                setSelectedPreset('');
+                await refreshPresets();
+              }}
+            >
+              <IconX />
+            </button>
           )}
           <button className="small ghost" onClick={saveCurrentAsPreset} title="Save the current settings as a reusable preset">
             Save preset
