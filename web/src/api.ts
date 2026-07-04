@@ -32,6 +32,7 @@ import type {
   StoryAnalytics,
   StudioAnalytics,
   StoryMeta,
+  TitleVariant,
   StorylinePreview,
   YoutubeMeta,
 } from './types';
@@ -109,6 +110,8 @@ export const api = {
     req<{ project: Project }>('PATCH', `/api/storylines/${storylineId}/youtube`, patch),
   localizeYoutube: (storylineId: string, language: string, opts: { model?: string } = {}) =>
     req<{ youtube: YoutubeMeta }>('POST', `/api/storylines/${storylineId}/youtube/localize`, { language, ...opts }),
+  titleVariants: (storylineId: string, opts: { count?: number; model?: string } = {}) =>
+    req<{ variants: TitleVariant[] }>('POST', `/api/storylines/${storylineId}/youtube/title-variants`, opts),
 
   generateScene: (storylineId: string, sceneId: string, wait = true) =>
     req<{ clip: Clip }>('POST', `/api/storylines/${storylineId}/scenes/${sceneId}/generate`, { wait }),

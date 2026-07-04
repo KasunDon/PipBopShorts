@@ -44,6 +44,7 @@ import { buildShotManifest } from './services/manifest';
 import { addSceneComment, deleteSceneComment, setSceneCommentResolved } from './services/comments';
 import { planStorylineDialogue } from './services/dialogue';
 import { localizeYoutubeMeta } from './services/localize';
+import { suggestTitleVariants } from './services/titles';
 import { suggestEpisodeIdeas } from './services/ideas';
 import { patchScene } from './services/patch';
 import { checkDrift, resolveDrift } from './services/drift';
@@ -1113,6 +1114,20 @@ export function createApp(deps: AppDeps): express.Express {
         after: project.storyline.scenes.map((s) => s.id),
       });
       res.json({ project });
+    }),
+  );
+
+  // A/B title options for the Short (preview; the user picks one to apply).
+  app.post(
+    '/api/storylines/:storylineId/youtube/title-variants',
+    asyncHandler(async (req, res) => {
+      const { count, model, effort } = req.body ?? {};
+      const variants = await suggestTitleVariants(deps.store, deps.claude, req.params.storylineId, {
+        count: count == null ? undefined : Number(count),
+        model,
+        effort,
+      });
+      res.json({ variants });
     }),
   );
 

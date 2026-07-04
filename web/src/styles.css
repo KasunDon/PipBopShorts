@@ -1204,6 +1204,19 @@ textarea:disabled {
 .lang-input {
   width: 120px;
 }
+.title-variants {
+  list-style: none;
+  margin: 6px 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.title-variants li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
 
 /* Dialogue & caption plan */
 .dialogue-plan {

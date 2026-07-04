@@ -64,6 +64,11 @@ export interface StoryAnalytics {
   drift: { reports: number; findings: number; resolved: number; open: number; safety: number; driftRate: number };
 }
 
+export interface TitleVariant {
+  title: string;
+  angle: string;
+}
+
 export interface StudioStorySummary {
   storyId: string;
   title: string;

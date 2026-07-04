@@ -44,6 +44,7 @@ import type {
   RenderValidation,
   SceneDialogue,
   Story,
+  TitleVariant,
   StoryAnalytics,
   StudioAnalytics,
   StorylinePreview,
@@ -2175,6 +2176,8 @@ function YoutubeEditor({
   const [hashtags, setHashtags] = useState(yt.hashtags.join(' '));
   const [language, setLanguage] = useState('Spanish');
   const [localizing, setLocalizing] = useState(false);
+  const [variants, setVariants] = useState<TitleVariant[] | null>(null);
+  const [suggesting, setSuggesting] = useState(false);
 
   useEffect(() => {
     setTitle(yt.title);
@@ -2186,8 +2189,38 @@ function YoutubeEditor({
   return (
     <div className="youtube-editor">
       <Field label="Title">
-        <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={100} />
+        <div className="row">
+          <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={100} style={{ flex: 1 }} />
+          <button
+            className="small ghost"
+            disabled={suggesting}
+            title="Suggest A/B title options"
+            onClick={async () => {
+              setSuggesting(true);
+              try {
+                const res = await run(() => api.titleVariants(storylineId, { count: 5 }));
+                if (res) setVariants(res.variants);
+              } finally {
+                setSuggesting(false);
+              }
+            }}
+          >
+            {suggesting ? '…' : 'A/B titles'}
+          </button>
+        </div>
       </Field>
+      {variants && variants.length > 0 && (
+        <ul className="title-variants">
+          {variants.map((v, i) => (
+            <li key={i}>
+              <button className="link" onClick={() => setTitle(v.title)} title="Use this title">
+                {v.title}
+              </button>
+              <span className="muted small">{v.angle}</span>
+            </li>
+          ))}
+        </ul>
+      )}
       <Field label="Description">
         <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} />
       </Field>

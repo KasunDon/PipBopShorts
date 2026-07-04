@@ -631,6 +631,19 @@ describe('CTA endpoint coverage', () => {
     expect(extended.body.clip.status).toBe('ready');
   });
 
+  it('suggests A/B title variants', async () => {
+    const { client: studioClaude } = makeStudioFakeClaude();
+    const { app } = makeApp({ claude: studioClaude });
+    const { storylineId } = await scaffold(app);
+    const res = await request(app)
+      .post(`/api/storylines/${storylineId}/youtube/title-variants`)
+      .send({ count: 2 })
+      .expect(200);
+    expect(res.body.variants).toHaveLength(2);
+    expect(res.body.variants[0]).toHaveProperty('title');
+    expect(res.body.variants[0]).toHaveProperty('angle');
+  });
+
   it('localizes YouTube metadata into another language', async () => {
     const { client: studioClaude } = makeStudioFakeClaude();
     const { app } = makeApp({ claude: studioClaude });

@@ -269,6 +269,7 @@ export function makeStudioFakeClaude(overrides?: {
   beatSheetJson?: string;
   dialogueJson?: string;
   localizeJson?: string;
+  titlesJson?: string;
 }): { client: AnthropicLike; calls: FakeClaudeCall[] } {
   return makeFakeClaude((params) => {
     const system = String(params.system ?? '');
@@ -291,6 +292,15 @@ export function makeStudioFakeClaude(overrides?: {
       text =
         overrides?.localizeJson ??
         JSON.stringify({ title: 'Título localizado', description: 'Descripción', tags: ['etiqueta'], hashtags: ['#Shorts'] });
+    } else if (system.includes('A/B title options')) {
+      text =
+        overrides?.titlesJson ??
+        JSON.stringify({
+          variants: [
+            { title: 'The Banana Heist', angle: 'curiosity' },
+            { title: 'Can Bobo Reach It?', angle: 'stakes' },
+          ],
+        });
     } else if (system.includes('head of story development')) {
       text = overrides?.bootstrapJson ?? sampleBootstrapJson();
     } else if (system.includes('season architect')) {
