@@ -21,6 +21,33 @@ function restorableKind(type: string): string {
   return type.split('.')[1] ?? 'record';
 }
 
+function short(value: unknown): string {
+  if (value === null || value === undefined) return '∅';
+  if (typeof value === 'object') {
+    const s = JSON.stringify(value);
+    return s.length > 80 ? `${s.slice(0, 80)}…` : s;
+  }
+  const s = String(value);
+  return s.length > 80 ? `${s.slice(0, 80)}…` : s;
+}
+
+/** Shallow before→after field diff for a `store` mutation event, for a readable audit trail. */
+function computeFieldDiff(event: AuditEvent): Array<{ key: string; before: string; after: string }> | null {
+  const before = (event.request as { before?: unknown } | undefined)?.before;
+  const after = (event.response as { after?: unknown } | undefined)?.after;
+  if (!before || !after || typeof before !== 'object' || typeof after !== 'object') return null;
+  const b = before as Record<string, unknown>;
+  const a = after as Record<string, unknown>;
+  const keys = Array.from(new Set([...Object.keys(b), ...Object.keys(a)]));
+  const rows: Array<{ key: string; before: string; after: string }> = [];
+  for (const key of keys) {
+    if (JSON.stringify(b[key]) !== JSON.stringify(a[key])) {
+      rows.push({ key, before: short(b[key]), after: short(a[key]) });
+    }
+  }
+  return rows;
+}
+
 function pathOf(url: string): string {
   try {
     return new URL(url).pathname;
@@ -221,6 +248,7 @@ function EventDetail({ event, onRestore }: { event: AuditEvent; onRestore: () =>
   const copy = (value: unknown) => {
     navigator.clipboard?.writeText(typeof value === 'string' ? value : JSON.stringify(value, null, 2));
   };
+  const fieldDiff = event.service === 'store' ? computeFieldDiff(event) : null;
   return (
     <div className="event-detail">
       {isRestorable(event) && (
@@ -229,6 +257,18 @@ function EventDetail({ event, onRestore }: { event: AuditEvent; onRestore: () =>
           <button className="small" onClick={onRestore}>
             <IconRefresh /> Restore
           </button>
+        </div>
+      )}
+      {fieldDiff && fieldDiff.length > 0 && (
+        <div className="event-fielddiff">
+          <b className="muted small">Changes</b>
+          {fieldDiff.map((f) => (
+            <div key={f.key} className="fielddiff-row">
+              <span className="fielddiff-key">{f.key}</span>
+              <span className="diff-strike">{f.before}</span>
+              <span> → {f.after}</span>
+            </div>
+          ))}
         </div>
       )}
       <div className="event-detail-meta">

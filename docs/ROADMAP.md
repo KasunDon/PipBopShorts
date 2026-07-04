@@ -105,8 +105,10 @@ Consistency by reference, not just by prompt:
 
 ### Outstanding (captured — tackle next)
 
-- **Dedicated audit view/filter** beyond the shared activity console (e.g. a
-  data-mutation-only timeline with diff highlighting of before→after).
+- **Dedicated audit view/filter** — *partly done*: the activity console filters
+  the `store` service and now renders a readable before→after field diff for each
+  mutation. Still to do: a standalone data-mutation-only timeline separate from
+  the network-call log.
 - **Image-to-video aspect ratio**: img-to-video derives aspect from the source
   image, so the global aspect ratio only affects text-to-video scenes today —
   decide whether to letterbox/crop references to enforce a uniform aspect.
