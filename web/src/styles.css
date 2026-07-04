@@ -1184,6 +1184,16 @@ textarea:disabled {
   margin-top: 2px;
 }
 
+/* Beat sheet */
+.beat-list {
+  margin: 8px 0 0;
+  padding-left: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12.5px;
+}
+
 /* Episode idea backlog */
 .idea-backlog {
   margin: 10px 0;

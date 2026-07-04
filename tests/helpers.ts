@@ -175,6 +175,19 @@ export function samplePatchJson(): string {
   });
 }
 
+/** A beat-sheet payload. */
+export function sampleBeatSheetJson(): string {
+  return JSON.stringify({
+    beats: [
+      { name: 'Hook', description: 'Bobo spots the perfect banana high in the Giggle Tree.', purpose: 'Sets the goal.' },
+      { name: 'Complication', description: 'The branch is too high and wobbly.', purpose: 'Raises the stakes.' },
+      { name: 'Turn', description: 'A friend suggests teamwork.', purpose: 'Introduces the lesson.' },
+      { name: 'Climax', description: 'They build a wobbly ladder of friends.', purpose: 'Peak tension, comedic.' },
+      { name: 'Resolution', description: 'Everyone shares the banana.', purpose: 'Warm, safe payoff.' },
+    ],
+  });
+}
+
 /** An episode-ideas backlog payload. */
 export function sampleEpisodeIdeasJson(count = 3): string {
   return JSON.stringify({
@@ -243,6 +256,7 @@ export function makeStudioFakeClaude(overrides?: {
   autofixJson?: string;
   patchJson?: string;
   ideasJson?: string;
+  beatSheetJson?: string;
 }): { client: AnthropicLike; calls: FakeClaudeCall[] } {
   return makeFakeClaude((params) => {
     const system = String(params.system ?? '');
@@ -257,6 +271,8 @@ export function makeStudioFakeClaude(overrides?: {
       text = overrides?.patchJson ?? samplePatchJson();
     } else if (system.includes('brainstorming FUTURE episode')) {
       text = overrides?.ideasJson ?? sampleEpisodeIdeasJson();
+    } else if (system.includes('building a BEAT SHEET')) {
+      text = overrides?.beatSheetJson ?? sampleBeatSheetJson();
     } else if (system.includes('head of story development')) {
       text = overrides?.bootstrapJson ?? sampleBootstrapJson();
     } else if (system.includes('season architect')) {

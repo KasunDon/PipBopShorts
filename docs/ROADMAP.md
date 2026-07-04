@@ -139,9 +139,12 @@ Consistency by reference, not just by prompt:
 
 ## Phase 3 — Episode production depth
 
-- **Beat sheets & shot manifests**: storyline → beat sheet → per-scene manifest (camera
-  preset, lighting preset, locked properties, allowed variation) as the unit the renderer
-  consumes; seeds and generation params recorded per attempt for reproducibility.
+- **Beat sheets & shot manifests**: *beat sheets shipped* — generate a structural
+  beat sheet (hook → complication → turn → climax → resolution) for an episode,
+  grounded in bible/brief/setting + canon, one-click foldable into the storyline
+  guidance. Still to do: per-scene shot manifests (camera/lighting presets, locked
+  properties, allowed variation) as the renderer's unit, with seeds/params per
+  attempt for reproducibility.
 - **Audio & subtitles** *(requested — not built yet)*: the current pipeline renders silent
   video only. Planned:
   - **Background music**: per-episode music bed (mood/tempo from the bible's tone marks),

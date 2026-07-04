@@ -336,6 +336,22 @@ describe('idea bootstrap over HTTP', () => {
     expect(storyGet.body.bible).toContain('Rocket Raccoons — Story Bible');
   });
 
+  it('generates a beat sheet for an episode', async () => {
+    const { client: studioClaude } = makeStudioFakeClaude();
+    const { app } = makeApp({ claude: studioClaude });
+    const storyId = (
+      await request(app).post('/api/stories').send({ title: 'Beats', bible: '# Bible\nBobo.' }).expect(201)
+    ).body.story.id;
+    const episodeId = (
+      await request(app).post(`/api/stories/${storyId}/episodes`).send({ title: 'E1', brief: 'banana quest' }).expect(201)
+    ).body.episode.id;
+
+    const res = await request(app).post(`/api/episodes/${episodeId}/beat-sheet`).send({}).expect(200);
+    expect(res.body.beats.length).toBeGreaterThan(0);
+    expect(res.body.beats[0]).toHaveProperty('name');
+    expect(res.body.beats[0]).toHaveProperty('purpose');
+  });
+
   it('drafts an episode without persisting it', async () => {
     const { client: studioClaude } = makeStudioFakeClaude();
     const { app } = makeApp({ claude: studioClaude });

@@ -32,6 +32,7 @@ import { formatRuntime, RuntimeSelect, SeasonPanel } from './SeasonPanel';
 import type {
   AppConfig,
   AutofixResult,
+  Beat,
   Episode,
   EpisodeIdea,
   JobEvent,
@@ -1079,6 +1080,8 @@ function EpisodePanel({
   const [effort, setEffort] = useState('high');
   const [sceneCount, setSceneCount] = useState(5);
   const [guidance, setGuidance] = useState('');
+  const [beats, setBeats] = useState<Beat[] | null>(null);
+  const [beating, setBeating] = useState(false);
   const [aspectRatio, setAspectRatio] = useState('9:16');
   const [quality, setQuality] = useState('540p');
   const [pixModel, setPixModel] = useState('v5');
@@ -1277,6 +1280,49 @@ function EpisodePanel({
         <Field label="Extra guidance (optional)">
           <textarea value={guidance} onChange={(e) => setGuidance(e.target.value)} rows={2} placeholder="Tone, references, must-have beats…" />
         </Field>
+
+        <div className="row" style={{ marginTop: 4 }}>
+          <button
+            className="small ghost"
+            disabled={beating}
+            title="Draft a structural beat sheet you can fold into the guidance above"
+            onClick={async () => {
+              setBeating(true);
+              try {
+                const res = await run(() => api.generateBeatSheet(data.episode.id));
+                if (res) setBeats(res.beats);
+              } finally {
+                setBeating(false);
+              }
+            }}
+          >
+            <IconDoc /> {beating ? 'Drafting…' : 'Beat sheet'}
+          </button>
+          {beats && beats.length > 0 && (
+            <button
+              className="small"
+              title="Fold these beats into the guidance"
+              onClick={() =>
+                setGuidance((g) =>
+                  [g, 'Follow this beat sheet:', ...beats.map((b, i) => `${i + 1}. ${b.name} — ${b.description}`)]
+                    .filter(Boolean)
+                    .join('\n'),
+                )
+              }
+            >
+              Use as guidance
+            </button>
+          )}
+        </div>
+        {beats && beats.length > 0 && (
+          <ol className="beat-list">
+            {beats.map((b, i) => (
+              <li key={i}>
+                <b>{b.name}</b> — {b.description} <span className="muted small">({b.purpose})</span>
+              </li>
+            ))}
+          </ol>
+        )}
         <div className="row" style={{ marginTop: 12 }}>
           <button
             className="primary"

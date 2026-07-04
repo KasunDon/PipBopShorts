@@ -39,6 +39,7 @@ import {
 import { assertRuntime, extendPlan, generateNextEpisode, planStory } from './services/season';
 import { storyAnalytics, studioAnalytics } from './services/analytics';
 import { autofixStoryline } from './services/autofix';
+import { generateBeatSheet } from './services/beatsheet';
 import { addSceneComment, deleteSceneComment, setSceneCommentResolved } from './services/comments';
 import { suggestEpisodeIdeas } from './services/ideas';
 import { patchScene } from './services/patch';
@@ -866,6 +867,17 @@ export function createApp(deps: AppDeps): express.Express {
     asyncHandler((req, res) => {
       const episode = deps.store.getEpisode(req.params.episodeId);
       res.json({ preview: buildStorylinePreview(deps.store, episode.storyId, episode.id) });
+    }),
+  );
+
+  // Structural beat sheet for an episode (a planning aid; can feed generation guidance).
+  app.post(
+    '/api/episodes/:episodeId/beat-sheet',
+    asyncHandler(async (req, res) => {
+      const episode = deps.store.getEpisode(req.params.episodeId);
+      const { model, effort } = req.body ?? {};
+      const beats = await generateBeatSheet(deps.store, deps.claude, episode.storyId, episode.id, { model, effort });
+      res.json({ beats });
     }),
   );
 

@@ -18,6 +18,7 @@ import type {
   Project,
   ProjectSummary,
   AutofixResult,
+  Beat,
   CanonDiff,
   ReferenceDefinition,
   ReferenceReadiness,
@@ -203,6 +204,8 @@ export const api = {
     const { signal, ...rest } = opts;
     return req<{ story: Story; registry: CanonRegistry | null }>('POST', '/api/stories/bootstrap', { idea, ...rest }, { signal });
   },
+  generateBeatSheet: (episodeId: string, opts: { model?: string } = {}) =>
+    req<{ beats: Beat[] }>('POST', `/api/episodes/${episodeId}/beat-sheet`, opts),
   suggestEpisodeIdeas: (storyId: string, opts: { count?: number; model?: string } = {}) =>
     req<{ ideas: EpisodeIdea[] }>('POST', `/api/stories/${storyId}/episode-ideas`, opts),
   draftEpisode: (storyId: string, idea: string, opts: { model?: string } = {}) =>

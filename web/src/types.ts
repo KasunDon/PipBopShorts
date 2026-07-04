@@ -39,6 +39,12 @@ export interface EpisodeIdea {
   synopsis: string;
 }
 
+export interface Beat {
+  name: string;
+  description: string;
+  purpose: string;
+}
+
 export interface StoryAnalytics {
   storyId: string;
   episodes: number;
