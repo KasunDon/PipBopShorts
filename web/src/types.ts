@@ -310,6 +310,7 @@ export interface Scene {
   imageId?: number;
   imageUrl?: string;
   referenceCharacterIds?: string[];
+  primaryReferenceId?: string;
   patchHistory?: ScenePatch[];
   comments?: SceneComment[];
 }

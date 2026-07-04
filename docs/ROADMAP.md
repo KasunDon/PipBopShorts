@@ -119,7 +119,10 @@ Consistency by reference, not just by prompt:
 
 - **Reference library for locations & props** (same pattern as characters): approved
   stills attached to canon entities and injected into the relevant scenes.
-- Multi-reference scenes: send more than one approved image when the model supports it.
+- Multi-reference scenes: *partly shipped* — a scene injects descriptors for every
+  referenced character/location into the prompt, and you can **choose which
+  reference's approved image seeds** the image-to-video (click a reference chip).
+  Still to do: sending more than one image once PixVerse supports multiple `img_id`s.
 - ~~**Scene patch requests**~~ — **shipped**: a directed edit ("make the hero look
   worried, change nothing else") rewrites only the requested property via the LLM,
   preserving everything else and honouring locked canon marks; each edit records

@@ -334,14 +334,35 @@ export function SceneCard({
           </div>
           {references.length > 0 ? (
             <div className="scene-refs">
-              <span className="muted small">References in this scene:</span>
-              {references.map((r) => (
-                <span key={r.entityId} className={`ref-chip ${r.approved ? 'ok' : 'warn'}`} title={r.approved ? 'Approved reference is sent to PixVerse' : 'No approved reference — will render text-only'}>
-                  {r.approved ? <IconCheck /> : <IconAlert />}
-                  {r.name}
-                  <span className="ref-type">{r.type}</span>
-                </span>
-              ))}
+              <span className="muted small">References (click to set the image seed):</span>
+              {references.map((r) => {
+                const isPrimary =
+                  scene.primaryReferenceId === r.entityId ||
+                  (!scene.primaryReferenceId && references.find((x) => x.approved)?.entityId === r.entityId);
+                return (
+                  <button
+                    key={r.entityId}
+                    className={`ref-chip ${r.approved ? 'ok' : 'warn'} ${isPrimary && r.approved ? 'primary-ref' : ''}`}
+                    title={
+                      r.approved
+                        ? isPrimary
+                          ? "This reference's image seeds the render"
+                          : "Use this reference's image as the render seed"
+                        : 'No approved reference — will render text-only'
+                    }
+                    disabled={!r.approved}
+                    onClick={async () => {
+                      const res = await run(() => api.updateScene(storylineId, scene.id, { primaryReferenceId: r.entityId }));
+                      if (res) setProject(res.project);
+                    }}
+                  >
+                    {r.approved ? <IconCheck /> : <IconAlert />}
+                    {r.name}
+                    <span className="ref-type">{r.type}</span>
+                    {isPrimary && r.approved && <span className="ref-type">seed</span>}
+                  </button>
+                );
+              })}
             </div>
           ) : (
             scene.referenceCharacterIds &&

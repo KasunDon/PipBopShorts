@@ -90,7 +90,12 @@ export async function generateClip(
 ): Promise<Clip> {
   const project = store.getProject(storylineId);
   const scene = getScene(project, sceneId);
-  const refs = resolveSceneReferences(store, project.storyline.storyId, scene.referenceCharacterIds ?? []);
+  const refs = resolveSceneReferences(
+    store,
+    project.storyline.storyId,
+    scene.referenceCharacterIds ?? [],
+    scene.primaryReferenceId,
+  );
   const params = sceneToParams(scene, refs);
 
   const attempt = newAttempt(scene);

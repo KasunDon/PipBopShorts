@@ -500,11 +500,17 @@ export interface ResolvedReferences {
  * approved image) plus descriptors to inject into the prompt. This is what
  * actually sends the approved reference images to PixVerse at render time.
  */
-export function resolveSceneReferences(store: Store, storyId: string, referenceCharacterIds: string[]): ResolvedReferences {
+export function resolveSceneReferences(
+  store: Store,
+  storyId: string,
+  referenceCharacterIds: string[],
+  primaryReferenceId?: string | null,
+): ResolvedReferences {
   const registry = store.getCharacterRegistry(storyId);
   const canon = currentCanonVersion(store.getCanonRegistry(storyId));
   const out: ResolvedReferences = { imageId: null, imageUrl: null, descriptors: [], usedCharacterIds: [] };
   if (!registry) return out;
+  const primaryBase = primaryReferenceId ? entityBase(primaryReferenceId) : null;
   for (const id of referenceCharacterIds) {
     // A scene may reference an id from an earlier canon version; match by base id too.
     const asset = registry.characters[id] ?? Object.values(registry.characters).find((a) => entityBase(a.entityId) === entityBase(id));
@@ -514,9 +520,14 @@ export function resolveSceneReferences(store: Store, storyId: string, referenceC
     out.usedCharacterIds.push(id);
     const canonDesc = canon?.entities.find((e) => e.id === id)?.summary;
     out.descriptors.push({ name: asset.name, descriptor: approved.prompt || canonDesc || asset.name });
-    if (out.imageId == null && approved.imageId != null) {
-      out.imageId = approved.imageId;
-      out.imageUrl = approved.imageUrl;
+    if (approved.imageId != null) {
+      // The chosen primary reference's image wins as the image-to-video seed;
+      // otherwise the first approved image is used.
+      const isPrimary = primaryBase != null && entityBase(id) === primaryBase;
+      if (out.imageId == null || isPrimary) {
+        out.imageId = approved.imageId;
+        out.imageUrl = approved.imageUrl;
+      }
     }
   }
   return out;

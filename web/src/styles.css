@@ -1039,6 +1039,10 @@ textarea:disabled {
   font-size: 10px;
   letter-spacing: 0.04em;
 }
+.ref-chip.primary-ref {
+  border-color: var(--accent, #8b5cf6);
+  box-shadow: 0 0 0 1px var(--accent, #8b5cf6) inset;
+}
 
 /* Pre-render approval gate modal */
 .gate-modal {

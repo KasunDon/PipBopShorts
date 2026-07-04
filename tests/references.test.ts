@@ -5,6 +5,7 @@ import {
   detectSceneReferences,
   generatePortrait,
   referenceReadiness,
+  resolveSceneReferences,
 } from '../src/services/characters';
 import { createStorylineProject } from '../src/services/storyline';
 import type { Store } from '../src/store/store';
@@ -105,5 +106,33 @@ describe('referenceReadiness (pre-render approval gate)', () => {
     expect(after.items.find((i) => i.entityId === 'CHAR_BOBO_001')!.approved).toBe(true);
     expect(after.ready).toBe(false); // location still unapproved
     expect(after.unapproved.every((i) => i.type === 'location')).toBe(true);
+  });
+
+  it('lets a scene choose which reference image seeds image-to-video', async () => {
+    const { store, cleanup } = makeStore();
+    cleanups.push(cleanup);
+    const { story, storylineId } = await setup(store);
+    const { client: pixverse } = makeFakePixverse({ resultSequences: { 111: [1] } });
+
+    const locId = referenceReadiness(store, storylineId).items.find((i) => i.type === 'location')!.entityId;
+    const imageIds: Record<string, number> = { CHAR_BOBO_001: 101, [locId]: 202 };
+    for (const id of ['CHAR_BOBO_001', locId]) {
+      const v = await generatePortrait(store, pixverse, story.id, id, { wait: true, pollIntervalMs: 1, sleep: noSleep });
+      approvePortrait(store, story.id, id, v.id);
+    }
+    // Give each approved version a deterministic image id (the fake video URL yields none).
+    const registry = store.getCharacterRegistry(story.id)!;
+    for (const id of ['CHAR_BOBO_001', locId]) {
+      const asset = registry.characters[id];
+      const approved = asset.versions.find((x) => x.id === asset.approvedVersionId)!;
+      approved.imageId = imageIds[id];
+    }
+    store.saveCharacterRegistry(registry);
+
+    const ids = ['CHAR_BOBO_001', locId];
+    // Default: the first approved image (Bobo) seeds the render.
+    expect(resolveSceneReferences(store, story.id, ids).imageId).toBe(101);
+    // Choosing the location as primary swaps the seed image.
+    expect(resolveSceneReferences(store, story.id, ids, locId).imageId).toBe(202);
   });
 });

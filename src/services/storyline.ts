@@ -174,6 +174,7 @@ export function updateScene(store: Store, storylineId: string, sceneId: string, 
     'imageId',
     'imageUrl',
     'referenceCharacterIds',
+    'primaryReferenceId',
   ];
   for (const key of editable) {
     if (key in patch && patch[key] !== undefined) {
