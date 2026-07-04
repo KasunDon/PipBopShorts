@@ -260,6 +260,18 @@ export interface SceneComment {
   createdAt: string;
 }
 
+export interface RenderPreset {
+  id: string;
+  name: string;
+  aspectRatio?: string;
+  quality?: string;
+  model?: string;
+  motionMode?: string;
+  style?: string;
+  cameraMovement?: string;
+  createdAt: string;
+}
+
 export interface ScenePatch {
   id: string;
   request: string;

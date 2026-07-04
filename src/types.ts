@@ -129,6 +129,19 @@ export interface SceneComment {
   createdAt: string;
 }
 
+/** A named, studio-wide set of render defaults, applied across scenes/stories. */
+export interface RenderPreset {
+  id: string;
+  name: string;
+  aspectRatio?: string;
+  quality?: string;
+  model?: string;
+  motionMode?: string;
+  style?: string;
+  cameraMovement?: string;
+  createdAt: string;
+}
+
 /**
  * A single directed patch to a scene's prompt: the operator asked for one change
  * ("make Bobo look worried") and the model rewrote only that, preserving

@@ -7,6 +7,7 @@ import {
   type CharacterRegistry,
   type Episode,
   type Project,
+  type RenderPreset,
   type Story,
   type StoryMeta,
 } from '../types';
@@ -15,10 +16,11 @@ interface Db {
   stories: Record<string, Story>;
   episodes: Record<string, Episode>;
   projects: Record<string, Project>;
+  presets: Record<string, RenderPreset>;
 }
 
 function emptyDb(): Db {
-  return { stories: {}, episodes: {}, projects: {} };
+  return { stories: {}, episodes: {}, projects: {}, presets: {} };
 }
 
 export function slugify(input: string): string {
@@ -410,6 +412,25 @@ export class Store {
     for (const project of snap.projects) this.db.projects[project.storyline.id] = structuredClone(project);
     this.persist();
     return this.db.episodes[ep.id];
+  }
+
+  // ---- Render presets (studio-wide render defaults) ----
+
+  listPresets(): RenderPreset[] {
+    return Object.values(this.db.presets).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  }
+
+  createPreset(input: Omit<RenderPreset, 'id' | 'createdAt'>): RenderPreset {
+    const preset: RenderPreset = { ...input, id: makeId('preset'), createdAt: new Date().toISOString() };
+    this.db.presets[preset.id] = preset;
+    this.persist();
+    return preset;
+  }
+
+  deletePreset(id: string): void {
+    if (!this.db.presets[id]) throw new NotFoundError(`Preset not found: ${id}`);
+    delete this.db.presets[id];
+    this.persist();
   }
 
   /** Restore a whole story subtree from a snapshot. */

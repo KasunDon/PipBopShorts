@@ -169,8 +169,9 @@ Consistency by reference, not just by prompt:
 - **Multi-IP dashboards** — *shipped*: a per-story Insights tab (volume, clips
   ready/approved, publishes, canon stability, drift health) **and** a studio-wide
   overview on the home screen that rolls up every story and surfaces the riskiest
-  (safety findings / open drifts) first with jump-to links. Still to do: trend
-  charts over time and shared cross-IP style presets.
+  (safety findings / open drifts) first with jump-to links. **Shared cross-IP
+  style presets** are also shipped — save a named set of render defaults once and
+  load/apply it to any storyline's scenes. Still to do: trend charts over time.
 - **Longer formats**: 3-act structure support (primary thread + friendship thread + comedy
   runner), scene-count scaling, per-act drift checks.
 - **Season arcs**: season-level canon (what may evolve across a season vs. never),

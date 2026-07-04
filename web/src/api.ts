@@ -21,6 +21,7 @@ import type {
   CanonDiff,
   ReferenceDefinition,
   ReferenceReadiness,
+  RenderPreset,
   RenderValidation,
   Scene,
   SceneDefaultsResult,
@@ -275,6 +276,10 @@ export const api = {
       { signal },
     );
   },
+  listPresets: () => req<{ presets: RenderPreset[] }>('GET', '/api/presets'),
+  createPreset: (preset: Omit<RenderPreset, 'id' | 'createdAt'>) =>
+    req<{ preset: RenderPreset }>('POST', '/api/presets', preset),
+  deletePreset: (id: string) => req<void>('DELETE', `/api/presets/${id}`),
   referenceReadiness: (storylineId: string) =>
     req<{ readiness: ReferenceReadiness }>('GET', `/api/storylines/${storylineId}/reference-readiness`),
   applySceneDefaults: (storylineId: string, defaults: SceneDefaults) =>

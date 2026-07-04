@@ -961,6 +961,11 @@ textarea:disabled {
   font-size: 12.5px;
   color: var(--text-2);
 }
+.global-sep {
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+}
 .ref-summary {
   display: inline-flex;
   align-items: center;

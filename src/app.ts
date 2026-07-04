@@ -314,6 +314,40 @@ export function createApp(deps: AppDeps): express.Express {
     res.json({ items });
   });
 
+  // ---- Render presets (studio-wide render defaults) ----
+  app.get(
+    '/api/presets',
+    asyncHandler((_req, res) => {
+      res.json({ presets: deps.store.listPresets() });
+    }),
+  );
+
+  app.post(
+    '/api/presets',
+    asyncHandler((req, res) => {
+      const { name, aspectRatio, quality, model, motionMode, style, cameraMovement } = req.body ?? {};
+      if (!name || typeof name !== 'string' || !name.trim()) throw new HttpError(400, 'name is required');
+      const preset = deps.store.createPreset({
+        name: name.trim(),
+        aspectRatio,
+        quality,
+        model,
+        motionMode,
+        style,
+        cameraMovement,
+      });
+      res.status(201).json({ preset });
+    }),
+  );
+
+  app.delete(
+    '/api/presets/:presetId',
+    asyncHandler((req, res) => {
+      deps.store.deletePreset(req.params.presetId);
+      res.status(204).end();
+    }),
+  );
+
   // ---- Templates ----
   app.get('/api/templates/story-bible', (req, res) => {
     const title = typeof req.query.title === 'string' ? req.query.title : 'Untitled Story';

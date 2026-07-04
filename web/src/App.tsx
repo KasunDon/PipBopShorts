@@ -39,6 +39,7 @@ import type {
   ProjectSummary,
   ReferenceReadiness,
   ReferenceReadinessItem,
+  RenderPreset,
   RenderValidation,
   Story,
   StoryAnalytics,
@@ -1385,6 +1386,42 @@ function ProjectPanel({
   const [globalModel, setGlobalModel] = useState(scenes[0]?.model ?? config.pixverse.models[0]);
   const [globalStyle, setGlobalStyle] = useState(scenes[0]?.style ?? config.pixverse.styles[0]);
   const [applyingDefaults, setApplyingDefaults] = useState(false);
+  const [presets, setPresets] = useState<RenderPreset[]>([]);
+
+  const refreshPresets = useCallback(async () => {
+    const res = await api.listPresets().catch(() => null);
+    if (res) setPresets(res.presets);
+  }, []);
+  useEffect(() => {
+    void refreshPresets();
+  }, [refreshPresets]);
+
+  const loadPreset = (p: RenderPreset) => {
+    if (p.aspectRatio) setGlobalAspect(p.aspectRatio);
+    if (p.quality) setGlobalQuality(p.quality);
+    if (p.motionMode) setGlobalMotion(p.motionMode);
+    if (p.model) setGlobalModel(p.model);
+    if (p.style) setGlobalStyle(p.style);
+  };
+
+  const saveCurrentAsPreset = async () => {
+    const name = prompt('Name this render preset:');
+    if (!name || !name.trim()) return;
+    const res = await run(() =>
+      api.createPreset({
+        name: name.trim(),
+        aspectRatio: globalAspect,
+        quality: globalQuality,
+        motionMode: globalMotion,
+        model: globalModel,
+        style: globalStyle,
+      }),
+    );
+    if (res) {
+      await refreshPresets();
+      pushToast('ok', `Saved preset “${res.preset.name}”.`);
+    }
+  };
 
   const readyCount = scenes.filter((s) => project.clips[s.id]?.status === 'ready').length;
   const approvedCount = scenes.filter((s) => project.clips[s.id]?.approved).length;
@@ -1559,6 +1596,29 @@ function ProjectPanel({
             title="Set these render settings on every scene at once (scenes they'd invalidate are skipped)"
           >
             {applyingDefaults ? 'Applying…' : 'Apply to all'}
+          </button>
+          <span className="global-sep" />
+          {presets.length > 0 && (
+            <label className="global-field">
+              Preset
+              <select
+                value=""
+                onChange={(e) => {
+                  const p = presets.find((x) => x.id === e.target.value);
+                  if (p) loadPreset(p);
+                }}
+              >
+                <option value="">Load…</option>
+                {presets.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          <button className="small ghost" onClick={saveCurrentAsPreset} title="Save the current settings as a reusable preset">
+            Save preset
           </button>
           {readiness && readiness.items.length > 0 && (
             <span className={`ref-summary ${readiness.ready ? 'ok' : 'warn'}`}>

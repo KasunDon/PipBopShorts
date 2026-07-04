@@ -775,6 +775,40 @@ describe('global scene defaults, reference readiness, and mutation audit', () =>
     expect(after.find((s: { id: string }) => s.id === scenes[1].id).quality).toBe('1080p');
   });
 
+  it('creates, lists, applies, and deletes a studio render preset', async () => {
+    const { app } = makeApp();
+    const { storylineId, scenes } = await scaffold(app);
+
+    // Save a preset.
+    const created = await request(app)
+      .post('/api/presets')
+      .send({ name: 'Square HD', aspectRatio: '1:1', quality: '720p' })
+      .expect(201);
+    const presetId = created.body.preset.id;
+    expect(created.body.preset.name).toBe('Square HD');
+
+    // It appears in the list.
+    const list = await request(app).get('/api/presets').expect(200);
+    expect(list.body.presets.map((p: { id: string }) => p.id)).toContain(presetId);
+
+    // Apply its values through scene-defaults.
+    const applied = await request(app)
+      .post(`/api/storylines/${storylineId}/scene-defaults`)
+      .send({ aspectRatio: created.body.preset.aspectRatio, quality: created.body.preset.quality })
+      .expect(200);
+    expect(applied.body.project.storyline.scenes.every((s: { aspectRatio: string }) => s.aspectRatio === '1:1')).toBe(true);
+    expect(scenes.length).toBeGreaterThan(0);
+
+    // Delete it.
+    await request(app).delete(`/api/presets/${presetId}`).expect(204);
+    expect((await request(app).get('/api/presets').expect(200)).body.presets).toHaveLength(0);
+  });
+
+  it('400s a preset without a name', async () => {
+    const { app } = makeApp();
+    await request(app).post('/api/presets').send({ aspectRatio: '1:1' }).expect(400);
+  });
+
   it('400s scene-defaults with no settings provided', async () => {
     const { app } = makeApp();
     const { storylineId } = await scaffold(app);
