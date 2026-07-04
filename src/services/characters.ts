@@ -534,3 +534,86 @@ export function detectCharactersInText(store: Store, story: Story, text: string)
     .filter((e) => e.type === 'character' && e.name.trim().length > 1 && lower.includes(e.name.toLowerCase()))
     .map((e) => e.id);
 }
+
+/**
+ * Detect every referenceable canon entity (characters AND locations) named in a
+ * scene's text, so scenes auto-link to the reference images the director should
+ * review before rendering. Characters lead, then locations.
+ */
+export function detectSceneReferences(store: Store, story: Story, text: string): string[] {
+  const canon = currentCanonVersion(store.getCanonRegistry(story.id));
+  if (!canon) return [];
+  const lower = text.toLowerCase();
+  const hit = (e: { name: string }) => e.name.trim().length > 1 && lower.includes(e.name.toLowerCase());
+  const characters = canon.entities.filter((e) => e.type === 'character' && hit(e)).map((e) => e.id);
+  const locations = canon.entities.filter((e) => e.type === 'location' && hit(e)).map((e) => e.id);
+  return [...characters, ...locations];
+}
+
+export interface ReferenceReadinessItem {
+  entityId: string;
+  name: string;
+  type: string;
+  /** True when the referenced asset has an approved portrait/still to send to PixVerse. */
+  approved: boolean;
+  /** A thumbnail (image or video preview) for the approved-or-latest version, when present. */
+  thumbnailUrl: string | null;
+  /** The most recent version id (approve it inline), or null when nothing has been generated yet. */
+  latestVersionId: string | null;
+  /** The scenes (1-based numbers) that reference this entity. */
+  scenes: number[];
+}
+
+export interface ReferenceReadiness {
+  items: ReferenceReadinessItem[];
+  /** Referenced entities that have no approved reference image yet. */
+  unapproved: ReferenceReadinessItem[];
+  ready: boolean;
+}
+
+/**
+ * Report, for a storyline, every character/location its scenes reference and
+ * whether each has an approved reference image — the data behind the pre-render
+ * approval gate. When something is unreferenced-but-unapproved the render still
+ * works (it falls back to text-to-video), so this is a warning, not a hard block.
+ */
+export function referenceReadiness(store: Store, storylineId: string): ReferenceReadiness {
+  const project = store.getProject(storylineId);
+  const storyId = project.storyline.storyId;
+  const registry = store.getCharacterRegistry(storyId);
+  const canon = currentCanonVersion(store.getCanonRegistry(storyId));
+  const scenes = [...project.storyline.scenes].sort((a, b) => a.order - b.order);
+
+  const byEntity = new Map<string, ReferenceReadinessItem>();
+  scenes.forEach((scene, i) => {
+    for (const id of scene.referenceCharacterIds ?? []) {
+      const asset =
+        registry?.characters[id] ??
+        (registry ? Object.values(registry.characters).find((a) => entityBase(a.entityId) === entityBase(id)) : undefined);
+      const canonEntity = canon?.entities.find((e) => e.id === id || entityBase(e.id) === entityBase(id));
+      const name = asset?.name ?? canonEntity?.name ?? id;
+      const type = asset?.type ?? canonEntity?.type ?? 'character';
+      const approvedVersion = asset ? getApprovedVersion(asset) : null;
+      const latestVersion = asset && asset.versions.length > 0 ? asset.versions[asset.versions.length - 1] : null;
+      const thumb = approvedVersion ?? latestVersion;
+      const existing = byEntity.get(entityBase(id));
+      if (existing) {
+        existing.scenes.push(i + 1);
+      } else {
+        byEntity.set(entityBase(id), {
+          entityId: asset?.entityId ?? id,
+          name,
+          type,
+          approved: Boolean(approvedVersion),
+          thumbnailUrl: thumb?.imageUrl ?? thumb?.previewUrl ?? null,
+          latestVersionId: latestVersion?.id ?? null,
+          scenes: [i + 1],
+        });
+      }
+    }
+  });
+
+  const items = [...byEntity.values()];
+  const unapproved = items.filter((it) => !it.approved);
+  return { items, unapproved, ready: unapproved.length === 0 };
+}

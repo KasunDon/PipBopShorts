@@ -942,6 +942,142 @@ textarea:disabled {
   border-top: 1px dashed var(--border);
 }
 
+/* Global scene settings toolbar */
+.global-settings {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+.global-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+.ref-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  font-size: 12.5px;
+}
+.ref-summary.ok {
+  color: var(--ok);
+}
+.ref-summary.warn {
+  color: var(--warn);
+}
+
+/* Per-scene reference chips */
+.scene-refs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+.ref-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-size: 12px;
+  background: var(--surface-3);
+}
+.ref-chip.ok {
+  color: var(--ok);
+  border-color: rgba(63, 185, 80, 0.4);
+}
+.ref-chip.warn {
+  color: var(--warn);
+  border-color: rgba(210, 153, 34, 0.4);
+}
+.ref-chip .ref-type {
+  color: var(--text-3);
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+
+/* Pre-render approval gate modal */
+.gate-modal {
+  max-width: 560px;
+  width: 92vw;
+  max-height: 86vh;
+  overflow: auto;
+}
+.gate-list {
+  list-style: none;
+  margin: 12px 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.gate-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+.gate-thumb {
+  width: 56px;
+  height: 56px;
+  flex: none;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: #000;
+  border: 1px solid var(--border-strong);
+}
+.gate-thumb img,
+.gate-thumb video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.gate-thumb-empty {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-3);
+}
+.gate-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+}
+.gate-actions {
+  flex: none;
+}
+.gate-footer {
+  justify-content: flex-end;
+  gap: 8px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+
+.badge.svc-store {
+  color: var(--accent, #8b5cf6);
+}
+.badge.svc-store::before {
+  background: var(--accent, #8b5cf6);
+}
+
 /* Rendered markdown --------------------------------------------------------------------- */
 
 .md-viewer {

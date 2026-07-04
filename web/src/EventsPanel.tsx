@@ -4,7 +4,7 @@ import { fmtUsd } from './CostsPanel';
 import { IconChevronLeft, IconCopy, IconRefresh, IconTrash } from './Icons';
 import type { AuditEvent, EventService, EventStatus } from './types';
 
-const SERVICES: EventService[] = ['claude', 'pixverse', 'youtube'];
+const SERVICES: EventService[] = ['claude', 'pixverse', 'youtube', 'store'];
 const STATUSES: EventStatus[] = ['ok', 'error'];
 
 function pathOf(url: string): string {

@@ -2,8 +2,9 @@ import { generateStoryline, type AnthropicLike, type StorylineInput } from '../c
 import { collectValidationIssues } from '../clients/pixverse';
 import { DEFAULT_CLAUDE_MODEL, SHORT_DEFAULTS } from '../constants';
 import { canonForStory } from './canon';
-import { detectCharactersInText, syncCharactersFromCanon } from './characters';
+import { detectSceneReferences, syncCharactersFromCanon } from './characters';
 import { buildContinuityBlock } from './season';
+import { UserInputError } from '../errors';
 import type { Store } from '../store/store';
 import { makeId } from '../store/store';
 import type { Clip, Project, Scene, Storyline, YoutubeMeta } from '../types';
@@ -112,12 +113,13 @@ export async function createStorylineProject(
     }
   }
 
-  // Auto-link each scene to the canon characters named in it, so approved
-  // reference images are sent to PixVerse when the scene renders.
+  // Auto-link each scene to the canon characters AND locations named in it, so
+  // the director can review those references and their approved reference images
+  // are sent to PixVerse when the scene renders.
   if (canon) {
     syncCharactersFromCanon(store, storyId);
     for (const scene of generated.scenes) {
-      const ids = detectCharactersInText(store, story, `${scene.heading} ${scene.description} ${scene.prompt}`);
+      const ids = detectSceneReferences(store, story, `${scene.heading} ${scene.description} ${scene.prompt}`);
       if (ids.length > 0) scene.referenceCharacterIds = ids;
     }
   }
@@ -261,6 +263,93 @@ export function updateYoutubeMeta(store: Store, storylineId: string, patch: Part
   project.storyline.youtube = { ...project.storyline.youtube, ...patch };
   touch(project);
   return store.saveProject(project);
+}
+
+/** Render parameters that can be set once and applied across every scene. */
+export interface SceneDefaults {
+  aspectRatio?: string;
+  quality?: string;
+  model?: string;
+  motionMode?: string;
+  style?: string;
+  cameraMovement?: string;
+}
+const SCENE_DEFAULT_FIELDS: (keyof SceneDefaults)[] = [
+  'aspectRatio',
+  'quality',
+  'model',
+  'motionMode',
+  'style',
+  'cameraMovement',
+];
+
+export interface ApplySceneDefaultsResult {
+  project: Project;
+  /** Scene ids actually changed. */
+  applied: string[];
+  /** Scenes left unchanged because the new value would make them invalid. */
+  skipped: Array<{ sceneId: string; heading: string; issues: string[] }>;
+  /** The fields that were applied. */
+  fields: string[];
+}
+
+function sceneIssues(scene: Scene): string[] {
+  return collectValidationIssues(
+    {
+      prompt: scene.prompt,
+      model: scene.model,
+      quality: scene.quality,
+      duration: scene.duration,
+      motionMode: scene.motionMode,
+      aspectRatio: scene.aspectRatio,
+      negativePrompt: scene.negativePrompt,
+      style: scene.style,
+      cameraMovement: scene.cameraMovement,
+      imageId: scene.imageId,
+    },
+    { requireImage: typeof scene.imageId === 'number' },
+  );
+}
+
+/**
+ * Apply one set of render defaults (aspect ratio, quality, …) to every scene at
+ * once — the "set it once for the whole short" control. A scene is skipped
+ * (left untouched) if the new value would make it invalid, so a bulk change can
+ * never push scenes into an unrenderable state; changed scenes have their clip
+ * reset, matching a per-scene edit.
+ */
+export function applySceneDefaults(store: Store, storylineId: string, defaults: SceneDefaults): ApplySceneDefaultsResult {
+  const project = store.getProject(storylineId);
+  const fields = SCENE_DEFAULT_FIELDS.filter((f) => defaults[f] !== undefined && defaults[f] !== '');
+  if (fields.length === 0) throw new UserInputError('Provide at least one setting to apply to all scenes.');
+
+  const applied: string[] = [];
+  const skipped: ApplySceneDefaultsResult['skipped'] = [];
+
+  for (const scene of project.storyline.scenes) {
+    const candidate = { ...scene } as Scene;
+    for (const f of fields) (candidate as unknown as Record<string, unknown>)[f] = defaults[f];
+    const issues = sceneIssues(candidate);
+    if (issues.length > 0) {
+      skipped.push({ sceneId: scene.id, heading: scene.heading, issues });
+      continue;
+    }
+    let changed = false;
+    for (const f of fields) {
+      if (scene[f] !== defaults[f]) {
+        (scene as unknown as Record<string, unknown>)[f] = defaults[f];
+        changed = true;
+      }
+    }
+    if (changed) {
+      project.clips[scene.id] = idleClip(scene.id);
+      applied.push(scene.id);
+    }
+  }
+
+  touch(project);
+  store.saveProject(project);
+  return { project, applied, skipped, fields };
 }
 
 export { idleClip };

@@ -57,6 +57,51 @@ Consistency by reference, not just by prompt:
 - Scenes **auto-link** to the characters named in them; the whole registry is
   version-controlled and rides along in `.story.md` export/import.
 
+## ✅ Phase 2a.1 — Production ergonomics & auditability (shipped this iteration)
+
+- **Async background renders** — clips/portraits submit-and-forget; a server-side
+  JobRunner polls PixVerse to completion (survives tab close + server restart),
+  with SSE notifications, de-dupe, and button disables while in flight.
+- **LLM auto-fix of render-parameter issues** — one button repairs every invalid
+  scene using full story + canon context and each scene's creative intent (keeps
+  the fast-motion "wow" by shortening to 5s vs. dropping motion), never touching
+  the prompt; deterministic fallback guarantees resolution.
+- **Tone & child-safety consistency** — drift checks now audit tone + audience
+  metadata (findings carry a `consistency | safety` category); a strict
+  CHILD-SAFETY mode auto-activates for audiences ≤ 12.
+- **Storyline-generation feedback** — elapsed readout + cancel + "working behind
+  the scenes" state (the long LLM call no longer looks hung / "failed to fetch";
+  dev-proxy and server request timeouts removed for long calls).
+- **Scenes auto-reference characters AND locations** named in them; each scene
+  lists its references with an approved / not-approved indicator for review.
+- **Pre-render approval gate** — before "Render all", any referenced
+  character/location without an approved reference image is surfaced in a modal
+  with a thumbnail; approve (or generate-&-approve) inline, or "generate anyway".
+- **Global scene settings** — set an aspect ratio once and apply it to every
+  scene (skips scenes it would make invalid); endpoint already accepts
+  quality/model/motion/style for future controls.
+- **Mutation audit trail** — deletes and edits (story/episode/storyline/scene,
+  YouTube meta, canon marks, bulk defaults) record a `store` audit event with the
+  **old value preserved** for accountability and fail-safe.
+
+### Outstanding from this iteration (captured — tackle next)
+
+- **Inline reference tweak in the approval gate**: preview + tweak render
+  parameters (and re-render) before approving, not just approve/generate — a
+  mini lightbox reusing the references panel controls.
+- **Expose the other global settings in the UI**: quality / model / motion mode /
+  style already work through the `scene-defaults` endpoint; only aspect ratio has
+  a control so far.
+- **Restore-from-audit (fail-safe)**: a one-click "undo" that rehydrates a deleted
+  story/episode/storyline/scene from its preserved `store` audit event.
+- **Widen mutation audit**: also record add-scene, reorder, approve-portrait, and
+  publish; add a dedicated audit view/filter beyond the shared activity console.
+- **Image-to-video aspect ratio**: img-to-video derives aspect from the source
+  image, so the global aspect ratio only affects text-to-video scenes today —
+  decide whether to letterbox/crop references to enforce a uniform aspect.
+- **Approval gate policy**: make the gate a configurable warn-vs-block, and allow
+  multi-image references once the model supports more than one `img_id`.
+
 ## 🔜 Phase 2b — Location/prop references & scene patching (next)
 
 - **Reference library for locations & props** (same pattern as characters): approved

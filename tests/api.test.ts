@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import { createApp, type AppDeps } from '../src/app';
+import { EventStore } from '../src/events/eventStore';
 import {
   makeDryRunYoutube,
   makeFakeClaude,
@@ -569,6 +570,95 @@ describe('CTA endpoint coverage', () => {
     expect(rej.body.registry).toBeNull();
     const canon = await request(app).get(`/api/stories/${storyId}/canon`).expect(200);
     expect(canon.body.registry.currentVersion).toBe(1);
+  });
+});
+
+describe('global scene defaults, reference readiness, and mutation audit', () => {
+  async function scaffold(app: ReturnType<typeof makeApp>['app']) {
+    const storyId = (await request(app).post('/api/stories').send({ title: 'Bulk' }).expect(201)).body.story.id;
+    await request(app).put(`/api/stories/${storyId}/bible`).send({ markdown: '# Bible\nHero cat.' }).expect(200);
+    const episodeId = (
+      await request(app).post(`/api/stories/${storyId}/episodes`).send({ title: 'E', brief: 'x' }).expect(201)
+    ).body.episode.id;
+    const project = (await request(app).post(`/api/episodes/${episodeId}/storylines`).send({}).expect(201)).body
+      .project;
+    return { storyId, episodeId, storylineId: project.storyline.id, scenes: project.storyline.scenes };
+  }
+
+  it('applies an aspect ratio to every scene at once', async () => {
+    const { app } = makeApp();
+    const { storylineId, scenes } = await scaffold(app);
+    const res = await request(app)
+      .post(`/api/storylines/${storylineId}/scene-defaults`)
+      .send({ aspectRatio: '1:1' })
+      .expect(200);
+    expect(res.body.fields).toEqual(['aspectRatio']);
+    expect(res.body.applied).toHaveLength(scenes.length);
+    expect(res.body.project.storyline.scenes.every((s: { aspectRatio: string }) => s.aspectRatio === '1:1')).toBe(true);
+  });
+
+  it('skips scenes a bulk change would make invalid, applying to the rest', async () => {
+    const { app } = makeApp();
+    const { storylineId, scenes } = await scaffold(app);
+    // Make scene 1 an 8s clip (valid on its own).
+    await request(app)
+      .patch(`/api/storylines/${storylineId}/scenes/${scenes[0].id}`)
+      .send({ duration: 8 })
+      .expect(200);
+    // 1080p is capped at 5s, so scene 1 (now 8s) must be skipped; scene 2 (5s) applies.
+    const res = await request(app)
+      .post(`/api/storylines/${storylineId}/scene-defaults`)
+      .send({ quality: '1080p' })
+      .expect(200);
+    expect(res.body.skipped.map((s: { sceneId: string }) => s.sceneId)).toContain(scenes[0].id);
+    expect(res.body.applied).toContain(scenes[1].id);
+    const after = res.body.project.storyline.scenes;
+    expect(after.find((s: { id: string }) => s.id === scenes[0].id).quality).not.toBe('1080p');
+    expect(after.find((s: { id: string }) => s.id === scenes[1].id).quality).toBe('1080p');
+  });
+
+  it('400s scene-defaults with no settings provided', async () => {
+    const { app } = makeApp();
+    const { storylineId } = await scaffold(app);
+    await request(app).post(`/api/storylines/${storylineId}/scene-defaults`).send({}).expect(400);
+  });
+
+  it('reports reference readiness for a storyline', async () => {
+    const { app } = makeApp();
+    const { storylineId } = await scaffold(app);
+    const res = await request(app).get(`/api/storylines/${storylineId}/reference-readiness`).expect(200);
+    expect(res.body.readiness).toHaveProperty('items');
+    expect(res.body.readiness).toHaveProperty('unapproved');
+    expect(res.body.readiness).toHaveProperty('ready');
+  });
+
+  it('records a mutation audit event (old value preserved) when a storyline is deleted', async () => {
+    const eventStore = new EventStore();
+    const { app } = makeApp({ eventStore });
+    const { storylineId } = await scaffold(app);
+    await request(app).delete(`/api/storylines/${storylineId}`).expect(204);
+
+    const events = await request(app).get('/api/events?service=store').expect(200);
+    const del = events.body.events.find((e: { type: string }) => e.type === 'store.storyline.delete');
+    expect(del).toBeTruthy();
+    expect(del.method).toBe('DELETE');
+    // The old value is preserved for audit / fail-safe restore.
+    expect(del.request.before.storyline.id).toBe(storylineId);
+  });
+
+  it('records a mutation audit event with before/after when a scene is edited', async () => {
+    const eventStore = new EventStore();
+    const { app } = makeApp({ eventStore });
+    const { storylineId, scenes } = await scaffold(app);
+    await request(app)
+      .patch(`/api/storylines/${storylineId}/scenes/${scenes[0].id}`)
+      .send({ heading: 'Renamed beat' })
+      .expect(200);
+    const events = await request(app).get('/api/events?service=store').expect(200);
+    const edit = events.body.events.find((e: { type: string }) => e.type === 'store.scene.update');
+    expect(edit).toBeTruthy();
+    expect(edit.request.before.heading).toBe(scenes[0].heading);
+    expect(edit.response.after.heading).toBe('Renamed beat');
   });
 });
 

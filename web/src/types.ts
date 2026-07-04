@@ -267,7 +267,29 @@ export interface ProjectSummary {
 
 // ---- Audit events ----
 
-export type EventService = 'claude' | 'pixverse' | 'youtube';
+export type EventService = 'claude' | 'pixverse' | 'youtube' | 'store';
+
+export interface ReferenceReadinessItem {
+  entityId: string;
+  name: string;
+  type: string;
+  approved: boolean;
+  thumbnailUrl: string | null;
+  latestVersionId: string | null;
+  scenes: number[];
+}
+export interface ReferenceReadiness {
+  items: ReferenceReadinessItem[];
+  unapproved: ReferenceReadinessItem[];
+  ready: boolean;
+}
+
+export interface SceneDefaultsResult {
+  project: Project;
+  applied: string[];
+  skipped: Array<{ sceneId: string; heading: string; issues: string[] }>;
+  fields: string[];
+}
 export type EventStatus = 'ok' | 'error';
 
 export interface CostEstimate {

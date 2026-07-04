@@ -10,11 +10,14 @@ import {
   IconAlert,
   IconCheck,
   IconChevronLeft,
+  IconClock,
   IconDoc,
   IconDollar,
   IconDownload,
   IconEye,
   IconHome,
+  IconImage,
+  IconLayers,
   IconPlay,
   IconPlus,
   IconRefresh,
@@ -26,7 +29,19 @@ import {
 import { Markdown, MarkdownViewer } from './Markdown';
 import { SceneCard } from './SceneCard';
 import { formatRuntime, RuntimeSelect, SeasonPanel } from './SeasonPanel';
-import type { AppConfig, AutofixResult, Episode, JobEvent, Project, ProjectSummary, RenderValidation, Story, StorylinePreview } from './types';
+import type {
+  AppConfig,
+  AutofixResult,
+  Episode,
+  JobEvent,
+  Project,
+  ProjectSummary,
+  ReferenceReadiness,
+  ReferenceReadinessItem,
+  RenderValidation,
+  Story,
+  StorylinePreview,
+} from './types';
 import { formatElapsed, useAsyncAction } from './useAsyncAction';
 
 type Overlay = 'costs' | 'events' | null;
@@ -907,6 +922,9 @@ function EpisodePanel({
   const [preview, setPreview] = useState<StorylinePreview | null>(null);
   const [compiling, setCompiling] = useState(false);
   const compiledFor = useRef<string | null>(null);
+  // Storyline generation is a multi-minute LLM call — drive it with an elapsed
+  // readout + cancel so the user knows work is happening behind the scenes.
+  const gen = useAsyncAction();
 
   useEffect(() => {
     setBrief(data.episode.brief);
@@ -1099,10 +1117,10 @@ function EpisodePanel({
         <div className="row" style={{ marginTop: 12 }}>
           <button
             className="primary"
-            disabled={!canGenerate}
+            disabled={!canGenerate || gen.pending}
             title={canGenerate ? 'Generate the storyline with the AI' : 'Compile and review the script first'}
             onClick={async () => {
-              const res = await run(() =>
+              const res = await gen.execute((signal) =>
                 api.createStoryline(data.episode.id, {
                   model,
                   effort: modelInfo?.supportsEffort ? effort : undefined,
@@ -1111,20 +1129,40 @@ function EpisodePanel({
                   aspectRatio,
                   quality,
                   pixverseModel: pixModel,
+                  signal,
                 }),
               );
               if (res) onOpenProject(res.project.storyline.id);
             }}
           >
-            <IconWand /> Generate storyline
+            <IconWand /> {gen.pending ? 'Generating…' : 'Generate storyline'}
           </button>
-          {!canGenerate && (
+          {gen.pending && (
+            <>
+              <span className="gate-note">
+                <IconClock /> Writing the shot list with {modelInfo?.label ?? model} — {formatElapsed(gen.elapsedSec)}{' '}
+                elapsed. This runs behind the scenes; keep this tab open.
+              </span>
+              <button className="ghost" onClick={gen.cancel}>
+                Cancel
+              </button>
+            </>
+          )}
+          {!gen.pending && !canGenerate && (
             <span className="gate-note">
               <IconAlert />
               {reviewed ? 'The compiled script has a blocking issue.' : 'Compile and review the script first (step 1).'}
             </span>
           )}
         </div>
+        {gen.error && (
+          <p className="check check-error" style={{ marginTop: 8 }}>
+            <span className="check-text">{gen.error}</span>
+            <button className="ghost small" onClick={gen.dismissError} aria-label="Dismiss">
+              <IconX />
+            </button>
+          </p>
+        )}
       </section>
 
       {/* Existing storylines */}
@@ -1171,15 +1209,38 @@ function ProjectPanel({
   run: Run;
 }) {
   const storylineId = project.storyline.id;
+  const storyId = project.storyline.storyId;
   const scenes = useMemo(() => [...project.storyline.scenes].sort((a, b) => a.order - b.order), [project]);
   const [privacy, setPrivacy] = useState('private');
   const [stitch, setStitch] = useState(true);
   const [validation, setValidation] = useState<RenderValidation | null>(null);
   const [autofix, setAutofix] = useState<AutofixResult | null>(null);
+  const [readiness, setReadiness] = useState<ReferenceReadiness | null>(null);
+  const [gateOpen, setGateOpen] = useState(false);
+  const [globalAspect, setGlobalAspect] = useState(scenes[0]?.aspectRatio ?? config.pixverse.aspectRatios[0]);
+  const [applyingDefaults, setApplyingDefaults] = useState(false);
 
   const readyCount = scenes.filter((s) => project.clips[s.id]?.status === 'ready').length;
   const generatingCount = scenes.filter((s) => project.clips[s.id]?.status === 'generating').length;
   const canRenderAll = validation !== null && validation.ok && generatingCount === 0;
+
+  // Reference lookup so each scene can show which characters/locations it uses
+  // and whether they're approved — reviewable before rendering.
+  const refByEntity = useMemo(() => {
+    const map = new Map<string, ReferenceReadinessItem>();
+    for (const it of readiness?.items ?? []) map.set(it.entityId, it);
+    return map;
+  }, [readiness]);
+
+  const refreshReadiness = useCallback(async () => {
+    const res = await api.referenceReadiness(storylineId).catch(() => null);
+    if (res) setReadiness(res.readiness);
+    return res?.readiness ?? null;
+  }, [storylineId]);
+
+  useEffect(() => {
+    void refreshReadiness();
+  }, [refreshReadiness, project]);
 
   // A background render for this storyline finished — pull the fresh project.
   useEffect(() => {
@@ -1188,6 +1249,45 @@ function ProjectPanel({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lastJob, storylineId]);
+
+  const confirmAndRenderAll = async () => {
+    if (!validation) return;
+    if (
+      !confirm(
+        `Render all ${scenes.length} scenes?\n\nEstimated cost: ${validation.estUsdLabel} (${validation.totalCredits} credits, ${validation.totalDurationSec}s total). This spends PixVerse credits.\n\nRenders run in the background — you'll be notified as each scene finishes, even if you navigate away.`,
+      )
+    )
+      return;
+    const res = await run(() => api.generateAll(storylineId, false));
+    if (res) setProject(res.project);
+  };
+
+  // Gate render-all on reference approval: if any referenced character/location
+  // isn't approved, warn first (with the option to proceed anyway).
+  const startRenderAll = async () => {
+    if (!validation) return;
+    const current = readiness ?? (await refreshReadiness());
+    if (current && !current.ready) {
+      setGateOpen(true);
+      return;
+    }
+    await confirmAndRenderAll();
+  };
+
+  const applyGlobalAspect = async () => {
+    setApplyingDefaults(true);
+    try {
+      const res = await run(() => api.applySceneDefaults(storylineId, { aspectRatio: globalAspect }));
+      if (res) {
+        setProject(res.project);
+        setValidation(null); // params changed — re-validate before rendering
+        const skipped = res.skipped.length ? ` (${res.skipped.length} skipped as invalid)` : '';
+        pushToast('ok', `Aspect ratio ${globalAspect} applied to ${res.applied.length} scene(s)${skipped}.`);
+      }
+    } finally {
+      setApplyingDefaults(false);
+    }
+  };
 
   return (
     <div className="panel">
@@ -1211,17 +1311,7 @@ function ProjectPanel({
             className="primary"
             disabled={!canRenderAll}
             title={canRenderAll ? 'Render every scene' : 'Run validation first — rendering unlocks once every scene passes'}
-            onClick={async () => {
-              if (!validation) return;
-              if (
-                !confirm(
-                  `Render all ${scenes.length} scenes?\n\nEstimated cost: ${validation.estUsdLabel} (${validation.totalCredits} credits, ${validation.totalDurationSec}s total). This spends PixVerse credits.\n\nRenders run in the background — you'll be notified as each scene finishes, even if you navigate away.`,
-                )
-              )
-                return;
-              const res = await run(() => api.generateAll(storylineId, false));
-              if (res) setProject(res.project);
-            }}
+            onClick={startRenderAll}
           >
             <IconPlay /> Render all scenes
           </button>
@@ -1232,6 +1322,36 @@ function ProjectPanel({
           {!canRenderAll && (
             <span className="gate-note">
               <IconAlert /> {validation ? 'Fix the failing scenes below, then validate again.' : 'Validate before rendering.'}
+            </span>
+          )}
+        </div>
+
+        {/* Global settings — set once, apply to every scene. */}
+        <div className="global-settings">
+          <IconLayers />
+          <span className="muted small">Apply to all scenes:</span>
+          <label className="global-field">
+            Aspect ratio
+            <select value={globalAspect} onChange={(e) => setGlobalAspect(e.target.value)}>
+              {config.pixverse.aspectRatios.map((a) => (
+                <option key={a}>{a}</option>
+              ))}
+            </select>
+          </label>
+          <button className="small" disabled={applyingDefaults} onClick={applyGlobalAspect} title="Set this aspect ratio on every scene at once">
+            {applyingDefaults ? 'Applying…' : 'Apply to all'}
+          </button>
+          {readiness && readiness.items.length > 0 && (
+            <span className={`ref-summary ${readiness.ready ? 'ok' : 'warn'}`}>
+              {readiness.ready ? (
+                <>
+                  <IconCheck /> {readiness.items.length} reference(s) approved
+                </>
+              ) : (
+                <>
+                  <IconAlert /> {readiness.unapproved.length} of {readiness.items.length} reference(s) not approved
+                </>
+              )}
             </span>
           )}
         </div>
@@ -1322,6 +1442,9 @@ function ProjectPanel({
             storylineId={storylineId}
             setProject={setProject}
             run={run}
+            references={(scene.referenceCharacterIds ?? [])
+              .map((id) => refByEntity.get(id))
+              .filter((it): it is ReferenceReadinessItem => Boolean(it))}
           />
         ))}
         <button
@@ -1374,6 +1497,143 @@ function ProjectPanel({
         </div>
         <PublishHistory project={project} />
       </section>
+
+      {gateOpen && readiness && (
+        <ApprovalGate
+          readiness={readiness}
+          storyId={storyId}
+          run={run}
+          pushToast={pushToast}
+          onRefresh={refreshReadiness}
+          onProceed={async () => {
+            setGateOpen(false);
+            await confirmAndRenderAll();
+          }}
+          onClose={() => setGateOpen(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * Pre-render approval gate. Lists every referenced character/location that has
+ * no approved reference image, lets the director approve (or generate then
+ * approve) each one inline with a thumbnail, and offers an explicit
+ * "generate anyway" escape hatch to render without the reference.
+ */
+function ApprovalGate({
+  readiness,
+  storyId,
+  run,
+  pushToast,
+  onRefresh,
+  onProceed,
+  onClose,
+}: {
+  readiness: ReferenceReadiness;
+  storyId: string;
+  run: Run;
+  pushToast: (kind: Toast['kind'], text: string) => void;
+  onRefresh: () => Promise<ReferenceReadiness | null>;
+  onProceed: () => void | Promise<void>;
+  onClose: () => void;
+}) {
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const unapproved = readiness.unapproved;
+
+  const approve = async (item: ReferenceReadinessItem) => {
+    if (!item.latestVersionId) return;
+    setBusyId(item.entityId);
+    try {
+      await run(() => api.approvePortrait(storyId, item.entityId, item.latestVersionId as string));
+      await onRefresh();
+      pushToast('ok', `${item.name} reference approved.`);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const generateAndApprove = async (item: ReferenceReadinessItem) => {
+    setBusyId(item.entityId);
+    try {
+      const res = await run(() => api.generatePortrait(storyId, item.entityId, {}));
+      if (res && res.version.status === 'ready') {
+        await run(() => api.approvePortrait(storyId, item.entityId, res.version.id));
+        pushToast('ok', `${item.name} reference generated and approved.`);
+      } else if (res) {
+        pushToast('bad', `${item.name} reference is still rendering — approve it once ready.`);
+      }
+      await onRefresh();
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  return (
+    <div className="lightbox-backdrop" onClick={onClose}>
+      <div className="card gate-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="card-head">
+          <h3>
+            <IconAlert /> Unapproved references
+          </h3>
+          <button className="ghost small" onClick={onClose} aria-label="Close">
+            <IconX />
+          </button>
+        </div>
+        <p className="muted small">
+          These characters/locations are used in your scenes but have no approved reference image. Rendering now falls
+          back to text-only for them, which may look off-model. Approve them here, or generate anyway.
+        </p>
+        <ul className="gate-list">
+          {unapproved.map((item) => (
+            <li key={item.entityId} className="gate-item">
+              <div className="gate-thumb">
+                {item.thumbnailUrl ? (
+                  item.thumbnailUrl.includes('.mp4') ? (
+                    <video src={item.thumbnailUrl} muted loop playsInline autoPlay />
+                  ) : (
+                    <img src={item.thumbnailUrl} alt={item.name} />
+                  )
+                ) : (
+                  <div className="gate-thumb-empty">
+                    <IconImage />
+                  </div>
+                )}
+              </div>
+              <div className="gate-meta">
+                <b>{item.name}</b> <span className="badge plain">{item.type}</span>
+                <span className="muted small">scenes {item.scenes.join(', ')}</span>
+              </div>
+              <div className="gate-actions">
+                {item.latestVersionId ? (
+                  <button className="small primary" disabled={busyId === item.entityId} onClick={() => approve(item)}>
+                    {busyId === item.entityId ? '…' : 'Approve'}
+                  </button>
+                ) : (
+                  <button className="small" disabled={busyId === item.entityId} onClick={() => generateAndApprove(item)}>
+                    {busyId === item.entityId ? 'Generating…' : 'Generate & approve'}
+                  </button>
+                )}
+              </div>
+            </li>
+          ))}
+          {unapproved.length === 0 && <li className="drift-clean">All references are approved.</li>}
+        </ul>
+        <div className="row gate-footer">
+          <button className="ghost" onClick={onClose}>
+            Cancel
+          </button>
+          <button className="danger ghost" onClick={onProceed} title="Render without approving these references">
+            Generate anyway
+          </button>
+          {readiness.ready && (
+            <button className="primary" onClick={onProceed}>
+              <IconPlay /> All approved — render
+            </button>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

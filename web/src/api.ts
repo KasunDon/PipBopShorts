@@ -18,8 +18,10 @@ import type {
   ProjectSummary,
   AutofixResult,
   ReferenceDefinition,
+  ReferenceReadiness,
   RenderValidation,
   Scene,
+  SceneDefaultsResult,
   Story,
   StoryMeta,
   StorylinePreview,
@@ -66,8 +68,10 @@ export const api = {
   setSetting: (id: string, markdown: string) =>
     req<{ markdown: string }>('PUT', `/api/episodes/${id}/setting`, { markdown }),
 
-  createStoryline: (episodeId: string, opts: Record<string, unknown>) =>
-    req<{ project: Project }>('POST', `/api/episodes/${episodeId}/storylines`, opts),
+  createStoryline: (episodeId: string, opts: Record<string, unknown> & { signal?: AbortSignal }) => {
+    const { signal, ...body } = opts;
+    return req<{ project: Project }>('POST', `/api/episodes/${episodeId}/storylines`, body, { signal });
+  },
   getProject: (storylineId: string) => req<{ project: Project }>('GET', `/api/storylines/${storylineId}`),
   deleteProject: (storylineId: string) => req<void>('DELETE', `/api/storylines/${storylineId}`),
 
@@ -239,7 +243,21 @@ export const api = {
       { signal },
     );
   },
+  referenceReadiness: (storylineId: string) =>
+    req<{ readiness: ReferenceReadiness }>('GET', `/api/storylines/${storylineId}/reference-readiness`),
+  applySceneDefaults: (storylineId: string, defaults: SceneDefaults) =>
+    req<SceneDefaultsResult>('POST', `/api/storylines/${storylineId}/scene-defaults`, defaults),
 };
+
+/** Render parameters that can be applied to every scene at once. */
+export interface SceneDefaults {
+  aspectRatio?: string;
+  quality?: string;
+  model?: string;
+  motionMode?: string;
+  style?: string;
+  cameraMovement?: string;
+}
 
 interface PublishResult {
   status: string;

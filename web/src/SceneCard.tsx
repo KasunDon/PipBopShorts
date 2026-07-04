@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { api } from './api';
 import { Field } from './App';
-import { IconExpand, IconImage, IconPlay, IconRefresh } from './Icons';
-import type { AppConfig, Clip, Project, Scene } from './types';
+import { IconAlert, IconCheck, IconExpand, IconImage, IconPlay, IconRefresh } from './Icons';
+import type { AppConfig, Clip, Project, ReferenceReadinessItem, Scene } from './types';
 
 function fileToBase64(file: File): Promise<{ dataBase64: string; contentType: string; filename: string }> {
   return new Promise((resolve, reject) => {
@@ -36,6 +36,7 @@ export function SceneCard({
   storylineId,
   setProject,
   run,
+  references = [],
 }: {
   index: number;
   total: number;
@@ -45,6 +46,7 @@ export function SceneCard({
   storylineId: string;
   setProject: (p: Project) => void;
   run: Run;
+  references?: ReferenceReadinessItem[];
 }) {
   const [draft, setDraft] = useState<Scene>(scene);
   const [dirty, setDirty] = useState(false);
@@ -233,11 +235,22 @@ export function SceneCard({
               </button>
             )}
           </div>
-          {scene.referenceCharacterIds && scene.referenceCharacterIds.length > 0 && (
-            <p className="muted small">
-              Character references: {scene.referenceCharacterIds.length} — approved images/descriptors are sent to
-              PixVerse for this scene.
-            </p>
+          {references.length > 0 ? (
+            <div className="scene-refs">
+              <span className="muted small">References in this scene:</span>
+              {references.map((r) => (
+                <span key={r.entityId} className={`ref-chip ${r.approved ? 'ok' : 'warn'}`} title={r.approved ? 'Approved reference is sent to PixVerse' : 'No approved reference — will render text-only'}>
+                  {r.approved ? <IconCheck /> : <IconAlert />}
+                  {r.name}
+                  <span className="ref-type">{r.type}</span>
+                </span>
+              ))}
+            </div>
+          ) : (
+            scene.referenceCharacterIds &&
+            scene.referenceCharacterIds.length > 0 && (
+              <p className="muted small">Character references: {scene.referenceCharacterIds.length}.</p>
+            )
           )}
           {scene.imageUrl && <p className="muted small">Reference image attached (image-to-video). Camera movement will apply.</p>}
           {clip?.error && <p className="scene-error">{clip.error}</p>}

@@ -24,6 +24,7 @@ import {
   approvePortrait,
   buildReferenceDefinition,
   generatePortrait,
+  referenceReadiness,
   refreshPortrait,
   syncCharactersFromCanon,
   uploadPortraitStill,
@@ -50,6 +51,7 @@ import { buildStorylinePreview, validateStorylineForRender } from './services/pr
 import { publishProject } from './services/publish';
 import {
   addScene,
+  applySceneDefaults,
   createStorylineProject,
   removeScene,
   reorderScenes,
@@ -133,6 +135,33 @@ export function createApp(deps: AppDeps): express.Express {
     // Run within a cost context so any outbound call this handler makes is
     // attributed to the right story/episode/scene/phase in the audit log.
     withCostContext(scopeFromRequest(deps.store, req), () => Promise.resolve(fn(req, res)).catch(next));
+  };
+
+  /**
+   * Record a data mutation (delete/update) in the audit log with the old value
+   * preserved — an accountability trail and a fail-safe for destructive edits.
+   * Never lets an auditing failure break the mutation it is recording.
+   */
+  const recordMutation = (
+    req: Request,
+    input: { resource: string; action: 'update' | 'delete'; summary: string; before: unknown; after?: unknown },
+  ): void => {
+    try {
+      eventStore.record({
+        durationMs: 0,
+        service: 'store',
+        type: `store.${input.resource}.${input.action}`,
+        method: input.action.toUpperCase(),
+        url: `store://${input.resource}`,
+        status: 'ok',
+        summary: input.summary,
+        request: { before: input.before },
+        response: { after: input.after ?? null },
+        context: scopeFromRequest(deps.store, req),
+      });
+    } catch {
+      // Auditing is best-effort; it must never break the operation it records.
+    }
   };
 
   const genOpts = (body: Record<string, unknown>): GenerateOptions => ({
@@ -297,7 +326,9 @@ export function createApp(deps: AppDeps): express.Express {
   app.patch(
     '/api/stories/:storyId',
     asyncHandler((req, res) => {
+      const before = { ...deps.store.getStory(req.params.storyId) }; // snapshot before in-place mutation
       const story = deps.store.updateStory(req.params.storyId, req.body ?? {});
+      recordMutation(req, { resource: 'story', action: 'update', summary: `Edited story "${story.title}"`, before, after: { ...story } });
       res.json({ story });
     }),
   );
@@ -305,7 +336,9 @@ export function createApp(deps: AppDeps): express.Express {
   app.delete(
     '/api/stories/:storyId',
     asyncHandler((req, res) => {
+      const before = deps.store.getStory(req.params.storyId);
       deps.store.deleteStory(req.params.storyId);
+      recordMutation(req, { resource: 'story', action: 'delete', summary: `Deleted story "${before.title}"`, before });
       res.status(204).end();
     }),
   );
@@ -489,6 +522,13 @@ export function createApp(deps: AppDeps): express.Express {
         req.params.markKey,
         req.body ?? {},
       );
+      recordMutation(req, {
+        resource: 'canon-mark',
+        action: 'update',
+        summary: `Edited canon mark "${req.params.markKey}" → v${registry.currentVersion}`,
+        before: { markKey: req.params.markKey, patch: req.body ?? {} },
+        after: { canonVersion: registry.currentVersion },
+      });
       res.json({ registry });
     }),
   );
@@ -643,7 +683,15 @@ export function createApp(deps: AppDeps): express.Express {
   app.patch(
     '/api/episodes/:episodeId',
     asyncHandler((req, res) => {
+      const before = { ...deps.store.getEpisode(req.params.episodeId) }; // snapshot before in-place mutation
       const episode = deps.store.updateEpisode(req.params.episodeId, req.body ?? {});
+      recordMutation(req, {
+        resource: 'episode',
+        action: 'update',
+        summary: `Edited episode "${episode.title}"`,
+        before,
+        after: { ...episode },
+      });
       res.json({ episode });
     }),
   );
@@ -651,7 +699,9 @@ export function createApp(deps: AppDeps): express.Express {
   app.delete(
     '/api/episodes/:episodeId',
     asyncHandler((req, res) => {
+      const before = deps.store.getEpisode(req.params.episodeId);
       deps.store.deleteEpisode(req.params.episodeId);
+      recordMutation(req, { resource: 'episode', action: 'delete', summary: `Deleted episode "${before.title}"`, before });
       res.status(204).end();
     }),
   );
@@ -723,7 +773,14 @@ export function createApp(deps: AppDeps): express.Express {
   app.delete(
     '/api/storylines/:storylineId',
     asyncHandler((req, res) => {
+      const before = deps.store.getProject(req.params.storylineId);
       deps.store.deleteProject(req.params.storylineId);
+      recordMutation(req, {
+        resource: 'storyline',
+        action: 'delete',
+        summary: `Deleted storyline "${before.storyline.title}" (${before.storyline.scenes.length} scenes)`,
+        before,
+      });
       res.status(204).end();
     }),
   );
@@ -732,7 +789,19 @@ export function createApp(deps: AppDeps): express.Express {
   app.patch(
     '/api/storylines/:storylineId/scenes/:sceneId',
     asyncHandler((req, res) => {
+      const original = deps.store
+        .getProject(req.params.storylineId)
+        .storyline.scenes.find((s) => s.id === req.params.sceneId);
+      const before = original ? { ...original } : undefined; // snapshot before in-place mutation
       const project = updateScene(deps.store, req.params.storylineId, req.params.sceneId, req.body ?? {});
+      const updated = project.storyline.scenes.find((s) => s.id === req.params.sceneId);
+      recordMutation(req, {
+        resource: 'scene',
+        action: 'update',
+        summary: `Edited scene "${updated?.heading ?? req.params.sceneId}"`,
+        before,
+        after: updated ? { ...updated } : undefined,
+      });
       res.json({ project });
     }),
   );
@@ -745,11 +814,51 @@ export function createApp(deps: AppDeps): express.Express {
     }),
   );
 
+  // Apply one set of render defaults (aspect ratio, quality, …) to every scene.
+  app.post(
+    '/api/storylines/:storylineId/scene-defaults',
+    asyncHandler((req, res) => {
+      const before = deps.store.getProject(req.params.storylineId).storyline.scenes.map((s) => ({ ...s }));
+      const result = applySceneDefaults(deps.store, req.params.storylineId, req.body ?? {});
+      recordMutation(req, {
+        resource: 'scene-defaults',
+        action: 'update',
+        summary: `Applied ${result.fields.join(', ')} to ${result.applied.length} scene(s)`,
+        before,
+        after: result.project.storyline.scenes.map((s) => ({ ...s })),
+      });
+      res.json({
+        project: result.project,
+        applied: result.applied,
+        skipped: result.skipped,
+        fields: result.fields,
+      });
+    }),
+  );
+
   app.delete(
     '/api/storylines/:storylineId/scenes/:sceneId',
     asyncHandler((req, res) => {
+      const before = deps.store
+        .getProject(req.params.storylineId)
+        .storyline.scenes.find((s) => s.id === req.params.sceneId);
       const project = removeScene(deps.store, req.params.storylineId, req.params.sceneId);
+      recordMutation(req, {
+        resource: 'scene',
+        action: 'delete',
+        summary: `Deleted scene "${before?.heading ?? req.params.sceneId}"`,
+        before,
+      });
       res.json({ project });
+    }),
+  );
+
+  // Which characters/locations the storyline references, and whether each has an
+  // approved reference image — the data behind the pre-render approval gate.
+  app.get(
+    '/api/storylines/:storylineId/reference-readiness',
+    asyncHandler((req, res) => {
+      res.json({ readiness: referenceReadiness(deps.store, req.params.storylineId) });
     }),
   );
 
@@ -766,7 +875,15 @@ export function createApp(deps: AppDeps): express.Express {
   app.patch(
     '/api/storylines/:storylineId/youtube',
     asyncHandler((req, res) => {
+      const before = deps.store.getProject(req.params.storylineId).storyline.youtube;
       const project = updateYoutubeMeta(deps.store, req.params.storylineId, req.body ?? {});
+      recordMutation(req, {
+        resource: 'youtube',
+        action: 'update',
+        summary: 'Edited YouTube metadata',
+        before,
+        after: project.storyline.youtube,
+      });
       res.json({ project });
     }),
   );
