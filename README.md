@@ -59,8 +59,22 @@ finished short to YouTube Shorts.
    still-rendering clip, **extend** a clip, add/remove/reorder scenes, and attach reference
    images. Everything PixVerse exposes is a control in the UI.
 6. **Publish** — edit the YouTube title/description/tags/hashtags and publish to YouTube
-   Shorts (with an optional ffmpeg stitch of all clips). Runs in **dry-run** mode until
-   YouTube credentials are configured.
+   Shorts. An optional ffmpeg **assembly** stitches all clips with **crossfade
+   transitions**, **burned-in captions** (from the dialogue planner, styled + safe-area),
+   and **title/end cards**. Publishing is **gated on approval** and can be **scheduled**
+   for later. Runs in **dry-run** mode until YouTube credentials are configured.
+
+Beyond the core flow, Backlot also has: an LLM **auto-fix** for render-parameter issues; a
+pre-render **approval gate** with inline tweak-then-approve; **directed scene patches**
+("change one thing"); **scene review comments** + an **editorial review** sign-off; a
+**production-readiness checklist**; **global scene settings + saved presets**; **season
+canon / changelog / diff** views; per-story **Insights** + a cross-IP **studio dashboard**;
+**episode-idea backlogs**, **beat sheets**, **dialogue/caption + music/SFX** planning,
+**A/B titles + thumbnails**, and **localization** (metadata + captions); **performance
+recording → story-formula insights** with YouTube-Analytics sync; a full **mutation-audit
+log with one-click restore**; and background **async renders** that survive a tab close or
+restart. See [`docs/FEATURES.md`](docs/FEATURES.md) for the complete inventory and
+[`docs/ROADMAP.md`](docs/ROADMAP.md) for status.
 
 ---
 
@@ -93,8 +107,8 @@ Open <http://localhost:4000> (production) or <http://localhost:5173> (dev).
 | `PIXVERSE_API_KEY` | PixVerse platform API key (required to render) |
 | `PIXVERSE_BASE_URL` | Override the PixVerse base URL (defaults to the openapi/v2 endpoint) |
 | `CLAUDE_GATEWAY_URL` | Local Claude Code Gateway URL used to generate storylines (default `http://localhost:8757`). The gateway wraps the `claude` CLI and supplies its own auth — no Anthropic API key needed. |
-| `YOUTUBE_CLIENT_ID` / `YOUTUBE_CLIENT_SECRET` / `YOUTUBE_REFRESH_TOKEN` | OAuth2 for the YouTube Data API v3. Leave blank for dry-run. |
-| `YOUTUBE_DRY_RUN` | Force dry-run even when credentials are present |
+| `YOUTUBE_CLIENT_ID` / `YOUTUBE_CLIENT_SECRET` / `YOUTUBE_REFRESH_TOKEN` | OAuth2 for the YouTube Data API v3 (uploads) and the YouTube Analytics API (performance sync). Grant both the upload and `yt-analytics.readonly` scopes; leave blank for dry-run. |
+| `YOUTUBE_DRY_RUN` | Force dry-run even when credentials are present (publishing and analytics sync both no-op) |
 | `PORT` | Server port (default `4000`) |
 | `DATA_DIR` | Where stories, storylines, and job state are persisted (default `./data`) |
 
@@ -106,7 +120,7 @@ The service and API layers are fully covered by a regression suite with all exte
 services (PixVerse, Claude, YouTube) mocked — no network or API keys needed.
 
 ```bash
-npm test          # vitest run  (65 tests)
+npm test          # vitest run  (310 tests)
 npm run typecheck # tsc --noEmit
 ```
 
