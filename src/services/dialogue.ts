@@ -91,7 +91,7 @@ export async function planStorylineDialogue(
   });
 
   const raw = (json as { scenes?: Array<{ scene_number: number; caption: string; lines: Array<{ speaker: string; text: string }> }> }).scenes ?? [];
-  return raw
+  const result = raw
     .map((entry) => {
       const scene = scenes[entry.scene_number - 1];
       if (!scene) return null;
@@ -104,4 +104,18 @@ export async function planStorylineDialogue(
       };
     })
     .filter((x): x is SceneDialogue => x !== null);
+
+  // Persist captions onto the scenes so they drive the subtitle (.srt) track and
+  // stay editable.
+  let changed = false;
+  for (const entry of result) {
+    const scene = project.storyline.scenes.find((s) => s.id === entry.sceneId);
+    if (scene && entry.caption && scene.caption !== entry.caption) {
+      scene.caption = entry.caption;
+      changed = true;
+    }
+  }
+  if (changed) store.saveProject(project);
+
+  return result;
 }

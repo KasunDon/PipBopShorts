@@ -72,6 +72,7 @@ import {
   type GenerateOptions,
 } from './services/generation';
 import { episodeSettingTemplate, storyBibleTemplate } from './templates';
+import { buildCaptionsSrt } from './services/captions';
 import { buildStorylinePreview, validateStorylineForRender } from './services/preview';
 import { productionReadiness } from './services/readiness';
 import { publishProject } from './services/publish';
@@ -997,6 +998,19 @@ export function createApp(deps: AppDeps): express.Express {
     '/api/storylines/:storylineId/readiness',
     asyncHandler((req, res) => {
       res.json({ readiness: productionReadiness(deps.store, req.params.storylineId) });
+    }),
+  );
+
+  // Downloadable subtitle track (.srt) built from each scene's caption + durations.
+  app.get(
+    '/api/storylines/:storylineId/captions.srt',
+    asyncHandler((req, res) => {
+      const project = deps.store.getProject(req.params.storylineId);
+      const slug = project.storyline.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'storyline';
+      res
+        .type('application/x-subrip; charset=utf-8')
+        .setHeader('Content-Disposition', `attachment; filename="${slug}.srt"`)
+        .send(buildCaptionsSrt(deps.store, req.params.storylineId));
     }),
   );
 

@@ -118,6 +118,8 @@ export interface Scene {
   referenceCharacterIds?: string[];
   /** Which referenced entity's approved image seeds image-to-video (defaults to the first). */
   primaryReferenceId?: string;
+  /** On-screen caption for this scene (sound-off), used to build the subtitle track. */
+  caption?: string;
   /** Directed "change one thing" edits applied to this scene's prompt, newest last. */
   patchHistory?: ScenePatch[];
   /** Review notes on this scene (does not affect the render). */

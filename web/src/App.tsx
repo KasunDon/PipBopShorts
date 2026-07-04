@@ -1653,6 +1653,9 @@ function ProjectPanel({
           <a className="btn-link" href={`/api/storylines/${storylineId}/manifest.md`} download title="Download the per-scene shot manifest (production document)">
             <IconDownload /> Shot manifest
           </a>
+          <a className="btn-link" href={`/api/storylines/${storylineId}/captions.srt`} download title="Download the subtitle track built from scene captions (run Dialogue & captions first)">
+            <IconDownload /> Subtitles .srt
+          </a>
           <button
             disabled={planningDialogue}
             title="Draft per-scene captions (sound-off) and any dialogue lines"
@@ -1660,7 +1663,11 @@ function ProjectPanel({
               setPlanningDialogue(true);
               try {
                 const res = await run(() => api.planDialogue(storylineId));
-                if (res) setDialogue(res.plan);
+                if (res) {
+                  setDialogue(res.plan);
+                  const p = await api.getProject(storylineId).catch(() => null);
+                  if (p) setProject(p.project);
+                }
               } finally {
                 setPlanningDialogue(false);
               }

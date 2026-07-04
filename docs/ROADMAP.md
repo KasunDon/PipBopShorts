@@ -160,8 +160,9 @@ Consistency by reference, not just by prompt:
   - **Voiceover / narration & dialogue TTS**: per-scene dialogue lines (already planned
     below) rendered to speech with per-character voices, timed to each clip.
   - **Sound effects**: per-scene SFX cues from the bible's character sound motifs.
-  - **Subtitles / captions**: auto-generated, styled, burned-in or sidecar `.srt`; required
-    for Shorts watch-with-sound-off. Multi-language captions tie into Phase 5 localization.
+  - **Subtitles / captions**: *sidecar `.srt` shipped* — dialogue planning persists
+    each scene's caption, and a downloadable `.srt` is built timed to the scene
+    durations. Still to do: styled/burned-in captions and multi-language variants.
   - **Mix & mux**: assemble music + VO + SFX + captions onto the stitched video (ffmpeg),
     with a loudness target and safe-area caption placement.
 - ~~**Dialogue & sound planning**~~ — **shipped**: per-scene sound-off captions +
