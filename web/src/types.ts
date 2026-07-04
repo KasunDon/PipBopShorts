@@ -33,6 +33,12 @@ export interface StoryMeta {
   language: string;
 }
 
+export interface EpisodeIdea {
+  title: string;
+  hook: string;
+  synopsis: string;
+}
+
 export interface PlannedEpisode {
   number: number;
   title: string;

@@ -3,6 +3,7 @@ import type {
   AuditEvent,
   CanonRegistry,
   CharacterAsset,
+  EpisodeIdea,
   CharacterRegistry,
   Clip,
   CostLineItem,
@@ -191,6 +192,8 @@ export const api = {
     const { signal, ...rest } = opts;
     return req<{ story: Story; registry: CanonRegistry | null }>('POST', '/api/stories/bootstrap', { idea, ...rest }, { signal });
   },
+  suggestEpisodeIdeas: (storyId: string, opts: { count?: number; model?: string } = {}) =>
+    req<{ ideas: EpisodeIdea[] }>('POST', `/api/stories/${storyId}/episode-ideas`, opts),
   draftEpisode: (storyId: string, idea: string, opts: { model?: string } = {}) =>
     req<{ draft: { title: string; brief: string; setting: string } }>(
       'POST',

@@ -337,6 +337,28 @@ describe('idea bootstrap over HTTP', () => {
     const { app } = makeApp();
     await request(app).post('/api/stories/bootstrap').send({}).expect(400);
   });
+
+  it('brainstorms a backlog of episode ideas grounded in the bible', async () => {
+    const { client: studioClaude } = makeStudioFakeClaude();
+    const { app } = makeApp({ claude: studioClaude });
+    const storyId = (
+      await request(app).post('/api/stories').send({ title: 'Show', bible: '# Bible\nBobo the monkey.' }).expect(201)
+    ).body.story.id;
+
+    const res = await request(app).post(`/api/stories/${storyId}/episode-ideas`).send({ count: 3 }).expect(200);
+    expect(res.body.ideas).toHaveLength(3);
+    expect(res.body.ideas[0]).toHaveProperty('title');
+    expect(res.body.ideas[0]).toHaveProperty('hook');
+    expect(res.body.ideas[0]).toHaveProperty('synopsis');
+  });
+
+  it('400s episode ideas when the bible is empty', async () => {
+    const { client: studioClaude } = makeStudioFakeClaude();
+    const { app } = makeApp({ claude: studioClaude });
+    const storyId = (await request(app).post('/api/stories').send({ title: 'Empty' }).expect(201)).body.story.id;
+    await request(app).put(`/api/stories/${storyId}/bible`).send({ markdown: '   ' }).expect(200);
+    await request(app).post(`/api/stories/${storyId}/episode-ideas`).send({}).expect(400);
+  });
 });
 
 describe('character reference images over HTTP', () => {

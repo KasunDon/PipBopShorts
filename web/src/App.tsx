@@ -33,6 +33,7 @@ import type {
   AppConfig,
   AutofixResult,
   Episode,
+  EpisodeIdea,
   JobEvent,
   Project,
   ProjectSummary,
@@ -626,6 +627,8 @@ function EpisodesTab({
   const [epIdea, setEpIdea] = useState('');
   const [epRuntime, setEpRuntime] = useState<number | null>(null);
   const [drafting, setDrafting] = useState(false);
+  const [ideas, setIdeas] = useState<EpisodeIdea[] | null>(null);
+  const [loadingIdeas, setLoadingIdeas] = useState(false);
   const perEpisode = data.story.settingMode === 'per-episode';
 
   return (
@@ -633,7 +636,55 @@ function EpisodesTab({
       <section className="card">
         <div className="card-head">
           <h3>Episodes</h3>
+          <button
+            className="small"
+            disabled={loadingIdeas}
+            title="Brainstorm future episode ideas grounded in the bible and canon"
+            onClick={async () => {
+              setLoadingIdeas(true);
+              try {
+                const res = await run(() => api.suggestEpisodeIdeas(data.story.id, { count: 6 }));
+                if (res) setIdeas(res.ideas);
+              } finally {
+                setLoadingIdeas(false);
+              }
+            }}
+          >
+            <IconWand /> {loadingIdeas ? 'Thinking…' : 'Suggest ideas'}
+          </button>
         </div>
+
+        {ideas && (
+          <div className="idea-backlog">
+            <div className="card-head">
+              <span className="muted small">Idea backlog — {ideas.length} future episodes</span>
+              <button className="ghost small" onClick={() => setIdeas(null)} aria-label="Dismiss">
+                <IconX />
+              </button>
+            </div>
+            <ul className="idea-list">
+              {ideas.map((idea, i) => (
+                <li key={i} className="idea-item">
+                  <div className="idea-text">
+                    <b>{idea.title}</b>
+                    <span className="idea-hook">{idea.hook}</span>
+                    <span className="muted small">{idea.synopsis}</span>
+                  </div>
+                  <button
+                    className="small primary"
+                    title="Send this to the episode drafter below"
+                    onClick={() => {
+                      setEpIdea(`${idea.title}: ${idea.synopsis}`);
+                      document.querySelector('.episode-idea input')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }}
+                  >
+                    Develop
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         <p className="card-sub">
           Open an episode to compile and review its script before generating a storyline. Nothing is sent to the video
           renderer without a reviewed script and a validated storyline.

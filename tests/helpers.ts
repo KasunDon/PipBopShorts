@@ -175,6 +175,17 @@ export function samplePatchJson(): string {
   });
 }
 
+/** An episode-ideas backlog payload. */
+export function sampleEpisodeIdeasJson(count = 3): string {
+  return JSON.stringify({
+    ideas: Array.from({ length: count }, (_, i) => ({
+      title: `Idea ${i + 1}`,
+      hook: `A fresh hook number ${i + 1}.`,
+      synopsis: `Bobo faces a new harmless mishap number ${i + 1} and learns a small lesson with his friends.`,
+    })),
+  });
+}
+
 /** A story-bootstrap payload (idea → title/meta/bible). */
 export function sampleBootstrapJson(): string {
   return JSON.stringify({
@@ -231,6 +242,7 @@ export function makeStudioFakeClaude(overrides?: {
   planJson?: string;
   autofixJson?: string;
   patchJson?: string;
+  ideasJson?: string;
 }): { client: AnthropicLike; calls: FakeClaudeCall[] } {
   return makeFakeClaude((params) => {
     const system = String(params.system ?? '');
@@ -243,6 +255,8 @@ export function makeStudioFakeClaude(overrides?: {
       text = overrides?.autofixJson ?? sampleAutofixJson();
     } else if (system.includes('applying a DIRECTED edit')) {
       text = overrides?.patchJson ?? samplePatchJson();
+    } else if (system.includes('brainstorming FUTURE episode')) {
+      text = overrides?.ideasJson ?? sampleEpisodeIdeasJson();
     } else if (system.includes('head of story development')) {
       text = overrides?.bootstrapJson ?? sampleBootstrapJson();
     } else if (system.includes('season architect')) {

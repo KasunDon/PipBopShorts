@@ -156,8 +156,11 @@ Consistency by reference, not just by prompt:
   rules), sound-effect and music cue notes, character sound motifs from the bible.
 - **Assembly**: server-side stitch with transitions, title/end cards, safe-area checks for
   Shorts; per-scene retry queue with cost tracking.
-- **Series planning**: episode idea backlog generated from canon ("future episode ideas"),
-  one-click "develop idea → episode brief".
+- ~~**Series planning**: episode idea backlog~~ — **shipped**: "Suggest ideas"
+  brainstorms distinct future-episode concepts (title + hook + synopsis) grounded
+  in the bible, canon, tone/audience, and existing episodes (no repeats); each
+  idea has a one-click **Develop** into the episode drafter. Still to do:
+  persisting the backlog and richer "develop → full brief" automation.
 
 ## Phase 4 — Studio scale
 

@@ -38,6 +38,7 @@ import {
 } from './services/characters';
 import { assertRuntime, extendPlan, generateNextEpisode, planStory } from './services/season';
 import { autofixStoryline } from './services/autofix';
+import { suggestEpisodeIdeas } from './services/ideas';
 import { patchScene } from './services/patch';
 import { checkDrift, resolveDrift } from './services/drift';
 import { JobRunner } from './services/jobs';
@@ -486,6 +487,20 @@ export function createApp(deps: AppDeps): express.Express {
         withCanon: withCanon !== false,
       });
       res.status(201).json({ story: result.story, registry: result.registry });
+    }),
+  );
+
+  // Brainstorm a backlog of future episode ideas grounded in the bible + canon.
+  app.post(
+    '/api/stories/:storyId/episode-ideas',
+    asyncHandler(async (req, res) => {
+      const { count, model, effort } = req.body ?? {};
+      const ideas = await suggestEpisodeIdeas(deps.store, deps.claude, req.params.storyId, {
+        count: count == null ? undefined : Number(count),
+        model,
+        effort,
+      });
+      res.json({ ideas });
     }),
   );
 

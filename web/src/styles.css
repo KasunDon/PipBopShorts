@@ -1112,6 +1112,43 @@ textarea:disabled {
   background: rgba(139, 92, 246, 0.08);
 }
 
+/* Episode idea backlog */
+.idea-backlog {
+  margin: 10px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+.idea-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.idea-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-3);
+}
+.idea-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+}
+.idea-hook {
+  color: var(--text-2);
+  font-size: 12.5px;
+  font-style: italic;
+}
+
 /* Directed scene edit (patch) */
 .scene-patch {
   display: flex;
