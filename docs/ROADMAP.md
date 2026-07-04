@@ -199,8 +199,10 @@ Consistency by reference, not just by prompt:
   title options (each with its marketing angle) to pick from, both previewed in
   the metadata editor. **Publish scheduling** is also shipped — queue a publish
   for a future time; a server-side scheduler fires it (approval-gated, survives
-  restart). Still open: A/B **thumbnails**, retention analytics fed back into the
-  story formula, and dubbed/translated video variants with canon-consistent visuals.
+  restart). **A/B thumbnail concepts** are also shipped — overlay text + framing +
+  which scene to freeze, per concept. Still open: rendering the actual thumbnail
+  images, retention analytics fed back into the story formula, and
+  dubbed/translated video variants with canon-consistent visuals.
 
 ---
 

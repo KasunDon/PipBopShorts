@@ -662,6 +662,19 @@ describe('CTA endpoint coverage', () => {
     expect(res.body.variants[0]).toHaveProperty('angle');
   });
 
+  it('suggests A/B thumbnail concepts', async () => {
+    const { client: studioClaude } = makeStudioFakeClaude();
+    const { app } = makeApp({ claude: studioClaude });
+    const { storylineId } = await scaffold(app);
+    const res = await request(app)
+      .post(`/api/storylines/${storylineId}/youtube/thumbnail-concepts`)
+      .send({ count: 1 })
+      .expect(200);
+    expect(res.body.concepts.length).toBeGreaterThan(0);
+    expect(res.body.concepts[0]).toHaveProperty('overlayText');
+    expect(res.body.concepts[0]).toHaveProperty('framing');
+  });
+
   it('localizes YouTube metadata into another language', async () => {
     const { client: studioClaude } = makeStudioFakeClaude();
     const { app } = makeApp({ claude: studioClaude });

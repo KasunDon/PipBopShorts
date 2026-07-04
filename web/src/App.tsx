@@ -45,6 +45,7 @@ import type {
   SceneDialogue,
   SoundPlan,
   Story,
+  ThumbnailConcept,
   TitleVariant,
   StoryAnalytics,
   StudioAnalytics,
@@ -2282,6 +2283,8 @@ function YoutubeEditor({
   const [localizing, setLocalizing] = useState(false);
   const [variants, setVariants] = useState<TitleVariant[] | null>(null);
   const [suggesting, setSuggesting] = useState(false);
+  const [thumbs, setThumbs] = useState<ThumbnailConcept[] | null>(null);
+  const [thumbing, setThumbing] = useState(false);
 
   useEffect(() => {
     setTitle(yt.title);
@@ -2325,6 +2328,16 @@ function YoutubeEditor({
           ))}
         </ul>
       )}
+      {thumbs && thumbs.length > 0 && (
+        <ul className="title-variants">
+          {thumbs.map((t, i) => (
+            <li key={i}>
+              <b>“{t.overlayText}”</b>
+              <span className="muted small">scene {t.sceneNumber} · {t.framing} — {t.rationale}</span>
+            </li>
+          ))}
+        </ul>
+      )}
       <Field label="Description">
         <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} />
       </Field>
@@ -2351,6 +2364,22 @@ function YoutubeEditor({
           }}
         >
           Save metadata
+        </button>
+        <button
+          className="ghost"
+          disabled={thumbing}
+          title="Suggest A/B thumbnail concepts (overlay text + framing)"
+          onClick={async () => {
+            setThumbing(true);
+            try {
+              const res = await run(() => api.thumbnailConcepts(storylineId, { count: 4 }));
+              if (res) setThumbs(res.concepts);
+            } finally {
+              setThumbing(false);
+            }
+          }}
+        >
+          {thumbing ? 'Thinking…' : 'Thumbnail ideas'}
         </button>
         <span className="global-sep" />
         <input

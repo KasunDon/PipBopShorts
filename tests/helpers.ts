@@ -272,6 +272,7 @@ export function makeStudioFakeClaude(overrides?: {
   titlesJson?: string;
   soundJson?: string;
   qcJson?: string;
+  thumbsJson?: string;
 }): { client: AnthropicLike; calls: FakeClaudeCall[] } {
   return makeFakeClaude((params) => {
     const system = String(params.system ?? '');
@@ -312,6 +313,14 @@ export function makeStudioFakeClaude(overrides?: {
       text =
         overrides?.localizeJson ??
         JSON.stringify({ title: 'Título localizado', description: 'Descripción', tags: ['etiqueta'], hashtags: ['#Shorts'] });
+    } else if (system.includes('thumbnail director')) {
+      text =
+        overrides?.thumbsJson ??
+        JSON.stringify({
+          concepts: [
+            { overlay_text: 'YUM!', framing: 'Bobo mid-reach, huge grin', scene_number: 1, rationale: 'Expression sells the hook.' },
+          ],
+        });
     } else if (system.includes('A/B title options')) {
       text =
         overrides?.titlesJson ??

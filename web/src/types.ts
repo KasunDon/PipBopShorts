@@ -81,6 +81,13 @@ export interface TitleVariant {
   angle: string;
 }
 
+export interface ThumbnailConcept {
+  overlayText: string;
+  framing: string;
+  sceneNumber: number;
+  rationale: string;
+}
+
 export interface StudioStorySummary {
   storyId: string;
   title: string;

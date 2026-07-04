@@ -47,6 +47,7 @@ import { qcScene } from './services/qc';
 import { localizeYoutubeMeta } from './services/localize';
 import { planStorylineSound } from './services/soundcues';
 import { suggestTitleVariants } from './services/titles';
+import { suggestThumbnailConcepts } from './services/thumbnails';
 import { suggestEpisodeIdeas } from './services/ideas';
 import { patchScene } from './services/patch';
 import { checkDrift, resolveDrift } from './services/drift';
@@ -1151,6 +1152,20 @@ export function createApp(deps: AppDeps): express.Express {
         effort,
       });
       res.json({ variants });
+    }),
+  );
+
+  // A/B thumbnail concepts (overlay text + framing + which scene) for the Short.
+  app.post(
+    '/api/storylines/:storylineId/youtube/thumbnail-concepts',
+    asyncHandler(async (req, res) => {
+      const { count, model, effort } = req.body ?? {};
+      const concepts = await suggestThumbnailConcepts(deps.store, deps.claude, req.params.storylineId, {
+        count: count == null ? undefined : Number(count),
+        model,
+        effort,
+      });
+      res.json({ concepts });
     }),
   );
 
