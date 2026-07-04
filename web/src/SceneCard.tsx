@@ -236,6 +236,8 @@ export function SceneCard({
               ))}
             </ul>
           )}
+          <details className="scene-advanced">
+            <summary>Render settings &amp; negative prompt</summary>
           <Field label="Negative prompt">
             <textarea value={draft.negativePrompt} onChange={(e) => update('negativePrompt', e.target.value)} rows={2} />
           </Field>
@@ -292,6 +294,7 @@ export function SceneCard({
               </select>
             </Field>
           </div>
+          </details>
 
           <div className="scene-actions">
             <button className={dirty ? 'primary' : ''} onClick={save} disabled={!dirty}>

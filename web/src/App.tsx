@@ -1750,65 +1750,6 @@ function ProjectPanel({
           >
             <IconEye /> Validate and estimate cost
           </button>
-          <a className="btn-link" href={`/api/storylines/${storylineId}/manifest.md`} download title="Download the per-scene shot manifest (production document)">
-            <IconDownload /> Shot manifest
-          </a>
-          <a className="btn-link" href={`/api/storylines/${storylineId}/captions.srt`} download title="Download the subtitle track built from scene captions (run Dialogue & captions first)">
-            <IconDownload /> Subtitles .srt
-          </a>
-          <button
-            title="Translate the captions into another language and download the .srt"
-            onClick={async () => {
-              const lang = prompt('Localize captions into which language?');
-              if (!lang || !lang.trim()) return;
-              const res = await run(() => api.localizeCaptions(storylineId, lang.trim()));
-              if (res) {
-                const blob = new Blob([res.srt], { type: 'application/x-subrip' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `captions.${lang.trim().toLowerCase()}.srt`;
-                a.click();
-                URL.revokeObjectURL(url);
-              }
-            }}
-          >
-            <IconDownload /> Localized .srt
-          </button>
-          <button
-            disabled={planningDialogue}
-            title="Draft per-scene captions (sound-off) and any dialogue lines"
-            onClick={async () => {
-              setPlanningDialogue(true);
-              try {
-                const res = await run(() => api.planDialogue(storylineId));
-                if (res) {
-                  setDialogue(res.plan);
-                  const p = await api.getProject(storylineId).catch(() => null);
-                  if (p) setProject(p.project);
-                }
-              } finally {
-                setPlanningDialogue(false);
-              }
-            }}
-          >
-            <IconDoc /> {planningDialogue ? 'Writing…' : 'Dialogue & captions'}
-          </button>
-          <button
-            disabled={planningSound}
-            title="Draft an overall music direction and per-scene sound-effect cues"
-            onClick={async () => {
-              setPlanningSound(true);
-              try {
-                const res = await run(() => api.planSound(storylineId));
-                if (res) setSound(res.plan);
-              } finally {
-                setPlanningSound(false);
-              }
-            }}
-          >
-            <IconDoc /> {planningSound ? 'Scoring…' : 'Music & SFX'}
-          </button>
           <button
             className="primary"
             disabled={!canRenderAll}
@@ -1817,6 +1758,67 @@ function ProjectPanel({
           >
             <IconPlay /> Render all scenes
           </button>
+          <details className="tools">
+            <summary className="tools-summary" title="Planning aids and exports">Tools</summary>
+            <div className="tools-menu">
+              <button
+                disabled={planningDialogue}
+                onClick={async () => {
+                  setPlanningDialogue(true);
+                  try {
+                    const res = await run(() => api.planDialogue(storylineId));
+                    if (res) {
+                      setDialogue(res.plan);
+                      const p = await api.getProject(storylineId).catch(() => null);
+                      if (p) setProject(p.project);
+                    }
+                  } finally {
+                    setPlanningDialogue(false);
+                  }
+                }}
+              >
+                <IconDoc /> {planningDialogue ? 'Writing…' : 'Dialogue & captions'}
+              </button>
+              <button
+                disabled={planningSound}
+                onClick={async () => {
+                  setPlanningSound(true);
+                  try {
+                    const res = await run(() => api.planSound(storylineId));
+                    if (res) setSound(res.plan);
+                  } finally {
+                    setPlanningSound(false);
+                  }
+                }}
+              >
+                <IconDoc /> {planningSound ? 'Scoring…' : 'Music & SFX'}
+              </button>
+              <a href={`/api/storylines/${storylineId}/manifest.md`} download>
+                <IconDownload /> Shot manifest
+              </a>
+              <a href={`/api/storylines/${storylineId}/captions.srt`} download>
+                <IconDownload /> Subtitles .srt
+              </a>
+              <button
+                onClick={async () => {
+                  const lang = prompt('Localize captions into which language?');
+                  if (!lang || !lang.trim()) return;
+                  const res = await run(() => api.localizeCaptions(storylineId, lang.trim()));
+                  if (res) {
+                    const blob = new Blob([res.srt], { type: 'application/x-subrip' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `captions.${lang.trim().toLowerCase()}.srt`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }
+                }}
+              >
+                <IconDownload /> Localized .srt
+              </button>
+            </div>
+          </details>
           <span className="badge plain">
             {readyCount}/{scenes.length} ready
           </span>
@@ -1861,9 +1863,12 @@ function ProjectPanel({
           )}
         </div>
 
-        {/* Global settings — set once, apply to every scene. */}
-        <div className="global-settings">
-          <IconLayers />
+        {/* Global settings — set once, apply to every scene. Collapsed to reduce noise. */}
+        <details className="batch">
+          <summary className="batch-summary">
+            <IconLayers /> Batch settings &amp; schedule
+          </summary>
+          <div className="global-settings">
           <span className="muted small">Apply to all scenes:</span>
           <label className="global-field">
             Aspect ratio
@@ -2005,7 +2010,8 @@ function ProjectPanel({
               )}
             </span>
           )}
-        </div>
+          </div>
+        </details>
         {prodReadiness && (
           <div className="readiness-strip">
             {prodReadiness.checks.map((c) => (

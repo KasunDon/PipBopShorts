@@ -53,7 +53,7 @@ body {
   font-family: var(--font);
   background: var(--bg);
   color: var(--text);
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
@@ -113,16 +113,16 @@ a:hover {
   color: var(--text-2);
 }
 .small {
-  font-size: 12.5px;
+  font-size: 13.5px;
 }
 .mono {
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .eyebrow {
   display: block;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 650;
   letter-spacing: 0.09em;
   text-transform: uppercase;
@@ -145,7 +145,7 @@ code {
 button,
 .upload {
   font: inherit;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 550;
   cursor: pointer;
   display: inline-flex;
@@ -224,12 +224,12 @@ button.small,
 button.small-btn,
 .upload.small {
   padding: 4px 9px;
-  font-size: 12px;
+  font-size: 13px;
   gap: 5px;
 }
 button.big {
   padding: 10px 20px;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 650;
 }
 
@@ -245,7 +245,7 @@ input,
 select,
 textarea {
   font: inherit;
-  font-size: 13.5px;
+  font-size: 14.5px;
   background: var(--bg);
   color: var(--text);
   border: 1px solid var(--border-strong);
@@ -296,7 +296,7 @@ textarea:disabled {
   min-width: 0;
 }
 .field > span {
-  font-size: 11.5px;
+  font-size: 12.5px;
   font-weight: 600;
   letter-spacing: 0.02em;
   color: var(--text-3);
@@ -323,7 +323,7 @@ textarea:disabled {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--text-2);
   cursor: pointer;
 }
@@ -374,7 +374,7 @@ textarea:disabled {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 650;
   letter-spacing: 0.03em;
   padding: 2.5px 9px;
@@ -480,14 +480,14 @@ textarea:disabled {
   border-bottom: 1px solid var(--border);
 }
 .brand-name {
-  font-size: 17px;
+  font-size: 18px;
   font-weight: 800;
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 .brand-sub {
   margin-top: 2px;
-  font-size: 11.5px;
+  font-size: 12.5px;
   color: var(--text-3);
 }
 
@@ -499,7 +499,7 @@ textarea:disabled {
 }
 .nav-label {
   padding: 12px 8px 6px;
-  font-size: 10.5px;
+  font-size: 11.5px;
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -570,14 +570,14 @@ textarea:disabled {
   white-space: nowrap;
 }
 .story-mode {
-  font-size: 10.5px;
+  font-size: 11.5px;
   color: var(--text-3);
   flex: none;
 }
 .story-list .empty {
   padding: 8px 10px;
   color: var(--text-3);
-  font-size: 12.5px;
+  font-size: 13.5px;
 }
 
 .sidebar-foot {
@@ -594,7 +594,7 @@ textarea:disabled {
 }
 .import-story {
   justify-content: center;
-  font-size: 12.5px;
+  font-size: 13.5px;
   color: var(--text-3);
   border-style: dashed;
   background: transparent;
@@ -630,7 +630,7 @@ textarea:disabled {
   flex: 1;
   min-width: 0;
   color: var(--text-3);
-  font-size: 13px;
+  font-size: 14px;
 }
 .crumb {
   background: none;
@@ -674,7 +674,7 @@ textarea:disabled {
   margin-bottom: 10px;
 }
 .page-title {
-  font-size: 26px;
+  font-size: 27px;
   font-weight: 750;
   letter-spacing: -0.02em;
 }
@@ -743,7 +743,7 @@ textarea:disabled {
   margin-bottom: 12px;
 }
 .card h3 {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 700;
   margin: 0 0 10px;
 }
@@ -752,7 +752,7 @@ textarea:disabled {
   margin: 0;
 }
 .card-sub {
-  font-size: 12.5px;
+  font-size: 13.5px;
   color: var(--text-2);
   margin-top: -6px;
   margin-bottom: 12px;
@@ -775,7 +775,7 @@ textarea:disabled {
   padding: 9px 14px;
   color: var(--text-2);
   font-weight: 600;
-  font-size: 13.5px;
+  font-size: 14.5px;
 }
 .tab:hover:not(:disabled) {
   background: none;
@@ -787,7 +787,7 @@ textarea:disabled {
 }
 .tab .count {
   margin-left: 6px;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-3);
   font-weight: 600;
 }
@@ -805,7 +805,7 @@ textarea:disabled {
   border-radius: 0;
   background: transparent;
   padding: 4px 12px;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--text-2);
 }
 .seg button.seg-on {
@@ -848,7 +848,7 @@ textarea:disabled {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 11.5px;
+  font-size: 12.5px;
   font-weight: 700;
   background: var(--surface-3);
   color: var(--text-2);
@@ -870,7 +870,7 @@ textarea:disabled {
   align-items: center;
   gap: 7px;
   color: var(--warn);
-  font-size: 12.5px;
+  font-size: 13.5px;
   font-weight: 550;
 }
 
@@ -885,7 +885,7 @@ textarea:disabled {
   gap: 5px;
 }
 .check {
-  font-size: 13px;
+  font-size: 14px;
   display: flex;
   align-items: baseline;
   gap: 8px;
@@ -928,7 +928,7 @@ textarea:disabled {
   border-color: rgba(248, 81, 73, 0.5);
 }
 .validation-headline {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
 }
 .review-select select {
@@ -937,7 +937,7 @@ textarea:disabled {
 }
 .review-note {
   width: 180px;
-  font-size: 12.5px;
+  font-size: 13.5px;
 }
 .review-select.rs-approved select {
   color: var(--ok);
@@ -962,7 +962,7 @@ textarea:disabled {
   gap: 5px;
   padding: 3px 10px;
   border-radius: 999px;
-  font-size: 12px;
+  font-size: 13px;
   border: 1px solid var(--border);
 }
 .readiness-chip.r-ok {
@@ -988,6 +988,37 @@ textarea:disabled {
   border-top: 1px dashed var(--border);
 }
 
+/* Batch settings disclosure */
+.batch {
+  margin-top: 12px;
+}
+.batch > summary {
+  list-style: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-2);
+  padding: 4px 0;
+}
+.batch > summary::-webkit-details-marker {
+  display: none;
+}
+.batch > summary::after {
+  content: '▾';
+  font-size: 11px;
+  color: var(--text-3);
+}
+.batch[open] > summary {
+  color: var(--text);
+  margin-bottom: 6px;
+}
+.batch > summary:hover {
+  color: var(--text);
+}
+
 /* Global scene settings toolbar */
 .global-settings {
   display: flex;
@@ -1004,7 +1035,7 @@ textarea:disabled {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 12.5px;
+  font-size: 13.5px;
   color: var(--text-2);
 }
 .global-sep {
@@ -1017,7 +1048,7 @@ textarea:disabled {
   align-items: center;
   gap: 5px;
   margin-left: auto;
-  font-size: 12.5px;
+  font-size: 13.5px;
 }
 .ref-summary.ok {
   color: var(--ok);
@@ -1041,7 +1072,7 @@ textarea:disabled {
   padding: 2px 8px;
   border-radius: 999px;
   border: 1px solid var(--border);
-  font-size: 12px;
+  font-size: 13px;
   background: var(--surface-3);
 }
 .ref-chip.ok {
@@ -1055,7 +1086,7 @@ textarea:disabled {
 .ref-chip .ref-type {
   color: var(--text-3);
   text-transform: uppercase;
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.04em;
 }
 .ref-chip.primary-ref {
@@ -1142,7 +1173,7 @@ textarea:disabled {
 .gate-tweak textarea {
   width: 100%;
   resize: vertical;
-  font-size: 12.5px;
+  font-size: 13.5px;
 }
 .gate-tweak-params {
   flex-wrap: wrap;
@@ -1193,7 +1224,7 @@ textarea:disabled {
   gap: 4px;
 }
 .fielddiff-row {
-  font-size: 12px;
+  font-size: 13px;
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
@@ -1221,12 +1252,12 @@ textarea:disabled {
   background: var(--surface-2);
 }
 .stat-value {
-  font-size: 24px;
+  font-size: 25px;
   font-weight: 800;
   line-height: 1.1;
 }
 .stat-label {
-  font-size: 12.5px;
+  font-size: 13.5px;
   color: var(--text-2);
   font-weight: 600;
 }
@@ -1243,11 +1274,79 @@ textarea:disabled {
   border-radius: var(--radius-sm);
   background: var(--surface-2);
   color: var(--text);
-  font-size: 13px;
+  font-size: 14px;
   cursor: pointer;
   text-decoration: none;
 }
 .btn-link:hover {
+  background: var(--surface-3);
+}
+
+/* Tools disclosure — tucks secondary planning/export actions out of the main flow */
+.tools {
+  position: relative;
+}
+.tools > summary {
+  list-style: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 13px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 14px;
+  font-weight: 550;
+  white-space: nowrap;
+}
+.tools > summary::-webkit-details-marker {
+  display: none;
+}
+.tools > summary::after {
+  content: '▾';
+  font-size: 11px;
+  color: var(--text-3);
+}
+.tools[open] > summary {
+  color: var(--text);
+  border-color: #3a445a;
+}
+.tools-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 210px;
+  padding: 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+.tools-menu > a,
+.tools-menu > button {
+  justify-content: flex-start;
+  width: 100%;
+  background: transparent;
+  border-color: transparent;
+  color: var(--text);
+  padding: 8px 10px;
+  font-size: 14px;
+}
+.tools-menu > a {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+}
+.tools-menu > a:hover,
+.tools-menu > button:hover:not(:disabled) {
   background: var(--surface-3);
 }
 
@@ -1326,7 +1425,7 @@ textarea:disabled {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  font-size: 12.5px;
+  font-size: 13.5px;
 }
 
 /* Episode idea backlog */
@@ -1362,7 +1461,7 @@ textarea:disabled {
 }
 .idea-hook {
   color: var(--text-2);
-  font-size: 12.5px;
+  font-size: 13.5px;
   font-style: italic;
 }
 
@@ -1386,11 +1485,11 @@ textarea:disabled {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  font-size: 12.5px;
+  font-size: 13.5px;
 }
 .qc-verdict {
   text-transform: uppercase;
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.04em;
   padding: 1px 6px;
   border-radius: 999px;
@@ -1408,7 +1507,7 @@ textarea:disabled {
 .story-search {
   margin: 0 12px 8px;
   width: calc(100% - 24px);
-  font-size: 12.5px;
+  font-size: 13.5px;
 }
 .effective-prompt {
   margin: 6px 0;
@@ -1416,11 +1515,35 @@ textarea:disabled {
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  font-size: 12px;
+  font-size: 13px;
   white-space: pre-wrap;
   word-break: break-word;
   max-height: 200px;
   overflow: auto;
+}
+.scene-advanced {
+  margin: 4px 0 8px;
+}
+.scene-advanced > summary {
+  list-style: none;
+  cursor: pointer;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-3);
+  padding: 4px 0;
+}
+.scene-advanced > summary::-webkit-details-marker {
+  display: none;
+}
+.scene-advanced > summary::before {
+  content: '▸ ';
+  color: var(--text-3);
+}
+.scene-advanced[open] > summary::before {
+  content: '▾ ';
+}
+.scene-advanced > summary:hover {
+  color: var(--text-2);
 }
 .scene-move {
   display: inline-flex;
@@ -1447,7 +1570,7 @@ textarea:disabled {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 12.5px;
+  font-size: 13.5px;
   padding: 4px 8px;
   background: var(--surface-2);
   border-radius: var(--radius-sm);
@@ -1478,7 +1601,7 @@ textarea:disabled {
   background: none;
   border: none;
   color: var(--text-3);
-  font-size: 16px;
+  font-size: 17px;
   line-height: 1;
 }
 .comment-add {
@@ -1487,7 +1610,7 @@ textarea:disabled {
 }
 .comment-add input {
   flex: 1;
-  font-size: 12.5px;
+  font-size: 13.5px;
 }
 
 /* Directed scene edit (patch) */
@@ -1499,7 +1622,7 @@ textarea:disabled {
 }
 .scene-patch input {
   flex: 1;
-  font-size: 12.5px;
+  font-size: 13.5px;
 }
 .patch-log {
   list-style: none;
@@ -1529,7 +1652,7 @@ textarea:disabled {
   align-items: center;
   gap: 8px;
   padding: 4px 0;
-  font-size: 12.5px;
+  font-size: 13.5px;
   border-left: 3px solid var(--border-strong);
   padding-left: 10px;
 }
@@ -1546,7 +1669,7 @@ textarea:disabled {
 }
 .diff-tag {
   text-transform: uppercase;
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.04em;
   color: var(--text-3);
   min-width: 92px;
@@ -1570,7 +1693,7 @@ textarea:disabled {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  font-size: 12.5px;
+  font-size: 13.5px;
 }
 
 /* Rendered markdown --------------------------------------------------------------------- */
@@ -1596,7 +1719,7 @@ textarea:disabled {
 .md-source {
   margin: 0;
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.6;
   white-space: pre-wrap;
   word-break: break-word;
@@ -1604,7 +1727,7 @@ textarea:disabled {
 }
 
 .md-body {
-  font-size: 13.5px;
+  font-size: 14.5px;
   line-height: 1.65;
   color: var(--text-2);
 }
@@ -1621,21 +1744,21 @@ textarea:disabled {
   margin-top: 0;
 }
 .md-body h1 {
-  font-size: 19px;
+  font-size: 20px;
   font-weight: 750;
 }
 .md-body h2 {
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 700;
   padding-bottom: 5px;
   border-bottom: 1px solid var(--border);
 }
 .md-body h3 {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
 }
 .md-body h4 {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 650;
 }
 .md-body strong {
@@ -1668,7 +1791,7 @@ textarea:disabled {
 .md-body table {
   border-collapse: collapse;
   margin: 0.6em 0;
-  font-size: 12.5px;
+  font-size: 13.5px;
 }
 .md-body th,
 .md-body td {
@@ -1697,13 +1820,13 @@ textarea:disabled {
 }
 .welcome-kicker {
   color: var(--accent-text);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 .welcome h2 {
-  font-size: 30px;
+  font-size: 31px;
   font-weight: 800;
   letter-spacing: -0.025em;
   margin: 8px 0 10px;
@@ -1719,7 +1842,7 @@ textarea:disabled {
   gap: 14px;
 }
 .idea-box textarea {
-  font-size: 15px;
+  font-size: 16px;
   background: var(--bg);
 }
 .idea-controls {
@@ -1749,7 +1872,7 @@ textarea:disabled {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 12.5px;
+  font-size: 13.5px;
 }
 
 /* ---------------------------------------------------------------------------
@@ -1758,7 +1881,7 @@ textarea:disabled {
 
 .bible {
   font-family: var(--mono);
-  font-size: 12.5px;
+  font-size: 13.5px;
   line-height: 1.6;
   min-height: 320px;
 }
@@ -1807,7 +1930,7 @@ textarea:disabled {
 }
 .ep-brief {
   color: var(--text-3);
-  font-size: 12.5px;
+  font-size: 13.5px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1854,7 +1977,7 @@ textarea:disabled {
 }
 .scene-num {
   flex: none;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 750;
   letter-spacing: 0.06em;
   color: var(--text-3);
@@ -1875,7 +1998,7 @@ textarea:disabled {
   border-color: var(--border-strong);
 }
 .status {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 650;
   padding: 2.5px 9px;
   border-radius: 999px;
@@ -1918,7 +2041,7 @@ textarea:disabled {
 }
 .scene-error {
   color: var(--danger);
-  font-size: 12.5px;
+  font-size: 13.5px;
 }
 .preview {
   width: 100%;
@@ -1933,7 +2056,7 @@ textarea:disabled {
   align-items: center;
   justify-content: center;
   color: var(--text-3);
-  font-size: 12px;
+  font-size: 13px;
   text-align: center;
 }
 .preview.placeholder.generating {
@@ -1960,7 +2083,7 @@ textarea:disabled {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  font-size: 12.5px;
+  font-size: 13.5px;
 }
 .canon-entities {
   display: flex;
@@ -1988,7 +2111,7 @@ textarea:disabled {
 }
 .entity-type {
   flex: none;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -2006,7 +2129,7 @@ textarea:disabled {
 .marks {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: 14px;
 }
 .marks td {
   padding: 7px 14px;
@@ -2018,7 +2141,7 @@ textarea:disabled {
 }
 .mark-key {
   font-family: var(--mono);
-  font-size: 11.5px;
+  font-size: 12.5px;
   color: var(--text-3);
   white-space: nowrap;
 }
@@ -2036,7 +2159,7 @@ textarea:disabled {
 
 .reference-group-head {
   margin: 18px 0 10px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   color: var(--text-3);
   text-transform: uppercase;
@@ -2061,7 +2184,7 @@ textarea:disabled {
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  font-size: 13.5px;
+  font-size: 14.5px;
 }
 .character-head b {
   font-weight: 700;
@@ -2085,7 +2208,7 @@ textarea:disabled {
   align-items: center;
   justify-content: center;
   color: var(--text-3);
-  font-size: 11.5px;
+  font-size: 12.5px;
   text-align: center;
   padding: 6px;
   align-self: center;
@@ -2117,7 +2240,7 @@ textarea:disabled {
   border: 1px solid var(--border-strong);
   border-radius: 999px;
   padding: 3px 10px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   opacity: 0;
   transition: opacity 0.15s;
@@ -2144,7 +2267,7 @@ textarea:disabled {
   gap: 3px;
   max-width: 76px;
   color: var(--text-3);
-  font-size: 10.5px;
+  font-size: 11.5px;
 }
 .still-thumb:hover {
   background: none;
@@ -2177,7 +2300,7 @@ textarea:disabled {
 .character-actions button,
 .character-actions .upload {
   padding: 4px 10px;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .definition-box {
@@ -2194,19 +2317,19 @@ textarea:disabled {
   display: flex;
   flex-direction: column;
   gap: 5px;
-  font-size: 12.5px;
+  font-size: 13.5px;
   color: var(--text-2);
 }
 .mark-list b {
   color: var(--text);
 }
 .mark-list .badge {
-  font-size: 9.5px;
+  font-size: 10.5px;
   padding: 1px 7px;
 }
 .definition-box textarea {
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .tweak-box {
@@ -2224,7 +2347,7 @@ textarea:disabled {
   flex-wrap: wrap;
 }
 .tweak-attach button:not(.linkish) {
-  font-size: 12px;
+  font-size: 13px;
 }
 .tweak-attach-name {
   display: inline-flex;
@@ -2331,7 +2454,7 @@ textarea:disabled {
   width: 100%;
   border-collapse: collapse;
   margin: 10px 0 14px;
-  font-size: 13px;
+  font-size: 14px;
 }
 .plan-table td {
   padding: 9px 10px;
@@ -2380,7 +2503,7 @@ textarea:disabled {
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
-  font-size: 12.5px;
+  font-size: 13.5px;
   padding: 8px 10px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -2433,25 +2556,25 @@ textarea:disabled {
   border: none;
   border-radius: 0;
   text-align: left;
-  font-size: 12.5px;
+  font-size: 13.5px;
   font-weight: 450;
 }
 .event-time {
   color: var(--text-3);
   font-variant-numeric: tabular-nums;
   min-width: 74px;
-  font-size: 11.5px;
+  font-size: 12.5px;
 }
 .event-method {
   font-weight: 700;
-  font-size: 11px;
+  font-size: 12px;
   min-width: 38px;
   color: var(--text-2);
 }
 .event-path {
   color: var(--text-3);
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 12px;
   max-width: 240px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2470,13 +2593,13 @@ textarea:disabled {
   font-weight: 650;
   min-width: 62px;
   text-align: right;
-  font-size: 12px;
+  font-size: 13px;
 }
 .event-duration {
   min-width: 54px;
   text-align: right;
   font-variant-numeric: tabular-nums;
-  font-size: 11.5px;
+  font-size: 12.5px;
 }
 .event-detail {
   padding: 14px;
@@ -2487,7 +2610,7 @@ textarea:disabled {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 4px 16px;
-  font-size: 12.5px;
+  font-size: 13.5px;
   margin-bottom: 12px;
   word-break: break-all;
 }
@@ -2516,13 +2639,13 @@ textarea:disabled {
   align-items: center;
   padding: 6px 10px;
   background: var(--surface-2);
-  font-size: 12px;
+  font-size: 13px;
 }
 .event-block pre {
   margin: 0;
   padding: 10px 12px;
   font-family: var(--mono);
-  font-size: 11.5px;
+  font-size: 12.5px;
   white-space: pre-wrap;
   word-break: break-word;
   max-height: 360px;
@@ -2551,18 +2674,18 @@ textarea:disabled {
   background: linear-gradient(180deg, rgba(94, 106, 210, 0.09), transparent 70%), var(--surface);
 }
 .cost-tile-value {
-  font-size: 24px;
+  font-size: 25px;
   font-weight: 700;
   letter-spacing: -0.02em;
   line-height: 1.15;
 }
 .cost-tile.accent .cost-tile-value {
-  font-size: 40px;
+  font-size: 42px;
   font-weight: 750;
 }
 .cost-tile-label {
   color: var(--text-2);
-  font-size: 12px;
+  font-size: 13px;
   margin-top: 6px;
 }
 .cost-grid {
@@ -2598,7 +2721,7 @@ textarea:disabled {
 .cost-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: 14px;
 }
 .cost-table th,
 .cost-table td {
@@ -2615,7 +2738,7 @@ textarea:disabled {
 .cost-table th {
   color: var(--text-3);
   font-weight: 600;
-  font-size: 11.5px;
+  font-size: 12.5px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -2679,14 +2802,14 @@ textarea:disabled {
 }
 .lightbox-caption {
   color: var(--text-2);
-  font-size: 12.5px;
+  font-size: 13.5px;
   max-width: 680px;
   text-align: center;
   max-height: 4.6em;
   overflow: auto;
 }
 .lightbox-open {
-  font-size: 12px;
+  font-size: 13px;
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -2757,7 +2880,7 @@ textarea:disabled {
   border: 1px solid var(--border-strong);
   border-radius: var(--radius);
   padding: 10px 12px;
-  font-size: 13px;
+  font-size: 14px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
   animation: toast-in 0.18s ease-out;
 }
