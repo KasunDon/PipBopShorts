@@ -5,6 +5,7 @@ import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { FFMPEG_BIN } from '../src/services/ffmpeg';
 import { hasFfmpeg, stitchClips } from '../src/services/stitch';
+import { renderTitleCard } from '../src/services/titlecard';
 import { synthesizeTestVideo } from './helpers';
 
 /** A ~2s solid-colour clip, long enough to crossfade. */
@@ -61,5 +62,24 @@ describe('stitchClips with burned captions', () => {
     // The tiny synthesized fixture is far shorter than the 0.5s transition.
     const out = await stitchClips(['a.mp4', 'b.mp4'], clipFetch(synthesizeTestVideo()), { transition: 'fade' });
     expect(out).not.toBeNull(); // still stitched, just without the crossfade
+  });
+
+  it('renders a title card with libass (no drawtext needed)', () => {
+    if (!hasFfmpeg()) return;
+    const card = renderTitleCard('My Great Short', { width: 128, height: 228, seconds: 1, subtitle: 'Episode 1' });
+    expect(card).not.toBeNull();
+    expect((card as Uint8Array).length).toBeGreaterThan(0);
+  });
+
+  it('assembles clips with title and end cards', async () => {
+    if (!hasFfmpeg()) return;
+    const out = await stitchClips(['a.mp4', 'b.mp4'], clipFetch(synthesizeClip(1, 'green')), {
+      titleCard: 'Opening',
+      endCard: 'The End',
+      cardSeconds: 1,
+      burnSrt: '1\n00:00:00,000 --> 00:00:01,000\nHi\n',
+    });
+    expect(out).not.toBeNull();
+    expect((out as Uint8Array).length).toBeGreaterThan(0);
   });
 });

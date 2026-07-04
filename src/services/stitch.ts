@@ -3,10 +3,38 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { FFMPEG_BIN, hasFfmpeg } from './ffmpeg';
+import { renderTitleCard } from './titlecard';
 
 type FetchLike = typeof fetch;
 
 export { hasFfmpeg };
+
+/** Probe a clip's pixel dimensions from ffmpeg's stderr banner. */
+function probeResolution(file: string): { width: number; height: number } | null {
+  const res = spawnSync(FFMPEG_BIN, ['-i', file], { encoding: 'utf8' });
+  const m = (res.stderr || '').match(/Video:.*?(\d{2,5})x(\d{2,5})/);
+  if (!m) return null;
+  return { width: Number(m[1]), height: Number(m[2]) };
+}
+
+/** Shift every timestamp in an SRT by offsetSec (used when a title card is prepended). */
+function shiftSrt(srt: string, offsetSec: number): string {
+  if (offsetSec <= 0) return srt;
+  const bump = (t: string): string => {
+    const m = t.match(/(\d+):(\d+):(\d+),(\d+)/);
+    if (!m) return t;
+    let total = Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3]) + Number(m[4]) / 1000 + offsetSec;
+    const h = Math.floor(total / 3600);
+    total -= h * 3600;
+    const mm = Math.floor(total / 60);
+    total -= mm * 60;
+    const s = Math.floor(total);
+    const ms = Math.round((total - s) * 1000);
+    const p = (n: number, w = 2) => String(n).padStart(w, '0');
+    return `${p(h)}:${p(mm)}:${p(s)},${p(ms, 3)}`;
+  };
+  return srt.replace(/(\d+:\d+:\d+,\d+) --> (\d+:\d+:\d+,\d+)/g, (_all, a, b) => `${bump(a)} --> ${bump(b)}`);
+}
 
 export interface StitchOptions {
   /** SRT subtitle text to burn into the stitched video (sound-off captions). */
@@ -15,6 +43,14 @@ export interface StitchOptions {
   transition?: 'none' | 'fade';
   /** Crossfade duration in seconds (default 0.5). */
   transitionSec?: number;
+  /** Opening title card text (rendered over a solid background via libass). */
+  titleCard?: string;
+  /** Optional smaller line under the title. */
+  titleSubtitle?: string;
+  /** Closing end card text. */
+  endCard?: string;
+  /** Title/end card duration in seconds (default 2). */
+  cardSeconds?: number;
 }
 
 /** Parse a clip's duration (seconds) from ffmpeg's stderr banner. */
@@ -68,10 +104,59 @@ export async function stitchClips(
       files.push(file);
     }
     const basePath = path.join(dir, 'base.mp4');
+    let built = false;
+    let captionOffset = 0;
+
+    // Title/end cards: normalise every input and concatenate them via the filter
+    // graph (robust to differing clip resolutions). Cards are rendered with libass.
+    const wantCards = Boolean(options.titleCard?.trim() || options.endCard?.trim());
+    if (wantCards) {
+      const dim = probeResolution(files[0]) ?? { width: 720, height: 1280 };
+      const cardSeconds = options.cardSeconds ?? 2;
+      const inputs: string[] = [];
+      if (options.titleCard?.trim()) {
+        const bytes = renderTitleCard(options.titleCard, {
+          width: dim.width,
+          height: dim.height,
+          seconds: cardSeconds,
+          subtitle: options.titleSubtitle,
+          background: '0x101014',
+        });
+        if (bytes) {
+          const p = path.join(dir, 'title.mp4');
+          writeFileSync(p, bytes);
+          inputs.push(p);
+          captionOffset = cardSeconds; // captions are timed after the title card
+        }
+      }
+      inputs.push(...files);
+      if (options.endCard?.trim()) {
+        const bytes = renderTitleCard(options.endCard, { width: dim.width, height: dim.height, seconds: cardSeconds, background: '0x101014' });
+        if (bytes) {
+          const p = path.join(dir, 'end.mp4');
+          writeFileSync(p, bytes);
+          inputs.push(p);
+        }
+      }
+      const args = inputs.flatMap((f) => ['-i', f]);
+      const norm = inputs
+        .map(
+          (_f, i) =>
+            `[${i}:v]scale=${dim.width}:${dim.height}:force_original_aspect_ratio=decrease,pad=${dim.width}:${dim.height}:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,fps=24,format=yuv420p[v${i}]`,
+        )
+        .join(';');
+      const labels = inputs.map((_f, i) => `[v${i}]`).join('');
+      const filter = `${norm};${labels}concat=n=${inputs.length}:v=1:a=0[vout]`;
+      const assemble = spawnSync(
+        FFMPEG_BIN,
+        ['-y', ...args, '-filter_complex', filter, '-map', '[vout]', '-an', basePath],
+        { stdio: 'ignore' },
+      );
+      built = assemble.status === 0;
+    }
 
     // Crossfade path (xfade) when requested and every clip is long enough; else a hard-cut concat.
-    let built = false;
-    if (options.transition === 'fade' && files.length >= 2) {
+    if (!built && options.transition === 'fade' && files.length >= 2) {
       const t = options.transitionSec ?? 0.5;
       const durations = files.map((f) => probeDuration(f) ?? NaN);
       const graph = buildXfade(durations, t);
@@ -97,8 +182,10 @@ export async function stitchClips(
     }
     const concatPath = basePath;
 
-    const srt = options.burnSrt?.trim();
-    if (!srt) return readFileSync(concatPath);
+    const rawSrt = options.burnSrt?.trim();
+    if (!rawSrt) return readFileSync(concatPath);
+    // Shift captions to sit after any prepended title card.
+    const srt = shiftSrt(rawSrt, captionOffset);
 
     // Second pass: burn the captions in (re-encodes the video; audio copied).
     const srtPath = path.join(dir, 'subs.srt');

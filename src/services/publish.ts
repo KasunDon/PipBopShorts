@@ -15,6 +15,10 @@ export interface PublishOptions {
   stitch?: boolean;
   /** Crossfade between clips instead of a hard cut when stitching. */
   transition?: 'none' | 'fade';
+  /** Opening title-card text (rendered over a solid card). */
+  titleCard?: string;
+  /** Closing end-card text. */
+  endCard?: string;
   /** Require every clip being published to be human-approved first (the publish gate). */
   requireApproval?: boolean;
   fetchImpl?: typeof fetch;
@@ -77,7 +81,12 @@ export async function publishProject(
         const stitched = await stitchClips(
           ready.map((r) => r.clip.url as string),
           options.fetchImpl,
-          { burnSrt: srt || undefined, transition: options.transition },
+          {
+            burnSrt: srt || undefined,
+            transition: options.transition,
+            titleCard: options.titleCard,
+            endCard: options.endCard,
+          },
         );
         if (stitched) videoBytes = stitched;
       }

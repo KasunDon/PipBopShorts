@@ -1250,6 +1250,9 @@ textarea:disabled {
 .lang-input {
   width: 120px;
 }
+.card-input {
+  width: 150px;
+}
 .schedule-row {
   margin-top: 10px;
   align-items: center;

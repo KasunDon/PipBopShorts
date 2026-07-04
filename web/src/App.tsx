@@ -1496,6 +1496,8 @@ function ProjectPanel({
   const [privacy, setPrivacy] = useState('private');
   const [stitch, setStitch] = useState(true);
   const [crossfade, setCrossfade] = useState(false);
+  const [titleCard, setTitleCard] = useState('');
+  const [endCard, setEndCard] = useState('');
   const [scheduleAt, setScheduleAt] = useState('');
   const [renderAt, setRenderAt] = useState('');
   const [validation, setValidation] = useState<RenderValidation | null>(null);
@@ -2074,6 +2076,22 @@ function ProjectPanel({
             <input type="checkbox" checked={crossfade} disabled={!stitch} onChange={(e) => setCrossfade(e.target.checked)} />
             Crossfade transitions
           </label>
+          <input
+            className="card-input"
+            value={titleCard}
+            disabled={!stitch}
+            onChange={(e) => setTitleCard(e.target.value)}
+            placeholder="Title card (optional)"
+            title="Text shown on an opening card"
+          />
+          <input
+            className="card-input"
+            value={endCard}
+            disabled={!stitch}
+            onChange={(e) => setEndCard(e.target.value)}
+            placeholder="End card (optional)"
+            title="Text shown on a closing card"
+          />
           <button
             className="primary"
             disabled={!canPublish}
@@ -2081,7 +2099,13 @@ function ProjectPanel({
             onClick={async () => {
               if (!confirm(`Publish to YouTube (${privacy})? This uploads the short${stitch ? ' (stitched)' : ''}.`)) return;
               const res = await run(() =>
-                api.publish(storylineId, { privacyStatus: privacy, stitch, transition: crossfade ? 'fade' : 'none' }),
+                api.publish(storylineId, {
+                  privacyStatus: privacy,
+                  stitch,
+                  transition: crossfade ? 'fade' : 'none',
+                  titleCard: titleCard.trim() || undefined,
+                  endCard: endCard.trim() || undefined,
+                }),
               );
               if (res) {
                 const p = await api.getProject(storylineId);
