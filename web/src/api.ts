@@ -18,6 +18,7 @@ import type {
   Project,
   PerformanceInsights,
   PerformanceMetrics,
+  ProductionReadiness,
   ProjectSummary,
   PublishSchedule,
   RenderSchedule,
@@ -324,6 +325,8 @@ export const api = {
   deletePreset: (id: string) => req<void>('DELETE', `/api/presets/${id}`),
   referenceReadiness: (storylineId: string) =>
     req<{ readiness: ReferenceReadiness }>('GET', `/api/storylines/${storylineId}/reference-readiness`),
+  productionReadiness: (storylineId: string) =>
+    req<{ readiness: ProductionReadiness }>('GET', `/api/storylines/${storylineId}/readiness`),
   applySceneDefaults: (storylineId: string, defaults: SceneDefaults) =>
     req<SceneDefaultsResult>('POST', `/api/storylines/${storylineId}/scene-defaults`, defaults),
 };

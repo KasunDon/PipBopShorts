@@ -447,6 +447,16 @@ export interface PerformanceInsights {
   sampleSize: number;
 }
 
+export interface ReadinessCheck {
+  label: string;
+  status: 'ok' | 'warn' | 'fail';
+  detail: string;
+}
+export interface ProductionReadiness {
+  checks: ReadinessCheck[];
+  ready: boolean;
+}
+
 export interface Project {
   storyline: Storyline;
   clips: Record<string, Clip>;

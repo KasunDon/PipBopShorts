@@ -37,6 +37,7 @@ import type {
   EpisodeIdea,
   JobEvent,
   Project,
+  ProductionReadiness,
   ProjectSummary,
   ReferenceReadiness,
   ReferenceReadinessItem,
@@ -1485,6 +1486,7 @@ function ProjectPanel({
   const [sound, setSound] = useState<SoundPlan | null>(null);
   const [planningSound, setPlanningSound] = useState(false);
   const [readiness, setReadiness] = useState<ReferenceReadiness | null>(null);
+  const [prodReadiness, setProdReadiness] = useState<ProductionReadiness | null>(null);
   const [gateOpen, setGateOpen] = useState(false);
   const [globalAspect, setGlobalAspect] = useState(scenes[0]?.aspectRatio ?? config.pixverse.aspectRatios[0]);
   const [globalQuality, setGlobalQuality] = useState(scenes[0]?.quality ?? config.pixverse.qualities[0]);
@@ -1554,7 +1556,8 @@ function ProjectPanel({
 
   useEffect(() => {
     void refreshReadiness();
-  }, [refreshReadiness, project]);
+    api.productionReadiness(storylineId).then((r) => setProdReadiness(r.readiness)).catch(() => {});
+  }, [refreshReadiness, storylineId, project]);
 
   // A background render for this storyline finished — pull the fresh project.
   useEffect(() => {
@@ -1815,6 +1818,17 @@ function ProjectPanel({
             </span>
           )}
         </div>
+        {prodReadiness && (
+          <div className="readiness-strip">
+            {prodReadiness.checks.map((c) => (
+              <span key={c.label} className={`readiness-chip r-${c.status}`} title={c.detail}>
+                {c.status === 'ok' ? <IconCheck /> : <IconAlert />}
+                {c.label}
+              </span>
+            ))}
+          </div>
+        )}
+
         {validation && (
           <div className={`validation-box ${validation.ok ? 'ok' : 'bad'}`}>
             <div className="card-head">

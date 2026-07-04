@@ -784,6 +784,24 @@ describe('CTA endpoint coverage', () => {
     expect(Array.isArray(res.body.plan.scenes[0].sfx)).toBe(true);
   });
 
+  it('reports production readiness composing the pipeline gates', async () => {
+    const { app } = makeApp();
+    const { storylineId, scenes } = await scaffold(app);
+    const before = await request(app).get(`/api/storylines/${storylineId}/readiness`).expect(200);
+    expect(before.body.readiness).toHaveProperty('checks');
+    expect(before.body.readiness.checks.some((c: { label: string }) => c.label === 'Clips rendered & approved')).toBe(true);
+    // Not ready before rendering (clips fail).
+    expect(before.body.readiness.checks.find((c: { label: string }) => c.label.startsWith('Clips')).status).toBe('fail');
+
+    // Render + approve every scene → the clips gate turns ok.
+    for (const scene of scenes) {
+      await request(app).post(`/api/storylines/${storylineId}/scenes/${scene.id}/generate`).send({ wait: true }).expect(200);
+      await request(app).post(`/api/storylines/${storylineId}/scenes/${scene.id}/clip/approval`).send({ approved: true }).expect(200);
+    }
+    const after = await request(app).get(`/api/storylines/${storylineId}/readiness`).expect(200);
+    expect(after.body.readiness.checks.find((c: { label: string }) => c.label.startsWith('Clips')).status).toBe('ok');
+  });
+
   it('downloads a shot manifest for a storyline', async () => {
     const { app } = makeApp();
     const { storylineId, scenes } = await scaffold(app);

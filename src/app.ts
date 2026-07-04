@@ -72,6 +72,7 @@ import {
 } from './services/generation';
 import { episodeSettingTemplate, storyBibleTemplate } from './templates';
 import { buildStorylinePreview, validateStorylineForRender } from './services/preview';
+import { productionReadiness } from './services/readiness';
 import { publishProject } from './services/publish';
 import { cancelRenderSchedule, cancelSchedule, schedulePublish, scheduleRender } from './services/scheduler';
 import {
@@ -978,6 +979,14 @@ export function createApp(deps: AppDeps): express.Express {
       const { model, effort } = req.body ?? {};
       const plan = await planStorylineSound(deps.store, deps.claude, req.params.storylineId, { model, effort });
       res.json({ plan });
+    }),
+  );
+
+  // "Are we ready to ship?" checklist composing every gate for a storyline.
+  app.get(
+    '/api/storylines/:storylineId/readiness',
+    asyncHandler((req, res) => {
+      res.json({ readiness: productionReadiness(deps.store, req.params.storylineId) });
     }),
   );
 
