@@ -1698,6 +1698,17 @@ function ProjectPanel({
               <option value="changes_requested">Changes requested</option>
             </select>
           </label>
+          <input
+            className="review-note"
+            defaultValue={project.storyline.reviewNote ?? ''}
+            placeholder="Review note…"
+            title="A note for the reviewer / record"
+            onBlur={async (e) => {
+              if ((e.target.value ?? '') === (project.storyline.reviewNote ?? '')) return;
+              const res = await run(() => api.setReview(storylineId, { note: e.target.value }));
+              if (res) setProject(res.project);
+            }}
+          />
           <button
             title="Validate every scene against the video renderer's rules and estimate the cost before spending credits"
             onClick={async () => {

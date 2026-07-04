@@ -935,6 +935,10 @@ textarea:disabled {
   border-radius: var(--radius-sm);
   font-weight: 600;
 }
+.review-note {
+  width: 180px;
+  font-size: 12.5px;
+}
 .review-select.rs-approved select {
   color: var(--ok);
   border-color: rgba(63, 185, 80, 0.5);
