@@ -115,6 +115,11 @@ export async function createStorylineProject(
     }
   }
 
+  // The LLM occasionally emits an invalid render combo (e.g. fast motion or 1080p
+  // at 8s, both capped at 5s). Normalise deterministically so every generated
+  // storyline is valid out of the box — shorten to 5s to keep the chosen look.
+  for (const scene of generated.scenes) fixSceneRenderCombo(scene);
+
   // Auto-link each scene to the canon characters AND locations named in it, so
   // the director can review those references and their approved reference images
   // are sent to PixVerse when the scene renders.
@@ -210,6 +215,20 @@ export function updateScene(store: Store, storylineId: string, sceneId: string, 
   project.clips[sceneId] = idleClip(sceneId);
   touch(project);
   return store.saveProject(project);
+}
+
+/** Fix the two capped-at-5s render combos in place. Returns whether anything changed. */
+export function fixSceneRenderCombo(scene: { quality: string; duration: number; motionMode: string }): boolean {
+  let changed = false;
+  if (scene.quality === '1080p' && Number(scene.duration) === 8) {
+    scene.duration = 5;
+    changed = true;
+  }
+  if (scene.motionMode === 'fast' && Number(scene.duration) === 8) {
+    scene.duration = 5;
+    changed = true;
+  }
+  return changed;
 }
 
 export function addScene(store: Store, storylineId: string, partial?: Partial<Scene>): Project {

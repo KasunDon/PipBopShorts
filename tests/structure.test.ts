@@ -1,11 +1,57 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { createStorylineProject } from '../src/services/storyline';
+import { validateStorylineForRender } from '../src/services/preview';
+import { createStorylineProject, fixSceneRenderCombo } from '../src/services/storyline';
 import { makeFakeClaude, makeStore } from './helpers';
 
 let cleanups: Array<() => void> = [];
 afterEach(() => {
   cleanups.forEach((fn) => fn());
   cleanups = [];
+});
+
+describe('generation-time render-param normalization', () => {
+  it('shortens fast-motion / 1080p 8s combos to 5s in place', () => {
+    const fast = { quality: '540p', duration: 8, motionMode: 'fast' };
+    expect(fixSceneRenderCombo(fast)).toBe(true);
+    expect(fast.duration).toBe(5);
+    const hd = { quality: '1080p', duration: 8, motionMode: 'normal' };
+    expect(fixSceneRenderCombo(hd)).toBe(true);
+    expect(hd.duration).toBe(5);
+    const ok = { quality: '540p', duration: 8, motionMode: 'normal' };
+    expect(fixSceneRenderCombo(ok)).toBe(false);
+  });
+
+  it('a generated storyline with an invalid combo is valid out of the box', async () => {
+    const { store, cleanup } = makeStore();
+    cleanups.push(cleanup);
+    const story = store.createStory({ title: 'Fixup', bible: '# Bible\nHero.' });
+    const episode = store.createEpisode(story.id, { title: 'E1', brief: 'x' });
+    // Force the LLM to emit an invalid combo: fast motion at 8s.
+    const bad = JSON.stringify({
+      title: 'T',
+      logline: 'L',
+      scenes: [
+        {
+          heading: 'S1',
+          description: 'd',
+          prompt: 'a vivid shot',
+          negative_prompt: 'blurry',
+          duration: 8,
+          aspect_ratio: '9:16',
+          model: 'v5',
+          quality: '540p',
+          motion_mode: 'fast',
+          style: 'none',
+          camera_movement: 'none',
+        },
+      ],
+      youtube: { title: 'T', description: 'd', tags: ['a'], hashtags: ['#Shorts'] },
+    });
+    const { client } = makeFakeClaude(() => ({ stop_reason: 'end_turn', model: 'fake', content: [{ type: 'text', text: bad }] }));
+    const project = await createStorylineProject(store, client, story.id, episode.id, {});
+    expect(project.storyline.scenes[0].duration).toBe(5); // normalized
+    expect(validateStorylineForRender(store, project.storyline.id).ok).toBe(true);
+  });
 });
 
 describe('storyline narrative structure', () => {
