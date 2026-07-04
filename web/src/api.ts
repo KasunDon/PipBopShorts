@@ -212,6 +212,8 @@ export const api = {
   getEvent: (id: string) => req<{ event: AuditEvent }>('GET', `/api/events/${id}`),
   jobs: () => req<{ jobs: Job[] }>('GET', '/api/jobs'),
   clearEvents: () => req<void>('DELETE', '/api/events'),
+  restoreFromAudit: (eventId: string) =>
+    req<{ restored: { kind: string; id: string; label: string } }>('POST', `/api/audit/${eventId}/restore`),
 
   // ---- Costs, preview & validation ----
   costReport: (opts: { storyId?: string; episodeId?: string; since?: string } = {}) => {

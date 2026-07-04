@@ -1218,6 +1218,8 @@ function ProjectPanel({
   const [readiness, setReadiness] = useState<ReferenceReadiness | null>(null);
   const [gateOpen, setGateOpen] = useState(false);
   const [globalAspect, setGlobalAspect] = useState(scenes[0]?.aspectRatio ?? config.pixverse.aspectRatios[0]);
+  const [globalQuality, setGlobalQuality] = useState(scenes[0]?.quality ?? config.pixverse.qualities[0]);
+  const [globalMotion, setGlobalMotion] = useState(scenes[0]?.motionMode ?? config.pixverse.motionModes[0]);
   const [applyingDefaults, setApplyingDefaults] = useState(false);
 
   const readyCount = scenes.filter((s) => project.clips[s.id]?.status === 'ready').length;
@@ -1274,15 +1276,21 @@ function ProjectPanel({
     await confirmAndRenderAll();
   };
 
-  const applyGlobalAspect = async () => {
+  const applyGlobalSettings = async () => {
     setApplyingDefaults(true);
     try {
-      const res = await run(() => api.applySceneDefaults(storylineId, { aspectRatio: globalAspect }));
+      const res = await run(() =>
+        api.applySceneDefaults(storylineId, {
+          aspectRatio: globalAspect,
+          quality: globalQuality,
+          motionMode: globalMotion,
+        }),
+      );
       if (res) {
         setProject(res.project);
         setValidation(null); // params changed — re-validate before rendering
         const skipped = res.skipped.length ? ` (${res.skipped.length} skipped as invalid)` : '';
-        pushToast('ok', `Aspect ratio ${globalAspect} applied to ${res.applied.length} scene(s)${skipped}.`);
+        pushToast('ok', `Applied ${res.fields.join(', ')} to ${res.applied.length} scene(s)${skipped}.`);
       }
     } finally {
       setApplyingDefaults(false);
@@ -1338,7 +1346,28 @@ function ProjectPanel({
               ))}
             </select>
           </label>
-          <button className="small" disabled={applyingDefaults} onClick={applyGlobalAspect} title="Set this aspect ratio on every scene at once">
+          <label className="global-field">
+            Quality
+            <select value={globalQuality} onChange={(e) => setGlobalQuality(e.target.value)}>
+              {config.pixverse.qualities.map((q) => (
+                <option key={q}>{q}</option>
+              ))}
+            </select>
+          </label>
+          <label className="global-field">
+            Motion
+            <select value={globalMotion} onChange={(e) => setGlobalMotion(e.target.value)}>
+              {config.pixverse.motionModes.map((m) => (
+                <option key={m}>{m}</option>
+              ))}
+            </select>
+          </label>
+          <button
+            className="small"
+            disabled={applyingDefaults}
+            onClick={applyGlobalSettings}
+            title="Set these render settings on every scene at once (scenes they'd invalidate are skipped)"
+          >
             {applyingDefaults ? 'Applying…' : 'Apply to all'}
           </button>
           {readiness && readiness.items.length > 0 && (

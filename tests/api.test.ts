@@ -646,6 +646,53 @@ describe('global scene defaults, reference readiness, and mutation audit', () =>
     expect(del.request.before.storyline.id).toBe(storylineId);
   });
 
+  it('restores a deleted storyline from its audit event (fail-safe)', async () => {
+    const eventStore = new EventStore();
+    const { app } = makeApp({ eventStore });
+    const { storylineId } = await scaffold(app);
+    await request(app).delete(`/api/storylines/${storylineId}`).expect(204);
+    // Gone.
+    await request(app).get(`/api/storylines/${storylineId}`).expect(404);
+
+    const events = await request(app).get('/api/events?service=store').expect(200);
+    const del = events.body.events.find((e: { type: string }) => e.type === 'store.storyline.delete');
+    const restore = await request(app).post(`/api/audit/${del.id}/restore`).expect(200);
+    expect(restore.body.restored.kind).toBe('storyline');
+    expect(restore.body.restored.id).toBe(storylineId);
+    // Back.
+    const back = await request(app).get(`/api/storylines/${storylineId}`).expect(200);
+    expect(back.body.project.storyline.id).toBe(storylineId);
+  });
+
+  it('restores a deleted scene at its original position', async () => {
+    const eventStore = new EventStore();
+    const { app } = makeApp({ eventStore });
+    const { storylineId, scenes } = await scaffold(app);
+    const victim = scenes[0];
+    await request(app).delete(`/api/storylines/${storylineId}/scenes/${victim.id}`).expect(200);
+
+    const events = await request(app).get('/api/events?service=store').expect(200);
+    const del = events.body.events.find((e: { type: string }) => e.type === 'store.scene.delete');
+    await request(app).post(`/api/audit/${del.id}/restore`).expect(200);
+
+    const back = await request(app).get(`/api/storylines/${storylineId}`).expect(200);
+    const ids = back.body.project.storyline.scenes.map((s: { id: string }) => s.id);
+    expect(ids).toContain(victim.id);
+    expect(ids[0]).toBe(victim.id); // restored at original order 0
+  });
+
+  it('refuses to restore a storyline that already exists', async () => {
+    const eventStore = new EventStore();
+    const { app } = makeApp({ eventStore });
+    const { storylineId } = await scaffold(app);
+    await request(app).delete(`/api/storylines/${storylineId}`).expect(204);
+    const events = await request(app).get('/api/events?service=store').expect(200);
+    const del = events.body.events.find((e: { type: string }) => e.type === 'store.storyline.delete');
+    await request(app).post(`/api/audit/${del.id}/restore`).expect(200);
+    // Second restore should fail — it's back already.
+    await request(app).post(`/api/audit/${del.id}/restore`).expect(400);
+  });
+
   it('records a mutation audit event with before/after when a scene is edited', async () => {
     const eventStore = new EventStore();
     const { app } = makeApp({ eventStore });

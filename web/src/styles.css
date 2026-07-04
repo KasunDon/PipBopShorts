@@ -1077,6 +1077,17 @@ textarea:disabled {
 .badge.svc-store::before {
   background: var(--accent, #8b5cf6);
 }
+.event-restore {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  border: 1px solid rgba(139, 92, 246, 0.4);
+  border-radius: var(--radius-sm);
+  background: rgba(139, 92, 246, 0.08);
+}
 
 /* Rendered markdown --------------------------------------------------------------------- */
 

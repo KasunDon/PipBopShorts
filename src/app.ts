@@ -33,6 +33,7 @@ import { assertRuntime, extendPlan, generateNextEpisode, planStory } from './ser
 import { autofixStoryline } from './services/autofix';
 import { checkDrift, resolveDrift } from './services/drift';
 import { JobRunner } from './services/jobs';
+import { restoreFromAudit } from './services/restore';
 import { UserInputError } from './errors';
 import { EventStore, type EventService, type EventStatus } from './events/eventStore';
 import { withCostContext, type CostContext } from './costs/context';
@@ -236,6 +237,25 @@ export function createApp(deps: AppDeps): express.Express {
     eventStore.clear();
     res.status(204).end();
   });
+
+  // Fail-safe: restore a deleted storyline/scene from the old value preserved in
+  // its `store` audit event.
+  app.post(
+    '/api/audit/:eventId/restore',
+    asyncHandler((req, res) => {
+      const event = eventStore.get(req.params.eventId);
+      if (!event) throw new HttpError(404, `Audit event not found: ${req.params.eventId}`);
+      const restored = restoreFromAudit(deps.store, event);
+      recordMutation(req, {
+        resource: restored.kind,
+        action: 'update',
+        summary: `Restored ${restored.kind} "${restored.label}" from audit`,
+        before: null,
+        after: { id: restored.id },
+      });
+      res.json({ restored });
+    }),
+  );
 
   // ---- Background jobs (async renders processed server-side) ----
   app.get('/api/jobs', (_req, res) => {
@@ -597,7 +617,16 @@ export function createApp(deps: AppDeps): express.Express {
   app.post(
     '/api/stories/:storyId/characters/:entityId/portraits/:versionId/approve',
     asyncHandler((req, res) => {
+      const registry = deps.store.getCharacterRegistry(req.params.storyId);
+      const beforeApproved = registry?.characters[req.params.entityId]?.approvedVersionId ?? null;
       const asset = approvePortrait(deps.store, req.params.storyId, req.params.entityId, req.params.versionId);
+      recordMutation(req, {
+        resource: 'reference-approval',
+        action: 'update',
+        summary: `Approved reference for "${asset.name}"`,
+        before: { approvedVersionId: beforeApproved },
+        after: { approvedVersionId: asset.approvedVersionId },
+      });
       res.json({ asset });
     }),
   );
@@ -810,6 +839,14 @@ export function createApp(deps: AppDeps): express.Express {
     '/api/storylines/:storylineId/scenes',
     asyncHandler((req, res) => {
       const project = addScene(deps.store, req.params.storylineId, req.body ?? {});
+      const added = project.storyline.scenes[project.storyline.scenes.length - 1];
+      recordMutation(req, {
+        resource: 'scene',
+        action: 'update',
+        summary: `Added scene "${added?.heading ?? ''}"`,
+        before: null,
+        after: added ? { ...added } : null,
+      });
       res.status(201).json({ project });
     }),
   );
@@ -867,7 +904,15 @@ export function createApp(deps: AppDeps): express.Express {
     asyncHandler((req, res) => {
       const orderedIds = req.body?.orderedIds;
       if (!Array.isArray(orderedIds)) throw new HttpError(400, 'orderedIds (array) is required');
+      const beforeOrder = deps.store.getProject(req.params.storylineId).storyline.scenes.map((s) => s.id);
       const project = reorderScenes(deps.store, req.params.storylineId, orderedIds);
+      recordMutation(req, {
+        resource: 'scene-order',
+        action: 'update',
+        summary: 'Reordered scenes',
+        before: beforeOrder,
+        after: project.storyline.scenes.map((s) => s.id),
+      });
       res.json({ project });
     }),
   );
@@ -965,6 +1010,13 @@ export function createApp(deps: AppDeps): express.Express {
     '/api/storylines/:storylineId/publish',
     asyncHandler(async (req, res) => {
       const record = await publishProject(deps.store, deps.youtube, req.params.storylineId, req.body ?? {});
+      recordMutation(req, {
+        resource: 'publish',
+        action: 'update',
+        summary: `Published to ${record.provider} (${record.status}${record.dryRun ? ', dry-run' : ''})`,
+        before: null,
+        after: record,
+      });
       res.json({ publish: record });
     }),
   );

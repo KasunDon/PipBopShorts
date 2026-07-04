@@ -84,18 +84,29 @@ Consistency by reference, not just by prompt:
   YouTube meta, canon marks, bulk defaults) record a `store` audit event with the
   **old value preserved** for accountability and fail-safe.
 
-### Outstanding from this iteration (captured — tackle next)
+### Also shipped (follow-up)
+
+- **Restore-from-audit (fail-safe)** — deleted storylines and scenes can be
+  rehydrated one-click from the old value preserved in their `store` audit event
+  (Activity console → expand a `*.delete` event → **Restore**). Guards against
+  clobbering an existing record or orphaning under a deleted parent.
+- **Global settings widened in the UI** — aspect ratio **+ quality + motion mode**
+  now apply to every scene at once (the endpoint still also accepts model/style).
+- **Mutation audit widened** — add-scene, reorder (old order preserved),
+  approve-portrait (old approval preserved), and publish now record `store` events.
+
+### Outstanding (captured — tackle next)
 
 - **Inline reference tweak in the approval gate**: preview + tweak render
   parameters (and re-render) before approving, not just approve/generate — a
   mini lightbox reusing the references panel controls.
-- **Expose the other global settings in the UI**: quality / model / motion mode /
-  style already work through the `scene-defaults` endpoint; only aspect ratio has
-  a control so far.
-- **Restore-from-audit (fail-safe)**: a one-click "undo" that rehydrates a deleted
-  story/episode/storyline/scene from its preserved `store` audit event.
-- **Widen mutation audit**: also record add-scene, reorder, approve-portrait, and
-  publish; add a dedicated audit view/filter beyond the shared activity console.
+- **Expose remaining global settings**: model + style also work through the
+  `scene-defaults` endpoint but have no UI control yet.
+- **Restore story/episode deletions**: these cascade into many records the single
+  audit event doesn't capture — needs a snapshot-the-cascade approach before it's
+  safe to offer restore for them.
+- **Dedicated audit view/filter** beyond the shared activity console (e.g. a
+  data-mutation-only timeline with diff highlighting of before→after).
 - **Image-to-video aspect ratio**: img-to-video derives aspect from the source
   image, so the global aspect ratio only affects text-to-video scenes today —
   decide whether to letterbox/crop references to enforce a uniform aspect.

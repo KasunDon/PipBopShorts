@@ -7,6 +7,12 @@ import type { AuditEvent, EventService, EventStatus } from './types';
 const SERVICES: EventService[] = ['claude', 'pixverse', 'youtube', 'store'];
 const STATUSES: EventStatus[] = ['ok', 'error'];
 
+/** Delete events whose preserved old value is self-contained enough to restore. */
+const RESTORABLE = new Set(['store.storyline.delete', 'store.scene.delete']);
+function isRestorable(event: AuditEvent): boolean {
+  return RESTORABLE.has(event.type);
+}
+
 function pathOf(url: string): string {
   try {
     return new URL(url).pathname;
@@ -65,6 +71,17 @@ export function EventsPanel({ onClose }: { onClose: () => void }) {
     load({ replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedQ, service, status]);
+
+  const restore = async (event: AuditEvent) => {
+    if (!confirm(`Restore this ${event.type.includes('scene') ? 'scene' : 'storyline'} from the audit log?`)) return;
+    try {
+      const res = await api.restoreFromAudit(event.id);
+      alert(`Restored ${res.restored.kind} "${res.restored.label}".`);
+      load({ replace: true });
+    } catch (err) {
+      alert(err instanceof Error ? err.message : String(err));
+    }
+  };
 
   // Real-time: prepend new events that match the active filters.
   const filtersRef = useRef({ debouncedQ, service, status });
@@ -174,7 +191,7 @@ export function EventsPanel({ onClose }: { onClose: () => void }) {
                 )}
                 <span className="event-duration muted small">{e.durationMs}ms</span>
               </button>
-              {expandedId === e.id && <EventDetail event={e} />}
+              {expandedId === e.id && <EventDetail event={e} onRestore={() => restore(e)} />}
             </li>
           ))}
         </ul>
@@ -192,12 +209,20 @@ export function EventsPanel({ onClose }: { onClose: () => void }) {
   );
 }
 
-function EventDetail({ event }: { event: AuditEvent }) {
+function EventDetail({ event, onRestore }: { event: AuditEvent; onRestore: () => void }) {
   const copy = (value: unknown) => {
     navigator.clipboard?.writeText(typeof value === 'string' ? value : JSON.stringify(value, null, 2));
   };
   return (
     <div className="event-detail">
+      {isRestorable(event) && (
+        <div className="event-restore">
+          <span className="muted small">This deletion preserved the old value.</span>
+          <button className="small" onClick={onRestore}>
+            <IconRefresh /> Restore
+          </button>
+        </div>
+      )}
       <div className="event-detail-meta">
         <div>
           <b>id</b> {event.id}
