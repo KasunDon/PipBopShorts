@@ -18,6 +18,8 @@ import {
   IconHome,
   IconImage,
   IconLayers,
+  IconMoon,
+  IconSun,
   IconPlay,
   IconPlus,
   IconRefresh,
@@ -29,6 +31,7 @@ import {
 import { Markdown, MarkdownViewer } from './Markdown';
 import { SceneCard } from './SceneCard';
 import { formatRuntime, RuntimeSelect, SeasonPanel } from './SeasonPanel';
+import { getTheme, setTheme, type Theme } from './theme';
 import type {
   AppConfig,
   AutofixResult,
@@ -343,6 +346,24 @@ type Run = <T>(fn: () => Promise<T>) => Promise<T | undefined>;
    Sidebar
 --------------------------------------------------------------------------- */
 
+function ThemeToggle() {
+  const [theme, setThemeState] = useState<Theme>(getTheme());
+  const next = theme === 'dark' ? 'light' : 'dark';
+  return (
+    <button
+      className="theme-toggle"
+      title={`Switch to ${next} theme`}
+      aria-label={`Switch to ${next} theme`}
+      onClick={() => {
+        setTheme(next);
+        setThemeState(next);
+      }}
+    >
+      {theme === 'dark' ? <IconSun /> : <IconMoon />}
+    </button>
+  );
+}
+
 function Sidebar({
   stories,
   activeStoryId,
@@ -371,8 +392,11 @@ function Sidebar({
   return (
     <aside className="sidebar">
       <div className="brand">
-        <div className="brand-name">Backlot</div>
-        <div className="brand-sub">AI film production studio</div>
+        <div>
+          <div className="brand-name">Backlot</div>
+          <div className="brand-sub">AI film production studio</div>
+        </div>
+        <ThemeToggle />
       </div>
 
       <nav className="nav">

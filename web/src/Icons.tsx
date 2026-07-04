@@ -49,6 +49,8 @@ export const IconZoom = () => <I><circle cx="11" cy="11" r="7" /><path d="M21 21
 export const IconLayers = () => <I><path d="M12 3l9 5-9 5-9-5z" /><path d="M3 13l9 5 9-5" /></I>;
 export const IconSettings = () => <I><circle cx="12" cy="12" r="3" /><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M18.7 5.3l-2.1 2.1M7.4 16.6l-2.1 2.1" /></I>;
 export const IconHome = () => <I><path d="M4 11l8-7 8 7" /><path d="M6 10v10h12V10" /></I>;
+export const IconSun = () => <I><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></I>;
+export const IconMoon = () => <I><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z" /></I>;
 export const IconCopy = () => <I><rect x="9" y="9" width="12" height="12" rx="2" /><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1" /></I>;
 export const IconSend = () => <I><path d="M22 2L11 13" /><path d="M22 2l-7 20-4-9-9-4z" /></I>;
 export const IconStop = () => <I><rect x="6" y="6" width="12" height="12" rx="1.5" /></I>;
