@@ -230,6 +230,15 @@ export interface PublishSchedule {
   createdAt: string;
 }
 
+/** Recorded real-world performance of a published short (entered manually or via a future analytics sync). */
+export interface PerformanceMetrics {
+  views: number;
+  retentionPct: number | null;
+  likes: number | null;
+  note: string;
+  recordedAt: string;
+}
+
 export interface RenderSchedule {
   /** ISO timestamp at/after which the scheduled render run should fire. */
   at: string;
@@ -252,6 +261,8 @@ export interface Project {
   schedule?: PublishSchedule | null;
   /** A pending/queued scheduled render run, if any. */
   renderSchedule?: RenderSchedule | null;
+  /** Recorded real-world performance, once known. */
+  performance?: PerformanceMetrics | null;
 }
 
 // ---------------------------------------------------------------------------

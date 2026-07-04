@@ -16,6 +16,7 @@ import type {
   EventStatus,
   PortraitVersion,
   Project,
+  PerformanceMetrics,
   ProjectSummary,
   PublishSchedule,
   RenderSchedule,
@@ -145,6 +146,8 @@ export const api = {
     req<{ renderSchedule: RenderSchedule }>('POST', `/api/storylines/${storylineId}/render/schedule`, { at }),
   cancelRenderSchedule: (storylineId: string) =>
     req<{ renderSchedule: RenderSchedule }>('DELETE', `/api/storylines/${storylineId}/render/schedule`),
+  recordPerformance: (storylineId: string, m: { views?: number; retentionPct?: number; likes?: number; note?: string }) =>
+    req<{ performance: PerformanceMetrics }>('PATCH', `/api/storylines/${storylineId}/performance`, m),
 
   // ---- Canon & drift ----
   getCanon: (storyId: string) => req<{ registry: CanonRegistry | null }>('GET', `/api/stories/${storyId}/canon`),

@@ -1209,6 +1209,13 @@ textarea:disabled {
   align-items: center;
   gap: 10px;
 }
+.perf-panel {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
 .title-variants {
   list-style: none;
   margin: 6px 0;

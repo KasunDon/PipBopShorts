@@ -72,6 +72,7 @@ export interface StoryAnalytics {
   scenes: number;
   clips: { total: number; ready: number; approved: number };
   publishes: number;
+  views: number;
   canon: { versions: number; entities: number; marks: number; lockedMarks: number };
   drift: { reports: number; findings: number; resolved: number; open: number; safety: number; driftRate: number };
 }
@@ -96,6 +97,7 @@ export interface StudioStorySummary {
   scenes: number;
   approvedClips: number;
   publishes: number;
+  views: number;
   openDrifts: number;
   safetyDrifts: number;
   driftRate: number;
@@ -107,6 +109,7 @@ export interface StudioAnalytics {
   scenes: number;
   approvedClips: number;
   publishes: number;
+  views: number;
   openDrifts: number;
   safetyDrifts: number;
   perStory: StudioStorySummary[];
@@ -409,6 +412,14 @@ export interface RenderSchedule {
   createdAt: string;
 }
 
+export interface PerformanceMetrics {
+  views: number;
+  retentionPct: number | null;
+  likes: number | null;
+  note: string;
+  recordedAt: string;
+}
+
 export interface Project {
   storyline: Storyline;
   clips: Record<string, Clip>;
@@ -417,6 +428,7 @@ export interface Project {
   driftReports?: DriftReport[];
   schedule?: PublishSchedule | null;
   renderSchedule?: RenderSchedule | null;
+  performance?: PerformanceMetrics | null;
 }
 
 export interface ProjectSummary {

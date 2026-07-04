@@ -1336,6 +1336,33 @@ export function createApp(deps: AppDeps): express.Express {
     }),
   );
 
+  // Record real-world performance for a published short (manual entry; future: analytics sync).
+  app.patch(
+    '/api/storylines/:storylineId/performance',
+    asyncHandler((req, res) => {
+      const { views, retentionPct, likes, note } = req.body ?? {};
+      if (views != null && !Number.isFinite(Number(views))) throw new HttpError(400, 'views must be a number');
+      const project = deps.store.getProject(req.params.storylineId);
+      const before = project.performance ?? null;
+      project.performance = {
+        views: views == null ? (before?.views ?? 0) : Number(views),
+        retentionPct: retentionPct == null ? (before?.retentionPct ?? null) : Number(retentionPct),
+        likes: likes == null ? (before?.likes ?? null) : Number(likes),
+        note: typeof note === 'string' ? note : (before?.note ?? ''),
+        recordedAt: new Date().toISOString(),
+      };
+      deps.store.saveProject(project);
+      recordMutation(req, {
+        resource: 'performance',
+        action: 'update',
+        summary: `Recorded performance (${project.performance.views} views)`,
+        before,
+        after: project.performance,
+      });
+      res.json({ performance: project.performance });
+    }),
+  );
+
   // Schedule a full render run for a future time (fires server-side into the JobRunner).
   app.post(
     '/api/storylines/:storylineId/render/schedule',

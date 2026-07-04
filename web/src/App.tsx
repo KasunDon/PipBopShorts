@@ -656,6 +656,10 @@ function StudioDashboard({ onOpenStory }: { onOpenStory: (id: string) => void })
           <span className="stat-label">Published</span>
         </div>
         <div className="stat-tile">
+          <span className="stat-value">{a.views.toLocaleString()}</span>
+          <span className="stat-label">Views</span>
+        </div>
+        <div className="stat-tile">
           <span className="stat-value">{a.openDrifts}</span>
           <span className="stat-label">Open drifts</span>
           {a.safetyDrifts > 0 && <span className="stat-sub" style={{ color: 'var(--danger)' }}>{a.safetyDrifts} safety</span>}
@@ -717,6 +721,7 @@ function InsightsTab({ storyId, run }: { storyId: string; run: Run }) {
         {tile('Scenes', a.scenes)}
         {tile('Clips ready', `${a.clips.ready}/${a.clips.total}`, `${a.clips.approved} approved`)}
         {tile('Published', a.publishes)}
+        {tile('Views', a.views.toLocaleString())}
         {tile('Canon', `v${a.canon.versions}`, `${a.canon.entities} entities · ${a.canon.marks} marks (${a.canon.lockedMarks} locked)`)}
         {tile('Open drifts', a.drift.open, `${a.drift.resolved} resolved · ${a.drift.safety} safety`)}
         {tile('Drift rate', a.drift.driftRate, 'open findings ÷ scenes')}
@@ -2021,6 +2026,7 @@ function ProjectPanel({
           )}
         </div>
         <PublishHistory project={project} />
+        <PerformancePanel project={project} storylineId={storylineId} setProject={setProject} run={run} />
       </section>
 
       {gateOpen && readiness && (
@@ -2274,6 +2280,56 @@ function GateItem({
         </div>
       )}
     </li>
+  );
+}
+
+function PerformancePanel({
+  project,
+  storylineId,
+  setProject,
+  run,
+}: {
+  project: Project;
+  storylineId: string;
+  setProject: (p: Project) => void;
+  run: Run;
+}) {
+  const perf = project.performance;
+  const [views, setViews] = useState(perf?.views != null ? String(perf.views) : '');
+  const [retention, setRetention] = useState(perf?.retentionPct != null ? String(perf.retentionPct) : '');
+  const [likes, setLikes] = useState(perf?.likes != null ? String(perf.likes) : '');
+
+  return (
+    <div className="perf-panel">
+      <span className="muted small">Record performance (once known):</span>
+      <input type="number" placeholder="views" value={views} onChange={(e) => setViews(e.target.value)} style={{ width: 90 }} />
+      <input type="number" placeholder="retention %" value={retention} onChange={(e) => setRetention(e.target.value)} style={{ width: 100 }} />
+      <input type="number" placeholder="likes" value={likes} onChange={(e) => setLikes(e.target.value)} style={{ width: 80 }} />
+      <button
+        className="small"
+        onClick={async () => {
+          const res = await run(() =>
+            api.recordPerformance(storylineId, {
+              views: views ? Number(views) : undefined,
+              retentionPct: retention ? Number(retention) : undefined,
+              likes: likes ? Number(likes) : undefined,
+            }),
+          );
+          if (res) {
+            const p = await api.getProject(storylineId);
+            setProject(p.project);
+          }
+        }}
+      >
+        Save
+      </button>
+      {perf && (
+        <span className="muted small">
+          {perf.views} views{perf.retentionPct != null ? ` · ${perf.retentionPct}% retention` : ''} · recorded{' '}
+          {new Date(perf.recordedAt).toLocaleDateString()}
+        </span>
+      )}
+    </div>
   );
 }
 

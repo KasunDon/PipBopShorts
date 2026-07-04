@@ -149,6 +149,25 @@ describe('preview, validation, and cost endpoints', () => {
     expect(res.body.analytics.perStory).toHaveLength(2);
   });
 
+  it('records performance and rolls views into analytics', async () => {
+    const { app } = makeApp();
+    const storyId = (await request(app).post('/api/stories').send({ title: 'Perf' }).expect(201)).body.story.id;
+    await request(app).put(`/api/stories/${storyId}/bible`).send({ markdown: '# Bible\nHero.' }).expect(200);
+    const episodeId = (await request(app).post(`/api/stories/${storyId}/episodes`).send({ title: 'E', brief: 'x' }).expect(201)).body.episode.id;
+    const storylineId = (await request(app).post(`/api/episodes/${episodeId}/storylines`).send({}).expect(201)).body.project.storyline.id;
+
+    const perf = await request(app)
+      .patch(`/api/storylines/${storylineId}/performance`)
+      .send({ views: 12000, retentionPct: 62, likes: 340 })
+      .expect(200);
+    expect(perf.body.performance.views).toBe(12000);
+
+    const analytics = await request(app).get(`/api/stories/${storyId}/analytics`).expect(200);
+    expect(analytics.body.analytics.views).toBe(12000);
+    const studio = await request(app).get('/api/studio/analytics').expect(200);
+    expect(studio.body.analytics.views).toBe(12000);
+  });
+
   it('serves per-story analytics', async () => {
     const { app } = makeApp();
     const storyId = (await request(app).post('/api/stories').send({ title: 'Metrics' }).expect(201)).body.story.id;

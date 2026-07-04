@@ -8,6 +8,8 @@ export interface StoryAnalytics {
   scenes: number;
   clips: { total: number; ready: number; approved: number };
   publishes: number;
+  /** Total recorded views across this story's published shorts. */
+  views: number;
   canon: { versions: number; entities: number; marks: number; lockedMarks: number };
   drift: {
     reports: number;
@@ -35,6 +37,7 @@ export function storyAnalytics(store: Store, storyId: string): StoryAnalytics {
   let clipsReady = 0;
   let clipsApproved = 0;
   let publishes = 0;
+  let views = 0;
   let driftReports = 0;
   let driftFindings = 0;
   let driftResolved = 0;
@@ -48,6 +51,7 @@ export function storyAnalytics(store: Store, storyId: string): StoryAnalytics {
       if (clip.approved) clipsApproved += 1;
     }
     publishes += (project.publishHistory ?? []).filter((p) => p.status === 'published').length;
+    views += project.performance?.views ?? 0;
     for (const report of project.driftReports ?? []) {
       driftReports += 1;
       for (const finding of report.findings) {
@@ -73,6 +77,7 @@ export function storyAnalytics(store: Store, storyId: string): StoryAnalytics {
     scenes,
     clips: { total: clipsTotal, ready: clipsReady, approved: clipsApproved },
     publishes,
+    views,
     canon: {
       versions: registry?.versions.length ?? 0,
       entities: canon?.entities.length ?? 0,
@@ -98,6 +103,7 @@ export interface StudioStorySummary {
   scenes: number;
   approvedClips: number;
   publishes: number;
+  views: number;
   openDrifts: number;
   safetyDrifts: number;
   driftRate: number;
@@ -109,6 +115,7 @@ export interface StudioAnalytics {
   scenes: number;
   approvedClips: number;
   publishes: number;
+  views: number;
   openDrifts: number;
   safetyDrifts: number;
   /** Per-story rows, most safety-sensitive / most-drifting first so problems surface. */
@@ -124,6 +131,7 @@ export function studioAnalytics(store: Store): StudioAnalytics {
     scenes: 0,
     approvedClips: 0,
     publishes: 0,
+    views: 0,
     openDrifts: 0,
     safetyDrifts: 0,
     perStory: [],
@@ -137,6 +145,7 @@ export function studioAnalytics(store: Store): StudioAnalytics {
     totals.scenes += a.scenes;
     totals.approvedClips += a.clips.approved;
     totals.publishes += a.publishes;
+    totals.views += a.views;
     totals.openDrifts += a.drift.open;
     totals.safetyDrifts += a.drift.safety;
     totals.perStory.push({
@@ -147,6 +156,7 @@ export function studioAnalytics(store: Store): StudioAnalytics {
       scenes: a.scenes,
       approvedClips: a.clips.approved,
       publishes: a.publishes,
+      views: a.views,
       openDrifts: a.drift.open,
       safetyDrifts: a.drift.safety,
       driftRate: a.drift.driftRate,

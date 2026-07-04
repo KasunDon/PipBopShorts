@@ -41,6 +41,7 @@ describe('storyAnalytics', () => {
     expect(a.scenes).toBe(project.storyline.scenes.length);
     expect(a.clips.ready).toBe(1);
     expect(a.clips.approved).toBe(1);
+    expect(a.views).toBe(0);
     expect(a.canon.versions).toBe(1);
     expect(a.canon.marks).toBeGreaterThan(0);
     expect(a.canon.lockedMarks).toBeGreaterThan(0);

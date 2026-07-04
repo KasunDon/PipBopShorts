@@ -201,8 +201,10 @@ Consistency by reference, not just by prompt:
   the metadata editor. **Publish scheduling** is also shipped — queue a publish
   for a future time; a server-side scheduler fires it (approval-gated, survives
   restart). **A/B thumbnail concepts** are also shipped — overlay text + framing +
-  which scene to freeze, per concept. Still open: rendering the actual thumbnail
-  images, retention analytics fed back into the story formula, and
+  which scene to freeze, per concept. **Performance recording** is also shipped —
+  log real views/retention/likes per short; views roll up into the per-story and
+  studio analytics. Still open: automatic analytics sync + feeding performance
+  back into the story formula, rendering the actual thumbnail images, and
   dubbed/translated video variants with canon-consistent visuals.
 
 ---
