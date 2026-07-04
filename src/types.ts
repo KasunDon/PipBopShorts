@@ -122,6 +122,8 @@ export interface Scene {
   caption?: string;
   /** Fixed render seed for reproducibility (omit for random). */
   seed?: number;
+  /** Lighting preset appended to the render prompt (e.g. "golden hour", "moody low-key"). */
+  lighting?: string;
   /** Directed "change one thing" edits applied to this scene's prompt, newest last. */
   patchHistory?: ScenePatch[];
   /** Review notes on this scene (does not affect the render). */

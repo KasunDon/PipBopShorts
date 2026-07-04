@@ -34,6 +34,7 @@ export function buildShotManifest(store: Store, storylineId: string): string {
       const names = refs.descriptors.map((d) => d.name);
       lines.push(`- **References**: ${names.length ? names.join(', ') : scene.referenceCharacterIds.join(', ')}${refs.imageId != null ? ' (image-to-video)' : ''}`);
     }
+    if (scene.lighting) lines.push(`- **Lighting**: ${scene.lighting}`);
     if (scene.description) lines.push(`- **Intent**: ${scene.description}`);
     lines.push(`- **Prompt**: ${scene.prompt}`);
     if (scene.negativePrompt) lines.push(`- **Negative**: ${scene.negativePrompt}`);

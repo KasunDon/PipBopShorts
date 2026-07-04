@@ -21,6 +21,9 @@ export interface GenerateOptions {
 function sceneToParams(scene: Scene, refs?: ResolvedReferences): GenerationParams {
   // Inject approved character descriptors so the render matches the reference.
   let prompt = scene.prompt;
+  if (scene.lighting && scene.lighting.trim()) {
+    prompt = `${prompt}, ${scene.lighting.trim()} lighting`;
+  }
   if (refs && refs.descriptors.length > 0) {
     const block = refs.descriptors.map((d) => `${d.name}: ${d.descriptor}`).join(' | ');
     prompt = `${prompt}\n\nCharacter references (match these approved designs exactly): ${block}`;

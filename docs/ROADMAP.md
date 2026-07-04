@@ -152,8 +152,9 @@ Consistency by reference, not just by prompt:
   params, references, prompt, directed edits, open notes, clip status) is also
   shipped as the reproducible production document. **Per-scene seeds** are also
   shipped — set a fixed render seed (passed to PixVerse, shown in the manifest)
-  for reproducible renders; every attempt already records its full params. Still
-  to do: camera/lighting *presets* as first-class manifest fields.
+  for reproducible renders; every attempt already records its full params. A
+  first-class **lighting** field per scene (appended to the render prompt, shown
+  in the manifest) joins camera movement as a manifest preset — completing this item.
 - **Audio & subtitles** *(requested — not built yet)*: the current pipeline renders silent
   video only. Planned:
   - **Background music**: per-episode music bed (mood/tempo from the bible's tone marks),

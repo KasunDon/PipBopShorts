@@ -313,6 +313,7 @@ export interface Scene {
   primaryReferenceId?: string;
   caption?: string;
   seed?: number;
+  lighting?: string;
   patchHistory?: ScenePatch[];
   comments?: SceneComment[];
 }

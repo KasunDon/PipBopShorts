@@ -725,6 +725,26 @@ describe('CTA endpoint coverage', () => {
     expect((genReq?.body as { seed?: number })?.seed).toBe(4242);
   });
 
+  it('appends the lighting preset to the render prompt', async () => {
+    const { store, cleanup } = makeStore();
+    cleanups.push(cleanup);
+    const { client: claude } = makeFakeClaude();
+    const { client: pixverse, requests } = makeFakePixverse({ defaultStatus: 1 });
+    const app = createApp({
+      store,
+      claude,
+      pixverse,
+      youtube: makeDryRunYoutube(),
+      generateDefaults: { pollIntervalMs: 1, sleep: noSleep },
+    });
+    const { storylineId, scenes } = await scaffold(app);
+    const sceneId = scenes[0].id;
+    await request(app).patch(`/api/storylines/${storylineId}/scenes/${sceneId}`).send({ lighting: 'golden hour' }).expect(200);
+    await request(app).post(`/api/storylines/${storylineId}/scenes/${sceneId}/generate`).send({ wait: true }).expect(200);
+    const genReq = requests.find((r) => r.url.endsWith('/video/text/generate'));
+    expect((genReq?.body as { prompt?: string })?.prompt).toContain('golden hour lighting');
+  });
+
   it('retries failed clips', async () => {
     // A renderer that always reports failure.
     const { client: failing } = makeFakePixverse({ defaultStatus: 8 });
