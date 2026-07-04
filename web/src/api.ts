@@ -118,6 +118,12 @@ export const api = {
       `/api/storylines/${storylineId}/scenes/${sceneId}/patch`,
       { request, ...opts },
     ),
+  regenerateScene: (storylineId: string, sceneId: string, guidance: string, opts: { model?: string } = {}) =>
+    req<{ project: Project; patch: ScenePatch }>(
+      'POST',
+      `/api/storylines/${storylineId}/scenes/${sceneId}/regenerate`,
+      { guidance, ...opts },
+    ),
   removeScene: (storylineId: string, sceneId: string) =>
     req<{ project: Project }>('DELETE', `/api/storylines/${storylineId}/scenes/${sceneId}`),
   duplicateScene: (storylineId: string, sceneId: string) =>

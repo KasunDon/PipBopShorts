@@ -53,7 +53,7 @@ import { suggestThumbnailConcepts } from './services/thumbnails';
 import { suggestEpisodeIdeas } from './services/ideas';
 import { analyzePerformance } from './services/insights';
 import { syncPerformance } from './services/performanceSync';
-import { patchScene } from './services/patch';
+import { patchScene, regenerateScene } from './services/patch';
 import { checkDrift, resolveDrift } from './services/drift';
 import { JobRunner } from './services/jobs';
 import { restoreFromAudit } from './services/restore';
@@ -1130,6 +1130,33 @@ export function createApp(deps: AppDeps): express.Express {
     asyncHandler((req, res) => {
       const project = deleteSceneComment(deps.store, req.params.storylineId, req.params.sceneId, req.params.commentId);
       res.json({ project });
+    }),
+  );
+
+  // Full creative re-write of one shot ("fresh take") — distinct from a directed patch.
+  app.post(
+    '/api/storylines/:storylineId/scenes/:sceneId/regenerate',
+    asyncHandler(async (req, res) => {
+      const { guidance, model, effort } = req.body ?? {};
+      const before = deps.store
+        .getProject(req.params.storylineId)
+        .storyline.scenes.find((s) => s.id === req.params.sceneId);
+      const result = await regenerateScene(
+        deps.store,
+        deps.claude,
+        req.params.storylineId,
+        req.params.sceneId,
+        typeof guidance === 'string' ? guidance : '',
+        { model, effort },
+      );
+      recordMutation(req, {
+        resource: 'scene-regenerate',
+        action: 'update',
+        summary: `Fresh take on scene "${before?.heading ?? req.params.sceneId}"`,
+        before: { prompt: result.patch.before },
+        after: { prompt: result.patch.after },
+      });
+      res.json({ project: result.project, patch: result.patch });
     }),
   );
 

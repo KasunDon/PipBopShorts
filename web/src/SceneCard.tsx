@@ -177,6 +177,23 @@ export function SceneCard({
             >
               {patching ? 'Editing…' : 'Apply edit'}
             </button>
+            <button
+              className="small ghost"
+              disabled={patching}
+              title="Full creative re-write of this shot (a fresh take on the same beat)"
+              onClick={async () => {
+                const guidance = prompt('Fresh take — any direction? (optional)') ?? '';
+                setPatching(true);
+                try {
+                  const res = await run(() => api.regenerateScene(storylineId, scene.id, guidance));
+                  if (res) setProject(res.project);
+                } finally {
+                  setPatching(false);
+                }
+              }}
+            >
+              Fresh take
+            </button>
             {scene.patchHistory && scene.patchHistory.length > 0 && (
               <button className="small ghost" onClick={() => setShowPatchLog((s) => !s)}>
                 {showPatchLog ? 'Hide edits' : `Edits (${scene.patchHistory.length})`}

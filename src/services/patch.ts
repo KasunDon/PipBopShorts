@@ -126,3 +126,96 @@ export async function patchScene(
 
   return { project, patch };
 }
+
+const REGEN_SYSTEM = `You are a director rewriting ONE shot from scratch for AI short-form video (PixVerse).
+Given the beat's heading and intent, write a fresh, vivid, self-contained visual prompt that takes a NEW creative approach to the same story moment — different framing, action, or staging — while staying true to canon (locked/strong marks must still hold) and the shot's purpose. This is a full do-over, not a small edit.
+Return the full new prompt and a one-line note on the new approach.`;
+
+function regenSchema() {
+  return {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      new_prompt: { type: 'string' },
+      approach: { type: 'string' },
+    },
+    required: ['new_prompt', 'approach'],
+  };
+}
+
+/**
+ * Full creative re-write of one shot (distinct from patchScene's surgical
+ * "change one thing"): a fresh take on the same beat, canon-respecting, recorded
+ * in the scene's patch history.
+ */
+export async function regenerateScene(
+  store: Store,
+  claude: AnthropicLike,
+  storylineId: string,
+  sceneId: string,
+  guidance: string,
+  options: PatchSceneOptions = {},
+): Promise<PatchSceneResult> {
+  const project = store.getProject(storylineId);
+  const scene = project.storyline.scenes.find((s) => s.id === sceneId);
+  if (!scene) throw new UserInputError(`Scene not found: ${sceneId}`);
+  const canon = currentCanonVersion(store.getCanonRegistry(project.storyline.storyId));
+
+  const user = [
+    canon ? `# CANON (do not contradict locked/strong marks)\n${buildCanonBlock(canon)}\n` : '',
+    `# SHOT`,
+    `Heading: ${scene.heading}`,
+    scene.description ? `Intent: ${scene.description}` : '',
+    `Current prompt (rewrite this):\n${scene.prompt}`,
+    guidance.trim() ? `\n# DIRECTION\n${guidance.trim()}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  const { json, model } = await structuredCall(claude, {
+    model: options.model ?? DEFAULT_DISSECT_MODEL,
+    effort: options.effort ?? 'medium',
+    system: REGEN_SYSTEM,
+    user,
+    schema: regenSchema(),
+    maxTokens: 4000,
+  });
+
+  const raw = json as { new_prompt: string; approach: string };
+  const newPrompt = (raw.new_prompt ?? '').trim();
+  if (!newPrompt) throw new UserInputError('The regeneration produced an empty prompt.');
+  const issues = collectValidationIssues(
+    {
+      prompt: newPrompt,
+      model: scene.model,
+      quality: scene.quality,
+      duration: scene.duration,
+      motionMode: scene.motionMode,
+      aspectRatio: scene.aspectRatio,
+      negativePrompt: scene.negativePrompt,
+      style: scene.style,
+      cameraMovement: scene.cameraMovement,
+      imageId: scene.imageId,
+    },
+    { requireImage: typeof scene.imageId === 'number' },
+  ).filter((i) => i.includes('prompt'));
+  if (issues.length > 0) throw Object.assign(new Error(`New prompt is invalid: ${issues.join(' ')}`), { issues });
+
+  const patch: ScenePatch = {
+    id: makeId('patch'),
+    request: guidance.trim() ? `Fresh take: ${guidance.trim()}` : 'Fresh take',
+    before: scene.prompt,
+    after: newPrompt,
+    changed: raw.approach ?? 'Rewrote the shot from scratch.',
+    preserved: [],
+    rationale: raw.approach ?? '',
+    model,
+    createdAt: new Date().toISOString(),
+  };
+  scene.prompt = newPrompt;
+  scene.patchHistory = [...(scene.patchHistory ?? []), patch];
+  project.clips[sceneId] = idleClip(sceneId);
+  project.storyline.updatedAt = new Date().toISOString();
+  store.saveProject(project);
+  return { project, patch };
+}

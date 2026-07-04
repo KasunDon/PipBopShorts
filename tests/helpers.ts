@@ -265,6 +265,7 @@ export function makeStudioFakeClaude(overrides?: {
   planJson?: string;
   autofixJson?: string;
   patchJson?: string;
+  regenJson?: string;
   ideasJson?: string;
   beatSheetJson?: string;
   dialogueJson?: string;
@@ -287,6 +288,10 @@ export function makeStudioFakeClaude(overrides?: {
       text = overrides?.autofixJson ?? sampleAutofixJson();
     } else if (system.includes('applying a DIRECTED edit')) {
       text = overrides?.patchJson ?? samplePatchJson();
+    } else if (system.includes('rewriting ONE shot from scratch')) {
+      text =
+        overrides?.regenJson ??
+        JSON.stringify({ new_prompt: 'A bold fresh take on the hero in the neon city, low angle, dramatic', approach: 'Switched to a dramatic low-angle framing.' });
     } else if (system.includes('brainstorming FUTURE episode')) {
       text = overrides?.ideasJson ?? sampleEpisodeIdeasJson();
     } else if (system.includes('building a BEAT SHEET')) {

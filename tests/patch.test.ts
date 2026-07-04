@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { patchScene } from '../src/services/patch';
+import { patchScene, regenerateScene } from '../src/services/patch';
 import { createStorylineProject } from '../src/services/storyline';
 import type { Store } from '../src/store/store';
 import { makeFakeClaude, makeStore, samplePatchJson } from './helpers';
@@ -72,5 +72,29 @@ describe('scene patch (directed edit)', () => {
       content: [{ type: 'text', text: tooLong }],
     }));
     await expect(patchScene(store, claude, storylineId, sceneId, 'ramble on')).rejects.toThrow(/invalid|2048/i);
+  });
+
+  it('regenerates a scene with a fresh take, recording it in patch history', async () => {
+    const { store, cleanup } = makeStore();
+    cleanups.push(cleanup);
+    const { storylineId, sceneId } = await projectWithScene(store);
+    const { client: claude, calls } = makeFakeClaude(() => ({
+      stop_reason: 'end_turn',
+      model: 'fake',
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({ new_prompt: 'A bold fresh take, low angle, dramatic', approach: 'Low-angle reframe.' }),
+        },
+      ],
+    }));
+    const { patch } = await regenerateScene(store, claude, storylineId, sceneId, 'make it more dramatic');
+    expect(patch.request).toContain('Fresh take');
+    expect(patch.after).toContain('fresh take');
+    const after = store.getProject(storylineId).storyline.scenes.find((s) => s.id === sceneId)!;
+    expect(after.prompt).toContain('fresh take');
+    expect(after.patchHistory).toHaveLength(1);
+    expect(calls.some((c) => String(c.params.system).includes('rewriting ONE shot from scratch'))).toBe(true);
+    expect(store.getProject(storylineId).clips[sceneId].status).toBe('idle');
   });
 });
