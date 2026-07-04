@@ -1531,6 +1531,7 @@ function ProjectPanel({
         <ApprovalGate
           readiness={readiness}
           storyId={storyId}
+          config={config}
           run={run}
           pushToast={pushToast}
           onRefresh={refreshReadiness}
@@ -1554,6 +1555,7 @@ function ProjectPanel({
 function ApprovalGate({
   readiness,
   storyId,
+  config,
   run,
   pushToast,
   onRefresh,
@@ -1562,42 +1564,14 @@ function ApprovalGate({
 }: {
   readiness: ReferenceReadiness;
   storyId: string;
+  config: AppConfig;
   run: Run;
   pushToast: (kind: Toast['kind'], text: string) => void;
   onRefresh: () => Promise<ReferenceReadiness | null>;
   onProceed: () => void | Promise<void>;
   onClose: () => void;
 }) {
-  const [busyId, setBusyId] = useState<string | null>(null);
   const unapproved = readiness.unapproved;
-
-  const approve = async (item: ReferenceReadinessItem) => {
-    if (!item.latestVersionId) return;
-    setBusyId(item.entityId);
-    try {
-      await run(() => api.approvePortrait(storyId, item.entityId, item.latestVersionId as string));
-      await onRefresh();
-      pushToast('ok', `${item.name} reference approved.`);
-    } finally {
-      setBusyId(null);
-    }
-  };
-
-  const generateAndApprove = async (item: ReferenceReadinessItem) => {
-    setBusyId(item.entityId);
-    try {
-      const res = await run(() => api.generatePortrait(storyId, item.entityId, {}));
-      if (res && res.version.status === 'ready') {
-        await run(() => api.approvePortrait(storyId, item.entityId, res.version.id));
-        pushToast('ok', `${item.name} reference generated and approved.`);
-      } else if (res) {
-        pushToast('bad', `${item.name} reference is still rendering — approve it once ready.`);
-      }
-      await onRefresh();
-    } finally {
-      setBusyId(null);
-    }
-  };
 
   return (
     <div className="lightbox-backdrop" onClick={onClose}>
@@ -1612,40 +1586,20 @@ function ApprovalGate({
         </div>
         <p className="muted small">
           These characters/locations are used in your scenes but have no approved reference image. Rendering now falls
-          back to text-only for them, which may look off-model. Approve them here, or generate anyway.
+          back to text-only for them, which may look off-model. Approve, or tweak and preview a reference here — or
+          generate anyway.
         </p>
         <ul className="gate-list">
           {unapproved.map((item) => (
-            <li key={item.entityId} className="gate-item">
-              <div className="gate-thumb">
-                {item.thumbnailUrl ? (
-                  item.thumbnailUrl.includes('.mp4') ? (
-                    <video src={item.thumbnailUrl} muted loop playsInline autoPlay />
-                  ) : (
-                    <img src={item.thumbnailUrl} alt={item.name} />
-                  )
-                ) : (
-                  <div className="gate-thumb-empty">
-                    <IconImage />
-                  </div>
-                )}
-              </div>
-              <div className="gate-meta">
-                <b>{item.name}</b> <span className="badge plain">{item.type}</span>
-                <span className="muted small">scenes {item.scenes.join(', ')}</span>
-              </div>
-              <div className="gate-actions">
-                {item.latestVersionId ? (
-                  <button className="small primary" disabled={busyId === item.entityId} onClick={() => approve(item)}>
-                    {busyId === item.entityId ? '…' : 'Approve'}
-                  </button>
-                ) : (
-                  <button className="small" disabled={busyId === item.entityId} onClick={() => generateAndApprove(item)}>
-                    {busyId === item.entityId ? 'Generating…' : 'Generate & approve'}
-                  </button>
-                )}
-              </div>
-            </li>
+            <GateItem
+              key={item.entityId}
+              item={item}
+              storyId={storyId}
+              config={config}
+              run={run}
+              pushToast={pushToast}
+              onRefresh={onRefresh}
+            />
           ))}
           {unapproved.length === 0 && <li className="drift-clean">All references are approved.</li>}
         </ul>
@@ -1664,6 +1618,166 @@ function ApprovalGate({
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * One unapproved reference in the gate: approve the latest version, generate a
+ * fresh one, or open an inline tweak editor to preview & adjust the render
+ * (prompt + params) before approving — without leaving the render flow.
+ */
+function GateItem({
+  item,
+  storyId,
+  config,
+  run,
+  pushToast,
+  onRefresh,
+}: {
+  item: ReferenceReadinessItem;
+  storyId: string;
+  config: AppConfig;
+  run: Run;
+  pushToast: (kind: Toast['kind'], text: string) => void;
+  onRefresh: () => Promise<ReferenceReadiness | null>;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [tweaking, setTweaking] = useState(false);
+  const [prompt, setPrompt] = useState('');
+  const [model, setModel] = useState(config.pixverse.models[0]);
+  const [quality, setQuality] = useState(config.pixverse.qualities[0]);
+  const [aspect, setAspect] = useState(config.pixverse.aspectRatios[0]);
+  const [preview, setPreview] = useState<{ id: string; url: string | null; status: string } | null>(null);
+
+  const openTweak = async () => {
+    setTweaking(true);
+    if (!prompt) {
+      const res = await api.getReferenceDefinition(storyId, item.entityId).catch(() => null);
+      if (res) setPrompt(res.definition.currentPrompt || res.definition.builtPrompt);
+    }
+  };
+
+  const approveVersion = async (versionId: string) => {
+    setBusy(true);
+    try {
+      await run(() => api.approvePortrait(storyId, item.entityId, versionId));
+      await onRefresh();
+      pushToast('ok', `${item.name} reference approved.`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const generate = async (opts: { approve?: boolean } = {}) => {
+    setBusy(true);
+    try {
+      const res = await run(() =>
+        api.generatePortrait(storyId, item.entityId, {
+          source: 'tweak',
+          promptOverride: prompt || undefined,
+          model,
+          quality,
+          aspectRatio: aspect,
+        }),
+      );
+      if (!res) return;
+      const v = res.version;
+      setPreview({ id: v.id, url: v.previewUrl ?? v.imageUrl, status: v.status });
+      if (opts.approve && v.status === 'ready') {
+        await approveVersion(v.id);
+      } else if (v.status !== 'ready') {
+        pushToast('bad', `${item.name} is still rendering — approve once ready.`);
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <li className="gate-item-wrap">
+      <div className="gate-item">
+        <div className="gate-thumb">
+          {(preview?.url ?? item.thumbnailUrl) ? (
+            (preview?.url ?? item.thumbnailUrl)!.includes('.mp4') ? (
+              <video src={(preview?.url ?? item.thumbnailUrl) as string} muted loop playsInline autoPlay />
+            ) : (
+              <img src={(preview?.url ?? item.thumbnailUrl) as string} alt={item.name} />
+            )
+          ) : (
+            <div className="gate-thumb-empty">
+              <IconImage />
+            </div>
+          )}
+        </div>
+        <div className="gate-meta">
+          <b>{item.name}</b> <span className="badge plain">{item.type}</span>
+          <span className="muted small">scenes {item.scenes.join(', ')}</span>
+        </div>
+        <div className="gate-actions">
+          {item.latestVersionId && (
+            <button className="small primary" disabled={busy} onClick={() => approveVersion(item.latestVersionId as string)}>
+              {busy ? '…' : 'Approve'}
+            </button>
+          )}
+          {!item.latestVersionId && (
+            <button className="small" disabled={busy} onClick={() => generate({ approve: true })}>
+              {busy ? 'Generating…' : 'Generate & approve'}
+            </button>
+          )}
+          <button className="small ghost" onClick={() => (tweaking ? setTweaking(false) : openTweak())}>
+            {tweaking ? 'Close' : 'Tweak'}
+          </button>
+        </div>
+      </div>
+
+      {tweaking && (
+        <div className="gate-tweak">
+          <textarea
+            rows={3}
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            placeholder="Reference prompt…"
+          />
+          <div className="row gate-tweak-params">
+            <label className="global-field">
+              Model
+              <select value={model} onChange={(e) => setModel(e.target.value)}>
+                {config.pixverse.models.map((m) => (
+                  <option key={m}>{m}</option>
+                ))}
+              </select>
+            </label>
+            <label className="global-field">
+              Quality
+              <select value={quality} onChange={(e) => setQuality(e.target.value)}>
+                {config.pixverse.qualities.map((q) => (
+                  <option key={q}>{q}</option>
+                ))}
+              </select>
+            </label>
+            <label className="global-field">
+              Aspect
+              <select value={aspect} onChange={(e) => setAspect(e.target.value)}>
+                {config.pixverse.aspectRatios.map((a) => (
+                  <option key={a}>{a}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <div className="row">
+            <button className="small" disabled={busy} onClick={() => generate()}>
+              {busy ? 'Rendering…' : 'Generate preview'}
+            </button>
+            {preview && preview.status === 'ready' && (
+              <button className="small primary" disabled={busy} onClick={() => approveVersion(preview.id)}>
+                Approve this preview
+              </button>
+            )}
+            {preview && preview.status !== 'ready' && <span className="muted small">Rendering — {preview.status}</span>}
+          </div>
+        </div>
+      )}
+    </li>
   );
 }
 

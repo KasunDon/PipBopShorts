@@ -1070,6 +1070,29 @@ textarea:disabled {
   border-top: 1px solid var(--border);
   padding-top: 12px;
 }
+.gate-item-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.gate-tweak {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-3);
+}
+.gate-tweak textarea {
+  width: 100%;
+  resize: vertical;
+  font-size: 12.5px;
+}
+.gate-tweak-params {
+  flex-wrap: wrap;
+  gap: 10px;
+}
 
 .badge.svc-store {
   color: var(--accent, #8b5cf6);

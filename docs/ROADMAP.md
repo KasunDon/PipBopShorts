@@ -94,12 +94,12 @@ Consistency by reference, not just by prompt:
   now apply to every scene at once (the endpoint still also accepts model/style).
 - **Mutation audit widened** — add-scene, reorder (old order preserved),
   approve-portrait (old approval preserved), and publish now record `store` events.
+- **Inline tweak-then-approve in the approval gate** — each unapproved reference
+  can be opened inline to edit its prompt + params, generate a preview, and
+  approve that preview, all without leaving the render flow.
 
 ### Outstanding (captured — tackle next)
 
-- **Inline reference tweak in the approval gate**: preview + tweak render
-  parameters (and re-render) before approving, not just approve/generate — a
-  mini lightbox reusing the references panel controls.
 - **Expose remaining global settings**: model + style also work through the
   `scene-defaults` endpoint but have no UI control yet.
 - **Restore story/episode deletions**: these cascade into many records the single
