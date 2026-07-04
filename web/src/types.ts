@@ -380,9 +380,13 @@ export interface Storyline {
   canonVersion?: number | null;
   scenes: Scene[];
   youtube: YoutubeMeta;
+  reviewStatus?: ReviewStatus;
+  reviewNote?: string;
   createdAt: string;
   updatedAt: string;
 }
+
+export type ReviewStatus = 'draft' | 'in_review' | 'approved' | 'changes_requested';
 
 export type ClipStatus = 'idle' | 'generating' | 'ready' | 'failed' | 'moderation_failed';
 

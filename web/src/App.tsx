@@ -1641,6 +1641,20 @@ function ProjectPanel({
         <h2 className="page-title">{project.storyline.title}</h2>
         <p className="page-sub">{project.storyline.logline}</p>
         <div className="row">
+          <label className={`review-select rs-${project.storyline.reviewStatus ?? 'draft'}`} title="Editorial review sign-off">
+            <select
+              value={project.storyline.reviewStatus ?? 'draft'}
+              onChange={async (e) => {
+                const res = await run(() => api.setReview(storylineId, { status: e.target.value }));
+                if (res) setProject(res.project);
+              }}
+            >
+              <option value="draft">Draft</option>
+              <option value="in_review">In review</option>
+              <option value="approved">Approved</option>
+              <option value="changes_requested">Changes requested</option>
+            </select>
+          </label>
           <button
             title="Validate every scene against the video renderer's rules and estimate the cost before spending credits"
             onClick={async () => {

@@ -122,6 +122,8 @@ export const api = {
     req<{ project: Project }>('POST', `/api/storylines/${storylineId}/reorder`, { orderedIds }),
   updateYoutube: (storylineId: string, patch: Partial<YoutubeMeta>) =>
     req<{ project: Project }>('PATCH', `/api/storylines/${storylineId}/youtube`, patch),
+  setReview: (storylineId: string, patch: { status?: string; note?: string }) =>
+    req<{ project: Project }>('PATCH', `/api/storylines/${storylineId}/review`, patch),
   localizeYoutube: (storylineId: string, language: string, opts: { model?: string } = {}) =>
     req<{ youtube: YoutubeMeta }>('POST', `/api/storylines/${storylineId}/youtube/localize`, { language, ...opts }),
   titleVariants: (storylineId: string, opts: { count?: number; model?: string } = {}) =>

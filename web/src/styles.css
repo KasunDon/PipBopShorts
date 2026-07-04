@@ -931,6 +931,21 @@ textarea:disabled {
   font-size: 14px;
   font-weight: 700;
 }
+.review-select select {
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+}
+.review-select.rs-approved select {
+  color: var(--ok);
+  border-color: rgba(63, 185, 80, 0.5);
+}
+.review-select.rs-changes_requested select {
+  color: var(--danger);
+  border-color: rgba(248, 81, 73, 0.5);
+}
+.review-select.rs-in_review select {
+  color: var(--warn);
+}
 .readiness-strip {
   display: flex;
   flex-wrap: wrap;

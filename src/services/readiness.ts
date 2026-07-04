@@ -76,5 +76,20 @@ export function productionReadiness(store: Store, storylineId: string): Producti
     detail: hasTitle ? 'Title set.' : 'No YouTube title yet.',
   });
 
+  // 6. Editorial review sign-off.
+  const review = project.storyline.reviewStatus ?? 'draft';
+  checks.push({
+    label: 'Editorial review',
+    status: review === 'approved' ? 'ok' : review === 'changes_requested' ? 'fail' : 'warn',
+    detail:
+      review === 'approved'
+        ? 'Signed off.'
+        : review === 'changes_requested'
+          ? 'Changes requested.'
+          : review === 'in_review'
+            ? 'In review.'
+            : 'Not reviewed yet.',
+  });
+
   return { checks, ready: !checks.some((c) => c.status === 'fail') };
 }

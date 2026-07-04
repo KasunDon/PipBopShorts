@@ -1251,6 +1251,32 @@ export function createApp(deps: AppDeps): express.Express {
     }),
   );
 
+  // Editorial review sign-off for a storyline (distinct from per-clip approval).
+  app.patch(
+    '/api/storylines/:storylineId/review',
+    asyncHandler((req, res) => {
+      const { status, note } = req.body ?? {};
+      const allowed = ['draft', 'in_review', 'approved', 'changes_requested'];
+      if (status !== undefined && !allowed.includes(status)) {
+        throw new HttpError(400, `status must be one of ${allowed.join(', ')}`);
+      }
+      const project = deps.store.getProject(req.params.storylineId);
+      const before = { reviewStatus: project.storyline.reviewStatus ?? 'draft', reviewNote: project.storyline.reviewNote ?? '' };
+      if (status !== undefined) project.storyline.reviewStatus = status;
+      if (typeof note === 'string') project.storyline.reviewNote = note;
+      project.storyline.updatedAt = new Date().toISOString();
+      deps.store.saveProject(project);
+      recordMutation(req, {
+        resource: 'review',
+        action: 'update',
+        summary: `Review → ${project.storyline.reviewStatus ?? 'draft'}`,
+        before,
+        after: { reviewStatus: project.storyline.reviewStatus, reviewNote: project.storyline.reviewNote ?? '' },
+      });
+      res.json({ project });
+    }),
+  );
+
   app.patch(
     '/api/storylines/:storylineId/youtube',
     asyncHandler((req, res) => {

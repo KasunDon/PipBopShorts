@@ -831,6 +831,25 @@ describe('CTA endpoint coverage', () => {
     expect(scene.patchHistory).toHaveLength(1);
   });
 
+  it('tracks editorial review status and reflects it in readiness', async () => {
+    const { app } = makeApp();
+    const { storylineId } = await scaffold(app);
+    // Default readiness: review is a warning (not reviewed).
+    const before = await request(app).get(`/api/storylines/${storylineId}/readiness`).expect(200);
+    expect(before.body.readiness.checks.find((c: { label: string }) => c.label === 'Editorial review').status).toBe('warn');
+
+    await request(app).patch(`/api/storylines/${storylineId}/review`).send({ status: 'approved', note: 'ship it' }).expect(200);
+    const after = await request(app).get(`/api/storylines/${storylineId}/readiness`).expect(200);
+    expect(after.body.readiness.checks.find((c: { label: string }) => c.label === 'Editorial review').status).toBe('ok');
+
+    // changes_requested is a hard fail.
+    await request(app).patch(`/api/storylines/${storylineId}/review`).send({ status: 'changes_requested' }).expect(200);
+    const fail = await request(app).get(`/api/storylines/${storylineId}/readiness`).expect(200);
+    expect(fail.body.readiness.checks.find((c: { label: string }) => c.label === 'Editorial review').status).toBe('fail');
+
+    await request(app).patch(`/api/storylines/${storylineId}/review`).send({ status: 'nonsense' }).expect(400);
+  });
+
   it('adds, resolves, and deletes scene review comments over HTTP', async () => {
     const { app } = makeApp();
     const { storylineId, scenes } = await scaffold(app);

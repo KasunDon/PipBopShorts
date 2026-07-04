@@ -195,9 +195,12 @@ Consistency by reference, not just by prompt:
   (strong/flexible). *Scheduled production runs shipped* — queue a full storyline
   render for a future time; the server-side scheduler fires it into the JobRunner
   (survives restart).
-- **Team workflow**: review/approve roles, ~~comments on scenes~~ (**shipped** —
-  per-scene review notes with resolve/delete, never touching the render), audit
-  log of canon changes (**shipped** — canon edits are versioned + `store`-audited).
+- **Team workflow**: ~~review/approve~~ (**shipped** — a storyline-level editorial
+  review status (draft → in-review → approved / changes-requested) that feeds the
+  readiness checklist, distinct from per-clip technical approval), ~~comments on
+  scenes~~ (**shipped** — per-scene review notes with resolve/delete), audit log of
+  canon changes (**shipped** — versioned + `store`-audited). Still to do:
+  multi-user identity/roles behind real auth.
 
 ## Phase 5 — Distribution intelligence
 
